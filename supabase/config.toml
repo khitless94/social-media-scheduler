@@ -1,0 +1,52 @@
+project_id = "eqiuukwwpdiyncahrdny"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = true
+port = 54324
+smtp_port = 54325
+pop3_port = 54326
+
+[functions.auth-redirect]
+verify_jwt = false
+
+[functions.oauth-callback]
+verify_jwt = false
+
+[functions.generate-content]
+verify_jwt = true
+
+[functions.generate-with-gemini]
+verify_jwt = true
+
+[functions.post-to-social]
+verify_jwt = true
+
+# Note: Environment variables should be set in Supabase Dashboard
+# Go to: Project Settings > Edge Functions > Environment Variables
+#
+# Required variables:
+# - YOUR_FRONTEND_URL = "http://localhost:8082"
+# - TWITTER_CLIENT_ID = "ZHRveEJIcVduLVdkdGJJUWYwZFc6MTpjaQ"
+# - TWITTER_CLIENT_SECRET = "your_twitter_client_secret_here"
+# - REDDIT_CLIENT_ID = "kBrkkv-sRC-3jE9RIUt6-g"
+# - REDDIT_CLIENT_SECRET = "your_reddit_client_secret_here"
+# - LINKEDIN_CLIENT_ID = "78yhh9neso7awt"
+# - LINKEDIN_CLIENT_SECRET = "your_linkedin_client_secret_here"
+# - FACEBOOK_CLIENT_ID = "2249146282214303"
+# - FACEBOOK_CLIENT_SECRET = "your_facebook_client_secret_here"
+# - INSTAGRAM_CLIENT_ID = "2249146282214303"
+# - INSTAGRAM_CLIENT_SECRET = "your_instagram_client_secret_here"
