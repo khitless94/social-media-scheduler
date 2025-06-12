@@ -165,7 +165,8 @@ console.log = (...args) => {
 };
 
 createRoot(document.getElementById("root")!).render(
-  <StrictMode>
+  // Temporarily disable StrictMode to prevent double renders during development
+  // <StrictMode>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <TooltipProvider>
@@ -177,5 +178,5 @@ createRoot(document.getElementById("root")!).render(
         </TooltipProvider>
       </AuthProvider>
     </QueryClientProvider>
-  </StrictMode>
+  // </StrictMode>
 );

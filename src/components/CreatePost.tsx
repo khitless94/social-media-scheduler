@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,28 +9,37 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  Sparkles, 
-  Copy, 
-  RefreshCw, 
-  Calendar as CalendarIcon, 
-  Clock, 
-  Image as ImageIcon, 
+import {
+  Sparkles,
+  Copy,
+  RefreshCw,
+  Calendar as CalendarIcon,
+  Clock,
+  Image as ImageIcon,
   Send,
   Wand2,
   Zap,
   Users,
   TrendingUp,
   Globe,
-  Loader2
+  Loader2,
+  AlertCircle,
+  CheckCircle,
+  Settings
 } from "lucide-react";
 import { FaLinkedin, FaTwitter, FaInstagram, FaFacebook, FaReddit } from "react-icons/fa";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
+import { useSocialMediaConnection } from "@/hooks/useSocialMediaConnection";
 
 const CreatePost = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const { connectPlatform, isConnecting } = useSocialMediaConnection((newStatus) => {
+    setConnectionStatus(newStatus);
+  });
   const [prompt, setPrompt] = useState("");
   const [platform, setPlatform] = useState("");
   const [tone, setTone] = useState("");
@@ -44,6 +53,7 @@ const CreatePost = () => {
   const [scheduleTime, setScheduleTime] = useState("");
   const [usageCount, setUsageCount] = useState(0);
   const [showActionButtons, setShowActionButtons] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<Record<string, boolean>>({});
 
   const platforms = [
     { value: "LinkedIn", label: "LinkedIn", icon: "linkedin", color: "bg-blue-600" },
@@ -60,6 +70,34 @@ const CreatePost = () => {
     { value: "Enthusiastic", label: "Enthusiastic" },
     { value: "Informative", label: "Informative" },
   ];
+
+  // Check connection status for all platforms
+  const checkConnectionStatus = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: credentials } = await supabase
+        .from('oauth_credentials')
+        .select('platform')
+        .eq('user_id', user.id);
+
+      const status: Record<string, boolean> = {};
+      platforms.forEach(p => {
+        status[p.value.toLowerCase()] = credentials?.some(c => c.platform === p.value.toLowerCase()) || false;
+      });
+
+      setConnectionStatus(status);
+    } catch (error) {
+      console.error('Error checking connection status:', error);
+    }
+  };
+
+  useEffect(() => {
+    checkConnectionStatus();
+  }, []);
+
+
 
   const generatePost = async () => {
     if (!prompt.trim()) {
@@ -233,16 +271,18 @@ const CreatePost = () => {
         return;
       }
 
-      // Check post limit for free tier (5 posts max)
+
+
+      // Check post limit for free tier (200 posts max)
       const { data: postCount } = await supabase
         .from('post_history')
         .select('id', { count: 'exact' })
         .eq('user_id', user.id);
 
-      if (postCount && postCount.length >= 100) {
+      if (postCount && postCount.length >= 200) {
         toast({
           title: "Post limit reached",
-          description: "You've reached the free tier limit of 5 posts. Please upgrade to continue posting.",
+          description: "You've reached the free tier limit of 200 posts. Please upgrade to continue posting.",
           variant: "destructive",
         });
         return;
@@ -257,14 +297,13 @@ const CreatePost = () => {
         .maybeSingle();
 
       if (credError) {
-        console.error('Error checking credentials:', credError);
         throw new Error('Failed to check platform connection');
       }
 
       if (!credentials) {
         toast({
           title: "Platform not connected",
-          description: `Please connect your ${platform} account in Settings first`,
+          description: `Please connect your ${platform} account first. Click the "Connect ${platform}" button above.`,
           variant: "destructive",
         });
         return;
@@ -284,8 +323,7 @@ const CreatePost = () => {
       // Post to the selected platform (include image if generated)
       const postData: any = {
         platform: platform.toLowerCase(),
-        content: generatedText,
-        accessToken
+        content: generatedText
       };
 
       // If we have a generated image (not just description), include it
@@ -293,14 +331,43 @@ const CreatePost = () => {
         postData.imageUrl = generatedImage;
       }
 
+      console.log(`[DEBUG] Posting to ${platform} with data:`, postData);
+
+      // Get the current session and access token
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userAccessToken = sessionData.session?.access_token;
+
+      console.log(`[DEBUG] User session:`, sessionData);
+      console.log(`[DEBUG] Access token exists:`, !!userAccessToken);
+
       const { data, error } = await supabase.functions.invoke('post-to-social', {
-        body: postData
+        body: postData,
+        headers: {
+          Authorization: `Bearer ${userAccessToken}`,
+        }
       });
 
-      if (error) throw error;
+      console.log(`[DEBUG] Edge function response:`, { data, error });
+
+      if (error) {
+        console.error('Edge function error:', error);
+        console.error('Error details:', error.context || error.details || 'No additional details');
+
+        // Try to get more specific error information
+        if (error.message && error.message.includes('400')) {
+          console.error('400 Bad Request - likely a request format issue');
+        }
+
+        throw new Error(`Failed to call posting service: ${error.message}`);
+      }
 
       if (data?.error) {
+        console.error('Posting service error:', data.error);
         throw new Error(data.error);
+      }
+
+      if (!data || typeof data !== 'object') {
+        throw new Error('Invalid response from posting service');
       }
 
       // Save to post history for tracking
@@ -435,7 +502,7 @@ const CreatePost = () => {
             Create Brilliant Content
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-            Transform your ideas into engaging social media content with the power of advanced AI agents. 
+            Transform your ideas into engaging social media content with the power of advanced AI agents.
             Generate, customize, and optimize content for any platform.
           </p>
         </div>
@@ -471,38 +538,128 @@ const CreatePost = () => {
                 {/* Platform Selection */}
                 <div className="space-y-3">
                   <Label className="text-sm font-semibold text-gray-700">Platform</Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {platforms.map((p) => {
-                      const IconComponent = p.icon === 'linkedin' ? FaLinkedin : 
-                                          p.icon === 'twitter' ? FaTwitter :
-                                          p.icon === 'instagram' ? FaInstagram :
-                                          p.icon === 'facebook' ? FaFacebook : FaReddit;
-                      return (
-                        <Button
-                          key={p.value}
-                          variant={platform === p.value ? "default" : "outline"}
-                          onClick={() => setPlatform(p.value)}
-                          className={`justify-start space-x-3 h-14 transition-all duration-200 ${
-                            platform === p.value 
-                              ? 'bg-gradient-to-r from-purple-600 to-pink-600 border-transparent shadow-lg scale-105' 
-                              : 'hover:bg-gray-50 hover:scale-102'
-                          }`}
-                        >
-                          <div className="p-1 bg-white/20 rounded">
-                            <IconComponent className="h-5 w-5" style={{ 
-                              color: platform === p.value ? 'white' : (
-                                p.icon === 'linkedin' ? '#0077B5' : 
-                                p.icon === 'twitter' ? '#1DA1F2' : 
-                                p.icon === 'instagram' ? '#E4405F' : 
-                                p.icon === 'facebook' ? '#1877F2' : '#FF4500'
-                              )
-                            }} />
-                          </div>
-                          <span className="font-medium">{p.label}</span>
-                        </Button>
-                      );
-                    })}
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      {platforms.map((p) => {
+                        const IconComponent = p.icon === 'linkedin' ? FaLinkedin :
+                                            p.icon === 'twitter' ? FaTwitter :
+                                            p.icon === 'instagram' ? FaInstagram :
+                                            p.icon === 'facebook' ? FaFacebook : FaReddit;
+                        const isConnected = connectionStatus[p.value.toLowerCase()];
+                        return (
+                          <Button
+                            key={p.value}
+                            variant={platform === p.value ? "default" : "outline"}
+                            onClick={() => setPlatform(p.value)}
+                            className={`justify-start space-x-3 h-14 transition-all duration-200 relative ${
+                              platform === p.value
+                                ? 'bg-gradient-to-r from-purple-600 to-pink-600 border-transparent shadow-lg scale-105'
+                                : 'hover:bg-gray-50 hover:scale-102'
+                            }`}
+                          >
+                            <div className="p-1 bg-white/20 rounded">
+                              <IconComponent className="h-5 w-5" style={{
+                                color: platform === p.value ? 'white' : (
+                                  p.icon === 'linkedin' ? '#0077B5' :
+                                  p.icon === 'twitter' ? '#1DA1F2' :
+                                  p.icon === 'instagram' ? '#E4405F' :
+                                  p.icon === 'facebook' ? '#1877F2' : '#FF4500'
+                                )
+                              }} />
+                            </div>
+                            <span className="font-medium">{p.label}</span>
+                            <div className="absolute top-1 right-1">
+                              {isConnected ? (
+                                <CheckCircle className="h-4 w-4 text-green-500" />
+                              ) : (
+                                <AlertCircle className="h-4 w-4 text-red-500" />
+                              )}
+                            </div>
+                          </Button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Quick Connect Section */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-medium text-blue-900">Connect Social Media Accounts</h4>
+                          <p className="text-sm text-blue-700">Connect your accounts to post content directly</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => connectPlatform('twitter')}
+                            size="sm"
+                            className="bg-blue-500 hover:bg-blue-600 text-white"
+                            disabled={isConnecting.twitter}
+                          >
+                            {isConnecting.twitter ? (
+                              <>
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                Connecting...
+                              </>
+                            ) : (
+                              <>
+                                <FaTwitter className="h-3 w-3 mr-1" />
+                                Connect Twitter
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            onClick={() => navigate('/settings')}
+                            size="sm"
+                            variant="outline"
+                            className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                          >
+                            <Settings className="h-3 w-3 mr-1" />
+                            All Settings
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
+                  {platform && !connectionStatus[platform.toLowerCase()] && (
+                    <div className="flex items-center space-x-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <AlertCircle className="h-4 w-4 text-amber-500" />
+                      <div className="flex-1">
+                        <span className="text-sm text-amber-700 font-medium">
+                          {platform} account not connected
+                        </span>
+                        <p className="text-xs text-amber-600 mt-1">
+                          Connect your {platform} account in Settings to post content directly.
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-amber-300 text-amber-700 hover:bg-amber-100"
+                          onClick={() => navigate('/settings')}
+                        >
+                          <Settings className="h-3 w-3 mr-1" />
+                          Settings
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="bg-blue-500 hover:bg-blue-600 text-white"
+                          onClick={() => connectPlatform(platform.toLowerCase() as any)}
+                          disabled={isConnecting[platform.toLowerCase() as keyof typeof isConnecting]}
+                        >
+                          {isConnecting[platform.toLowerCase() as keyof typeof isConnecting] ? (
+                            <>
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              Connecting...
+                            </>
+                          ) : (
+                            <>
+                              Connect {platform}
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Tone Selection */}

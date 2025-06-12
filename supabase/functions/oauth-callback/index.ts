@@ -10,7 +10,7 @@ const supabase = createClient(
 const tokenConfigs = {
   linkedin: {
     tokenUrl: 'https://www.linkedin.com/oauth/v2/accessToken',
-    clientId: Deno.env.get('LINKEDIN_CLIENT_ID') || '78yhh9neso7awt',
+    clientId: Deno.env.get('LINKEDIN_CLIENT_ID') || '86z7443djn3cgx',
     clientSecret: Deno.env.get('LINKEDIN_CLIENT_SECRET'),
     grantType: 'authorization_code'
   },
@@ -74,14 +74,16 @@ async function exchangeCodeForToken(platform: string, code: string, redirectUri:
     redirect_uri: redirectUri
   });
 
-  // For PKCE flows (Twitter, LinkedIn), include code_verifier but not client_secret
-  // For non-PKCE flows (Reddit, Facebook, Instagram), include client_secret
+  // For PKCE flows, include code_verifier
   if (codeVerifier) {
     body.append('code_verifier', codeVerifier);
     console.log(`[OAuth Callback] Added code_verifier for PKCE flow on ${platform}`);
-  } else if (config.clientSecret) {
+  }
+
+  // Add client_secret for platforms that need it (will be removed later for Basic Auth platforms)
+  if (config.clientSecret) {
     body.append('client_secret', config.clientSecret);
-    console.log(`[OAuth Callback] Added client_secret for non-PKCE flow on ${platform}`);
+    console.log(`[OAuth Callback] Added client_secret for ${platform}`);
   }
 
   const headers: Record<string, string> = {
@@ -106,7 +108,7 @@ async function exchangeCodeForToken(platform: string, code: string, redirectUri:
     body.delete('client_secret');
     console.log(`[OAuth Callback] Using Basic Auth for Twitter with PKCE`);
   } else if (platform === 'linkedin') {
-    // LinkedIn uses client_secret in body, but let's also try Basic Auth if body fails
+    // LinkedIn uses client_secret in body (already added above)
     console.log(`[OAuth Callback] Using client_secret in body for LinkedIn`);
   }
 
@@ -161,7 +163,27 @@ Original error: ${responseText}`);
     if (responseText.includes('access_denied')) {
       throw new Error(`${platform} OAuth Error: User denied access or insufficient permissions. Original error: ${responseText}`);
     }
-    
+
+    // LinkedIn-specific error handling
+    if (platform === 'linkedin') {
+      if (responseText.includes('invalid_redirect_uri')) {
+        throw new Error(`LinkedIn OAuth Error: Invalid redirect URI. Please ensure your LinkedIn app has this exact redirect URI configured: https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback
+
+Go to https://www.linkedin.com/developers/apps → Your App → Auth tab → Authorized redirect URLs
+
+Original error: ${responseText}`);
+      }
+
+      if (responseText.includes('invalid_client_id')) {
+        throw new Error(`LinkedIn OAuth Error: Invalid Client ID. Please verify:
+1. Your LinkedIn app Client ID is correct: ${config.clientId}
+2. The app exists and is active in LinkedIn Developer Console
+3. Go to https://www.linkedin.com/developers/apps to check your app
+
+Original error: ${responseText}`);
+      }
+    }
+
     throw new Error(`${platform} token exchange failed: ${response.status} ${response.statusText}. Details: ${responseText}`);
   }
 
@@ -192,7 +214,7 @@ serve(async (req) => {
 
     if (error) {
       console.error(`[OAuth Callback] OAuth error: ${error} - ${errorDescription}`);
-      const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'http://localhost:8081';
+      const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'http://localhost:8083';
       return new Response(null, {
         status: 302,
         headers: {
@@ -284,7 +306,7 @@ serve(async (req) => {
 
     console.log(`[OAuth Callback] Successfully connected ${platform} for user ${user_id}`);
 
-    const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'http://localhost:8081';
+    const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'http://localhost:8083';
     const successUrl = `${frontendUrl}/oauth/callback?success=true&platform=${platform}`;
     console.log(`[OAuth Callback] Redirecting to success URL: ${successUrl}`);
 
@@ -299,7 +321,7 @@ serve(async (req) => {
     console.error('[OAuth Callback] Error:', error.message);
     console.error('[OAuth Callback] Stack trace:', error.stack);
 
-    const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'http://localhost:8081';
+    const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'http://localhost:8083';
     const errorUrl = `${frontendUrl}/oauth/callback?error=${encodeURIComponent(error.message)}`;
 
     console.log(`[OAuth Callback] Redirecting to error URL: ${errorUrl}`);

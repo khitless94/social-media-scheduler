@@ -129,15 +129,23 @@ export const useSocialMediaConnection = (
         authorizationUrl = `https://www.reddit.com/api/v1/authorize?${params.toString()}`;
       } else if (platform === 'linkedin') {
         // LinkedIn OAuth with proper scopes for posting
+        console.log('LinkedIn OAuth Debug Info:', {
+          clientId,
+          redirectUri,
+          state
+        });
+
         const params = new URLSearchParams({
-          response_type: 'code', 
-          client_id: clientId, 
+          response_type: 'code',
+          client_id: clientId,
           redirect_uri: redirectUri,
-          state: state, 
-          // Use correct LinkedIn scopes for profile and posting
-          scope: 'r_liteprofile r_emailaddress w_member_social',
+          state: state,
+          // Use available scopes from LinkedIn app: OpenID Connect + posting
+          scope: 'openid profile email w_member_social',
         });
         authorizationUrl = `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`;
+
+        console.log('LinkedIn Authorization URL:', authorizationUrl);
       } else if (platform === 'facebook') {
         const params = new URLSearchParams({
           response_type: 'code', client_id: clientId, redirect_uri: redirectUri, state: state,

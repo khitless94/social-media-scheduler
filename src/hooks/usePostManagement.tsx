@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -8,7 +8,11 @@ export const usePostManagement = () => {
   const [historyPosts, setHistoryPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchPosts = async () => {
+
+
+
+
+  const fetchPosts = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -47,6 +51,7 @@ export const usePostManagement = () => {
 
       // Combine all posts
       const allPosts = [...(scheduledPosts || []), ...transformedHistoryPosts];
+
       setPosts(allPosts);
       setHistoryPosts(transformedHistoryPosts);
     } catch (error) {
@@ -59,7 +64,7 @@ export const usePostManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []); // Empty dependency array since we get user inside the function
 
   const deletePost = async (postId: string, isHistoryPost: boolean = false) => {
     try {
@@ -73,25 +78,52 @@ export const usePostManagement = () => {
         return;
       }
 
-      const tableName = isHistoryPost ? 'post_history' : 'posts';
-      
-      // Add user_id check for security
-      const { error } = await supabase
-        .from(tableName)
+      // Auto-detect which table the post is in based on the post data
+      const currentPost = posts.find(p => p.id === postId);
+      const autoDetectedIsHistory = currentPost?.prompt === 'Manual Post';
+
+      // Try both tables to ensure we find and delete the post
+      let deleteSuccess = false;
+
+      // First try the auto-detected table
+      const primaryTable = autoDetectedIsHistory ? 'post_history' : 'posts';
+
+      const { error: primaryError, data: primaryData } = await supabase
+        .from(primaryTable)
         .delete()
         .eq('id', postId)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .select();
 
-      if (error) throw error;
+      if (!primaryError && primaryData && primaryData.length > 0) {
+        deleteSuccess = true;
+      } else {
+        // Try the other table
+        const secondaryTable = primaryTable === 'posts' ? 'post_history' : 'posts';
 
-      // Remove from local state immediately
-      setPosts(prev => prev.filter(p => p.id !== postId));
-      setHistoryPosts(prev => prev.filter(p => p.id !== postId));
+        const { error: secondaryError, data: secondaryData } = await supabase
+          .from(secondaryTable)
+          .delete()
+          .eq('id', postId)
+          .eq('user_id', user.id)
+          .select();
+
+        if (!secondaryError && secondaryData && secondaryData.length > 0) {
+          deleteSuccess = true;
+        }
+      }
+
+      if (!deleteSuccess) {
+        throw new Error(`Post not found or you don't have permission to delete it.`);
+      }
 
       toast({
         title: "Post deleted",
         description: "The post has been deleted successfully.",
       });
+
+      // Immediately refresh from database to ensure UI is in sync
+      await fetchPosts();
 
     } catch (error: any) {
       console.error('Error deleting post:', error);
@@ -100,7 +132,7 @@ export const usePostManagement = () => {
         description: error.message || "Failed to delete the post. Please try again.",
         variant: "destructive",
       });
-      
+
       // Refresh to get current state from server
       await fetchPosts();
     }

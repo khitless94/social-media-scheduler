@@ -14,6 +14,20 @@ interface PostCardProps {
 
 export const PostCard = ({ post, onEdit, onDelete, getStatusColor, getPlatformColor }: PostCardProps) => {
   const isHistoryPost = post.prompt === 'Manual Post';
+
+  // Debug: Log post details when delete is attempted
+  const handleDelete = () => {
+    console.log(`[PostCard] Delete clicked for post:`, {
+      id: post.id,
+      prompt: post.prompt,
+      platform: post.platform,
+      status: post.status,
+      user_id: post.user_id,
+      isHistoryPost,
+      created_at: post.created_at
+    });
+    onDelete(post.id, isHistoryPost);
+  };
   
   return (
     <Card className="bg-white/70 backdrop-blur-sm border-white/20 hover:shadow-lg transition-shadow duration-200">
@@ -52,7 +66,7 @@ export const PostCard = ({ post, onEdit, onDelete, getStatusColor, getPlatformCo
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => onDelete(post.id, isHistoryPost)} className="bg-red-600 hover:bg-red-700">
+                  <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
                     Delete
                   </AlertDialogAction>
                 </AlertDialogFooter>

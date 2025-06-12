@@ -1,227 +1,297 @@
-// /functions/post.ts
-
-import { serve } from "https://deno.land/std@0.131.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const SUPPORTED_PLATFORMS = ['twitter', 'linkedin', 'facebook', 'reddit'];
-
 serve(async (req) => {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
-
-  const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] Incoming request: ${req.method} ${req.url}`);
-
-  // Supabase Auth
-  const supabaseClient = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!
-  );
-
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return errorResponse("Missing or invalid Authorization header", 401);
-  }
-
-  const token = authHeader.replace("Bearer ", "").trim();
-  const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
-
-  if (userError || !user) {
-    return errorResponse("Invalid or expired token", 401);
-  }
-
-  // Safe JSON Parsing
-  let requestBody;
-  const rawBody = await req.text();
-  console.log("Raw Request Body:", rawBody);
-
-  try {
-    requestBody = JSON.parse(rawBody);
-  } catch {
-    return errorResponse("Invalid JSON body", 400);
-  }
-
-  const { platform, content, subreddit } = requestBody;
-
-  if (!platform || typeof platform !== "string") {
-    return errorResponse("Missing or invalid 'platform'", 400);
-  }
-
-  const platformKey = platform.toLowerCase().trim();
-  if (!SUPPORTED_PLATFORMS.includes(platformKey)) {
-    return errorResponse(`Unsupported platform. Supported: ${SUPPORTED_PLATFORMS.join(', ')}`, 400);
-  }
-
-  if (!content || typeof content !== "string" || content.trim() === "") {
-    return errorResponse("Content is required", 400);
-  }
-
-  const { data: credentials, error: credentialError } = await supabaseClient
-    .from("oauth_credentials")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("platform", platformKey)
-    .single();
-
-  if (credentialError || !credentials) {
-    return errorResponse(`No credentials found for ${platformKey}`, 401);
-  }
-
-  const now = Math.floor(Date.now() / 1000);
-  if (credentials.expires_at && now >= credentials.expires_at - 60) {
-    return errorResponse(`${platformKey} token expired`, 401);
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const result = await handlePost(platformKey, credentials, content, subreddit);
-    return successResponse(result);
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Missing authorization header" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY");
+
+    if (!supabaseUrl || !supabaseKey) {
+      return new Response(JSON.stringify({ error: "Server configuration error" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabaseClient = createClient(supabaseUrl, supabaseKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: "Authentication failed" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const body = await req.json();
+    console.log('Request body received:', body);
+    console.log('Request body keys:', Object.keys(body));
+
+    let { content, platforms, platform } = body;
+
+    // Handle both old format (platform: "linkedin") and new format (platforms: ["linkedin"])
+    if (platform && !platforms) {
+      platforms = [platform];
+      console.log('Converting single platform to array:', platforms);
+    }
+
+    console.log('Final values:', { content: content?.substring(0, 50) + '...', platforms });
+
+    if (!content || !platforms || platforms.length === 0) {
+      console.error('Missing required fields:', {
+        hasContent: !!content,
+        hasPlatforms: !!platforms,
+        platformsLength: platforms?.length || 0,
+        receivedKeys: Object.keys(body)
+      });
+      return new Response(JSON.stringify({
+        error: "Content and platform(s) are required",
+        received: {
+          content: !!content,
+          platforms: platforms || null,
+          platform: platform || null,
+          bodyKeys: Object.keys(body)
+        }
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const results: any[] = [];
+
+    for (const platform of platforms) {
+      try {
+        console.log(`Processing platform: ${platform} for user: ${user.id}`);
+
+        // First, let's see what credentials exist for this user
+        const { data: allCredentials, error: allCredsError } = await supabaseClient
+          .from("oauth_credentials")
+          .select("platform, created_at, expires_at")
+          .eq("user_id", user.id);
+
+        console.log(`All credentials for user ${user.id}:`, allCredentials);
+
+        const { data: credentials, error: credError } = await supabaseClient
+          .from("oauth_credentials")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("platform", platform.toLowerCase())
+          .single();
+
+        console.log(`Credentials query for ${platform}:`, { credentials: !!credentials, error: credError?.message });
+
+        if (credError || !credentials) {
+          console.error(`No credentials found for ${platform}:`, credError?.message);
+          results.push({ platform, success: false, error: `No valid credentials found for ${platform}. Available platforms: ${allCredentials?.map(c => c.platform).join(', ') || 'none'}` });
+          continue;
+        }
+
+        console.log(`Found credentials for ${platform}, access_token length: ${credentials.access_token?.length || 0}`);
+
+        const now = new Date();
+        const expiresAt = new Date(credentials.expires_at);
+        if (now >= expiresAt) {
+          results.push({ platform, success: false, error: `Token expired for ${platform}` });
+          continue;
+        }
+
+        const result = await postToSocialMedia(platform, content, credentials);
+        results.push(result);
+      } catch (err) {
+        results.push({ platform, success: false, error: err.message });
+      }
+    }
+
+    return new Response(JSON.stringify({ success: true, results }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (err) {
-    console.error("Posting error:", err);
-    return errorResponse(err.message || "Failed to post content", 500);
+    return new Response(JSON.stringify({ error: "Internal server error", details: err.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
 
-// Platform routing
-async function handlePost(platform: string, credentials: any, content: string, subreddit?: string) {
-  switch (platform) {
+async function postToSocialMedia(platform: string, content: string, credentials: any) {
+  switch (platform.toLowerCase()) {
     case "twitter":
-      return postToTwitter(credentials, content);
+      return await postToTwitter(content, credentials);
     case "linkedin":
-      return postToLinkedIn(credentials, content);
-    case "facebook":
-      return postToFacebook(credentials, content);
+      return await postToLinkedIn(content, credentials);
     case "reddit":
-      return postToReddit(credentials, content, subreddit || "test");
+      return await postToReddit(content, credentials);
     default:
-      throw new Error(`Unsupported platform: ${platform}`);
+      return { platform, success: false, error: `Unsupported platform: ${platform}` };
   }
 }
 
-// Platform implementations
-
-async function postToTwitter(credentials: any, content: string) {
-  const resp = await fetch("https://api.twitter.com/2/tweets", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${credentials.access_token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ text: content }),
-  });
-
-  const data = await resp.json();
-  if (!resp.ok) throw new Error(data.error || data.title || "Twitter API failed");
-
-  return {
-    platform: "twitter",
-    post_id: data.data?.id,
-    post_url: `https://twitter.com/user/status/${data.data?.id}`,
-  };
-}
-
-async function postToLinkedIn(credentials: any, content: string) {
-  const author = `urn:li:person:${credentials.provider_user_id}`;
-  const body = {
-    author,
-    lifecycleState: "PUBLISHED",
-    specificContent: {
-      "com.linkedin.ugc.ShareContent": {
-        shareCommentary: { text: content },
-        shareMediaCategory: "NONE",
+async function postToTwitter(content: string, credentials: any) {
+  try {
+    const response = await fetch("https://api.twitter.com/2/tweets", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${credentials.access_token}`,
+        "Content-Type": "application/json",
       },
-    },
-    visibility: {
-      "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC",
-    },
-  };
+      body: JSON.stringify({ text: content }),
+    });
 
-  const resp = await fetch("https://api.linkedin.com/v2/ugcPosts", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${credentials.access_token}`,
-      "Content-Type": "application/json",
-      "X-Restli-Protocol-Version": "2.0.0",
-    },
-    body: JSON.stringify(body),
-  });
+    const data = await response.json();
+    if (!response.ok) {
+      return { platform: "twitter", success: false, error: data.detail || data.error };
+    }
 
-  const data = await resp.json();
-  if (!resp.ok) throw new Error(data.message || "LinkedIn API failed");
-
-  return {
-    platform: "linkedin",
-    post_urn: data.id || data.urn,
-    response: data,
-  };
+    return { platform: "twitter", success: true, postId: data.data?.id };
+  } catch (err) {
+    return { platform: "twitter", success: false, error: err.message };
+  }
 }
 
-async function postToFacebook(credentials: any, content: string) {
-  const userId = credentials.provider_user_id;
+async function postToLinkedIn(content: string, credentials: any) {
+  try {
+    console.log(`[LinkedIn] Starting LinkedIn post process`);
+    console.log(`[LinkedIn] Content length: ${content.length}`);
+    console.log(`[LinkedIn] Access token length: ${credentials.access_token?.length || 0}`);
 
-  const resp = await fetch(`https://graph.facebook.com/${userId}/feed`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      message: content,
-      access_token: credentials.access_token,
-    }),
-  });
+    // Step 1: Get LinkedIn profile using OpenID Connect userinfo endpoint
+    let profile: any;
+    let author: string;
 
-  const data = await resp.json();
-  if (!resp.ok) throw new Error(data.error?.message || "Facebook API failed");
+    console.log(`[LinkedIn] Attempting to fetch profile from LinkedIn OpenID Connect /userinfo endpoint`);
+    const profileRes = await fetch("https://api.linkedin.com/v2/userinfo", {
+      headers: {
+        Authorization: `Bearer ${credentials.access_token}`,
+        "Content-Type": "application/json",
+      },
+    });
 
-  return {
-    platform: "facebook",
-    post_id: data.id,
-    post_url: `https://www.facebook.com/${data.id.replace('_', '/posts/')}`,
-  };
+    console.log(`[LinkedIn] Profile response status: ${profileRes.status}`);
+
+    if (!profileRes.ok) {
+      const profileError = await profileRes.text();
+      console.error(`[LinkedIn] Profile fetch failed:`, profileError);
+      console.log(`[LinkedIn] Current token scopes: openid profile email w_member_social`);
+      console.log(`[LinkedIn] Using OpenID Connect userinfo endpoint`);
+      throw new Error(`Failed to fetch LinkedIn profile via userinfo endpoint (${profileRes.status}): ${profileError}`);
+    }
+
+    profile = await profileRes.json();
+    console.log(`[LinkedIn] Profile fetched successfully:`, JSON.stringify(profile, null, 2));
+    console.log(`[LinkedIn] Profile sub (user ID): ${profile.sub}`);
+    author = `urn:li:person:${profile.sub}`;
+
+    console.log(`[LinkedIn] Using OpenID Connect approach`);
+    console.log(`[LinkedIn] Profile access via /userinfo, posting via /v2/ugcPosts`);
+
+    // Step 2: Prepare post payload
+    const payload = {
+      author,
+      lifecycleState: "PUBLISHED",
+      specificContent: {
+        "com.linkedin.ugc.ShareContent": {
+          shareCommentary: { text: content },
+          shareMediaCategory: "NONE",
+        },
+      },
+      visibility: {
+        "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC",
+      },
+    };
+
+    console.log(`[LinkedIn] Posting payload:`, JSON.stringify(payload, null, 2));
+
+    // Step 3: Create the post
+    console.log(`[LinkedIn] Creating post via LinkedIn API`);
+    const postRes = await fetch("https://api.linkedin.com/v2/ugcPosts", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${credentials.access_token}`,
+        "Content-Type": "application/json",
+        "X-Restli-Protocol-Version": "2.0.0",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    console.log(`[LinkedIn] Post response status: ${postRes.status}`);
+
+    const postData = await postRes.json();
+    console.log(`[LinkedIn] Post response data:`, JSON.stringify(postData, null, 2));
+
+    if (!postRes.ok) {
+      console.error(`[LinkedIn] Post creation failed:`, postData);
+
+      // Check if it's a permissions error
+      if (postRes.status === 403 && postData.message && postData.message.includes('permissions')) {
+        return {
+          platform: "linkedin",
+          success: false,
+          error: `LinkedIn posting failed due to insufficient permissions. Make sure your LinkedIn app has "Share on LinkedIn" product enabled. Current scopes: openid profile email w_member_social. Error: ${postData.message}`
+        };
+      }
+
+      return {
+        platform: "linkedin",
+        success: false,
+        error: `LinkedIn API error (${postRes.status}): ${postData.message || JSON.stringify(postData)}`
+      };
+    }
+
+    console.log(`[LinkedIn] Post created successfully with ID: ${postData.id}`);
+    return { platform: "linkedin", success: true, postId: postData.id };
+  } catch (err) {
+    console.error(`[LinkedIn] Unexpected error:`, err);
+    return { platform: "linkedin", success: false, error: err.message };
+  }
 }
 
-async function postToReddit(credentials: any, content: string, subreddit: string) {
-  const resp = await fetch("https://oauth.reddit.com/api/submit", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${credentials.access_token}`,
-      "User-Agent": "MyRedditApp/1.0",
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      sr: subreddit,
-      kind: "self",
-      title: content.slice(0, 300),
-      text: content,
-    }),
-  });
+async function postToReddit(content: string, credentials: any) {
+  try {
+    const subreddit = "test";
+    const response = await fetch("https://oauth.reddit.com/api/submit", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${credentials.access_token}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": "ContentPilotAI/1.0",
+      },
+      body: new URLSearchParams({
+        api_type: "json",
+        kind: "self",
+        sr: subreddit,
+        title: content.substring(0, 100),
+        text: content,
+      }),
+    });
 
-  const data = await resp.json();
-  if (!resp.ok) throw new Error(data.message || "Reddit API failed");
+    const data = await response.json();
+    if (!response.ok || data.json?.errors?.length > 0) {
+      return { platform: "reddit", success: false, error: data.json?.errors?.[0]?.[1] };
+    }
 
-  return {
-    platform: "reddit",
-    post_url: `https://reddit.com${data?.json?.data?.url || ''}`,
-    response: data,
-  };
-}
-
-// Response helpers
-function successResponse(data: any) {
-  return new Response(JSON.stringify(data), {
-    status: 200,
-    headers: { "Content-Type": "application/json", ...corsHeaders },
-  });
-}
-
-function errorResponse(message: string, status = 400) {
-  return new Response(JSON.stringify({ error: message }), {
-    status,
-    headers: { "Content-Type": "application/json", ...corsHeaders },
-  });
+    return { platform: "reddit", success: true, postId: data.json?.data?.name };
+  } catch (err) {
+    return { platform: "reddit", success: false, error: err.message };
+  }
 }

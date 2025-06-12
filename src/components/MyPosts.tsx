@@ -1,5 +1,5 @@
 // Refactored MyPosts.tsx with typing & state fix
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PostCard } from "@/components/posts/PostCard";
 import { PostFilters } from "@/components/posts/PostFilters";
@@ -31,27 +31,38 @@ const MyPosts = () => {
 
   useEffect(() => {
     fetchPosts();
-  }, [fetchPosts]);
+  }, [fetchPosts]); // Now safe to depend on fetchPosts since it's memoized
 
-  const handleEditPost = (post: any) => {
+  // Remove debug logging to reduce console noise
+
+  const handleEditPost = useCallback((post: any) => {
     setEditingPost(post);
-  };
+  }, []);
 
-  const handleSaveEdit = async (postId: string, updatedData: any) => {
+  const handleSaveEdit = useCallback(async (postId: string, updatedData: any) => {
     await editPost(postId, updatedData);
-    fetchPosts();
+    // editPost already calls fetchPosts internally, no need to call it again
     setEditingPost(null);
-  };
+  }, [editPost]);
 
-  const handleDeletePost = async (postId: string) => {
-    await deletePost(postId);
-    await fetchPosts(); // Ensure refresh happens after deletion
-  };
+  const handleDeletePost = useCallback(async (postId: string, isHistoryPost: boolean) => {
+    await deletePost(postId, isHistoryPost);
+    // fetchPosts is already called inside deletePost hook
+  }, [deletePost]);
 
-  const filteredPosts = filterPosts(posts, searchTerm, platformFilter, statusFilter);
-  const groupedPosts = groupPostsByStatus(filteredPosts);
 
-  const renderPosts = (type: TabType) => {
+
+  const filteredPosts = useMemo(() =>
+    filterPosts(posts, searchTerm, platformFilter, statusFilter),
+    [posts, searchTerm, platformFilter, statusFilter]
+  );
+
+  const groupedPosts = useMemo(() =>
+    groupPostsByStatus(filteredPosts),
+    [filteredPosts]
+  );
+
+  const renderPosts = useCallback((type: TabType) => {
     const postGroup = type === "all" ? filteredPosts : groupedPosts[type];
     if (!postGroup || postGroup.length === 0) {
       return <EmptyState type={type} />;
@@ -63,14 +74,14 @@ const MyPosts = () => {
             key={post.id}
             post={post}
             onEdit={handleEditPost}
-            onDelete={() => handleDeletePost(post.id)}
+            onDelete={handleDeletePost}
             getStatusColor={getStatusColor}
             getPlatformColor={getPlatformColor}
           />
         ))}
       </div>
     );
-  };
+  }, [filteredPosts, groupedPosts, handleEditPost, handleDeletePost, getStatusColor, getPlatformColor]);
 
   if (loading) {
     return (

@@ -327,7 +327,7 @@ const AuthModal = ({ isOpen, onClose, currentMode, onModeChange }: AuthModalProp
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium">Welcome back!</p>
-                <p className="text-sm text-gray-500">{user.email}</p>
+                <p className="text-sm text-gray-500">{user?.email || 'No email available'}</p>
               </div>
               <Button variant="outline" onClick={handleSignOut}>
                 Sign Out

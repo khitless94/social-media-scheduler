@@ -71,6 +71,16 @@ supabase functions deploy oauth-callback
 - **Cause**: OAuth flow took too long or was interrupted
 - **Solution**: Try connecting again immediately after clicking the connect button
 
+#### Issue: LinkedIn "Bummer, something went wrong" Error
+- **Cause**: LinkedIn app configuration issues or malformed URLs
+- **Solution**:
+  1. Go to https://www.linkedin.com/developers/apps
+  2. Check your app's "Auth" tab
+  3. Ensure redirect URL is EXACTLY: `https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback`
+  4. Verify your Client ID matches: `78yhh9neso7awt`
+  5. Make sure your app has the correct scopes: `r_liteprofile`, `r_emailaddress`, `w_member_social`
+  6. If still failing, create a new LinkedIn app with fresh credentials
+
 ## 🔍 Troubleshooting
 
 ### If you still get errors:

@@ -27,8 +27,8 @@ const oauthConfigs = {
   },
   linkedin: {
     authUrl: "https://www.linkedin.com/oauth/v2/authorization",
-    clientId: Deno.env.get("LINKEDIN_CLIENT_ID") || "78yhh9neso7awt",
-    scope: "r_liteprofile r_emailaddress w_member_social",
+    clientId: Deno.env.get("LINKEDIN_CLIENT_ID") || "86z7443djn3cgx",
+    scope: "openid profile email w_member_social",  // Use available scopes from your LinkedIn app
     responseType: "code",
     requiresPKCE: false,  // LinkedIn doesn't require PKCE
   },

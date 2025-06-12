@@ -87,13 +87,25 @@ const OAuthCallback = () => {
 
         // Handle explicit error from edge function
         if (errorMessageFromEdge) {
+          const decodedError = decodeURIComponent(errorMessageFromEdge);
           setStatus('error');
-          setMessage(decodeURIComponent(errorMessageFromEdge));
-          
+
+          // Provide user-friendly error messages for common LinkedIn issues
+          let userFriendlyMessage = decodedError;
+          if (activePlatform === 'linkedin' && decodedError.includes('invalid_redirect_uri')) {
+            userFriendlyMessage = "LinkedIn app configuration issue. Please check the setup guide for LinkedIn OAuth configuration.";
+          } else if (activePlatform === 'linkedin' && decodedError.includes('invalid_client_id')) {
+            userFriendlyMessage = "LinkedIn app not found. Please verify your LinkedIn app configuration.";
+          } else if (decodedError.includes('Bummer, something went wrong')) {
+            userFriendlyMessage = `${activePlatform} OAuth configuration error. Please check your app settings.`;
+          }
+
+          setMessage(userFriendlyMessage);
+
           console.error("OAuth error from Edge Function:", errorMessageFromEdge);
           toast({
             title: "Connection failed",
-            description: decodeURIComponent(errorMessageFromEdge),
+            description: userFriendlyMessage,
             variant: "destructive",
           });
 

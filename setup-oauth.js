@@ -39,7 +39,7 @@ const platforms = [
   },
   {
     name: 'LinkedIn',
-    clientId: '78yhh9neso7awt',
+    clientId: '86z7443djn3cgx',
     secretVar: 'LINKEDIN_CLIENT_SECRET',
     portal: 'https://www.linkedin.com/developers/apps',
     instructions: 'Find your app → Auth → Client Secret'

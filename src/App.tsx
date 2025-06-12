@@ -15,7 +15,6 @@ import MyPosts from '@/components/MyPosts';
 import Analytics from '@/components/Analytics';
 import Settings from '@/components/Settings';
 import OAuthCallback from '@/components/OAuthCallback';
-import DebugAuth from '@/pages/DebugAuth';
 
 
 
@@ -62,10 +61,6 @@ function App() {
       <Route
         path="/settings"
         element={<ProtectedRoute><Settings /></ProtectedRoute>}
-      />
-      <Route
-        path="/debug-auth"
-        element={<ProtectedRoute><DebugAuth /></ProtectedRoute>}
       />
     </Routes>
   );
