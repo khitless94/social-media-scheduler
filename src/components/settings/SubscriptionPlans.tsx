@@ -5,19 +5,24 @@ import { CreditCard, Zap, Check, Star } from "lucide-react";
 
 const SubscriptionPlans = () => {
   return (
-    <Card className="bg-white/90 backdrop-blur-sm border-white/20 shadow-xl">
-      <CardHeader className="text-center pb-8">
-        <CardTitle className="flex items-center justify-center space-x-3 text-2xl">
-          <div className="p-2 bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg">
-            <CreditCard className="h-6 w-6 text-purple-600" />
+    <Card className="bg-white/95 backdrop-blur-xl border-0 shadow-2xl rounded-3xl overflow-hidden">
+      <CardHeader className="text-center pb-8 bg-gradient-to-r from-purple-50 to-pink-50 relative">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-purple-200/20 rounded-full transform translate-x-8 -translate-y-8"></div>
+        <div className="relative z-10">
+          <div className="flex justify-center mb-6">
+            <div className="p-4 bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl shadow-lg">
+              <CreditCard className="h-8 w-8 text-white" />
+            </div>
           </div>
-          <span>Choose Your Plan</span>
-        </CardTitle>
-        <CardDescription className="text-lg">
-          Unlock the full potential of AI-powered content creation
-        </CardDescription>
+          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
+            Choose Your Plan
+          </CardTitle>
+          <CardDescription className="text-lg text-gray-600 max-w-2xl mx-auto">
+            Unlock the full potential of AI-powered content creation and scale your social media presence
+          </CardDescription>
+        </div>
       </CardHeader>
-      <CardContent className="space-y-8">
+      <CardContent className="space-y-8 p-8">
         {/* Current Plan Status */}
         <div className="flex items-center justify-between p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200 shadow-sm">
           <div className="flex items-center space-x-4">

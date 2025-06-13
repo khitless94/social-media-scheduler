@@ -97,8 +97,6 @@ const CreatePost = () => {
     checkConnectionStatus();
   }, []);
 
-
-
   const generatePost = async () => {
     if (!prompt.trim()) {
       toast({
@@ -171,62 +169,6 @@ const CreatePost = () => {
     }
   };
 
-  const generateImage = async () => {
-    if (!imagePrompt.trim()) {
-      toast({
-        title: "Missing image prompt",
-        description: "Please enter a prompt for your image",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsGeneratingImage(true);
-    console.log("Generating image with prompt:", imagePrompt);
-
-    try {
-      const { data, error } = await supabase.functions.invoke('generate-content', {
-        body: { 
-          prompt: imagePrompt,
-          type: 'image'
-        }
-      });
-
-      if (error) throw error;
-
-      if (data.type === 'generated' && data.imageUrl) {
-        setGeneratedImage(data.imageUrl);
-        setImageType('generated');
-        setUsageCount(prev => prev + 1);
-        setShowActionButtons(true);
-        toast({
-          title: "Image generated!",
-          description: "Your AI-generated image is ready.",
-        });
-      } else if (data.imageDescription) {
-        setGeneratedImage(data.imageDescription);
-        setImageType('description');
-        setUsageCount(prev => prev + 1);
-        setShowActionButtons(true);
-        toast({
-          title: "Image description generated!",
-          description: "Use this description with your preferred image generator.",
-        });
-      } else {
-        throw new Error('No image or description generated');
-      }
-    } catch (error: any) {
-      console.error('Error generating image:', error);
-      toast({
-        title: "Image generation failed",
-        description: error.message || "Failed to generate image. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGeneratingImage(false);
-    }
-  };
-
   const copyToClipboard = () => {
     navigator.clipboard.writeText(generatedText);
     toast({
@@ -240,441 +182,172 @@ const CreatePost = () => {
     generatePost();
   };
 
-  const postNow = async () => {
-    if (!generatedText) {
-      toast({
-        title: "No content to post",
-        description: "Please generate content first",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!platform) {
-      toast({
-        title: "No platform selected",
-        description: "Please select a platform",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast({
-          title: "Authentication required",
-          description: "Please log in to post content",
-          variant: "destructive",
-        });
-        return;
-      }
-
-
-
-      // Check post limit for free tier (200 posts max)
-      const { data: postCount } = await supabase
-        .from('post_history')
-        .select('id', { count: 'exact' })
-        .eq('user_id', user.id);
-
-      if (postCount && postCount.length >= 200) {
-        toast({
-          title: "Post limit reached",
-          description: "You've reached the free tier limit of 200 posts. Please upgrade to continue posting.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Check if the platform is connected and get access token from database
-      const { data: credentials, error: credError } = await supabase
-        .from('oauth_credentials')
-        .select('access_token, refresh_token, expires_at')
-        .eq('user_id', user.id)
-        .eq('platform', platform.toLowerCase())
-        .maybeSingle();
-
-      if (credError) {
-        throw new Error('Failed to check platform connection');
-      }
-
-      if (!credentials) {
-        toast({
-          title: "Platform not connected",
-          description: `Please connect your ${platform} account first. Click the "Connect ${platform}" button above.`,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Check if token is expired and needs refresh
-      let accessToken = credentials.access_token;
-      if (credentials.expires_at && new Date(credentials.expires_at) <= new Date()) {
-        toast({
-          title: "Token expired",
-          description: `Please reconnect your ${platform} account in Settings`,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Post to the selected platform (include image if generated)
-      const postData: any = {
-        platform: platform.toLowerCase(),
-        content: generatedText
-      };
-
-      // If we have a generated image (not just description), include it
-      if (generatedImage && imageType === 'generated') {
-        postData.imageUrl = generatedImage;
-      }
-
-      console.log(`[DEBUG] Posting to ${platform} with data:`, postData);
-
-      // Get the current session and access token
-      const { data: sessionData } = await supabase.auth.getSession();
-      const userAccessToken = sessionData.session?.access_token;
-
-      console.log(`[DEBUG] User session:`, sessionData);
-      console.log(`[DEBUG] Access token exists:`, !!userAccessToken);
-
-      const { data, error } = await supabase.functions.invoke('post-to-social', {
-        body: postData,
-        headers: {
-          Authorization: `Bearer ${userAccessToken}`,
-        }
-      });
-
-      console.log(`[DEBUG] Edge function response:`, { data, error });
-
-      if (error) {
-        console.error('Edge function error:', error);
-        console.error('Error details:', error.context || error.details || 'No additional details');
-
-        // Try to get more specific error information
-        if (error.message && error.message.includes('400')) {
-          console.error('400 Bad Request - likely a request format issue');
-        }
-
-        throw new Error(`Failed to call posting service: ${error.message}`);
-      }
-
-      if (data?.error) {
-        console.error('Posting service error:', data.error);
-        throw new Error(data.error);
-      }
-
-      if (!data || typeof data !== 'object') {
-        throw new Error('Invalid response from posting service');
-      }
-
-      // Save to post history for tracking
-      await supabase
-        .from('post_history')
-        .insert({
-          user_id: user.id,
-          content: generatedText,
-          platform: platform.toLowerCase(),
-          status: 'success',
-          post_id: data?.postId || null
-        });
-
-      toast({
-        title: "Posted successfully!",
-        description: `Your content has been posted to ${platform}`,
-      });
-
-      // Reset form
-      setPrompt("");
-      setGeneratedText("");
-      setImagePrompt("");
-      setGeneratedImage("");
-    } catch (error: any) {
-      console.error('Error posting content:', error);
-      
-      // Save failed post to history
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await supabase
-            .from('post_history')
-            .insert({
-              user_id: user.id,
-              content: generatedText,
-              platform: platform.toLowerCase(),
-              status: 'failed',
-              error_message: error.message
-            });
-        }
-      } catch (historyError) {
-        console.error('Error saving to history:', historyError);
-      }
-
-      toast({
-        title: "Post failed",
-        description: error.message || "Failed to post your content. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const schedulePost = async () => {
-    if (!generatedText) {
-      toast({
-        title: "No content to schedule",
-        description: "Please generate content first",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!scheduleDate || !scheduleTime) {
-      toast({
-        title: "Missing schedule details",
-        description: "Please select both date and time",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        toast({
-          title: "Authentication required",
-          description: "Please log in to schedule posts",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const scheduledDateTime = new Date(`${format(scheduleDate, "yyyy-MM-dd")}T${scheduleTime}`);
-
-      const { error } = await supabase
-        .from('posts')
-        .insert({
-          user_id: user.id,
-          prompt,
-          generated_text: generatedText,
-          platform,
-          scheduled_time: scheduledDateTime.toISOString(),
-          status: 'scheduled',
-          image_url: imageType === 'generated' ? generatedImage : null
-        } as any);
-
-      if (error) throw error;
-
-      toast({
-        title: "Post scheduled!",
-        description: `Your post will be published on ${format(scheduleDate, "PPP")} at ${scheduleTime}`,
-      });
-
-      // Reset form
-      setPrompt("");
-      setGeneratedText("");
-      setImagePrompt("");
-      setGeneratedImage("");
-      setScheduleDate(undefined);
-      setScheduleTime("");
-    } catch (error: any) {
-      console.error('Error scheduling post:', error);
-      toast({
-        title: "Scheduling failed",
-        description: error.message || "Failed to schedule your post. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+      <div className="container mx-auto px-4 py-8">
         {/* Header Section */}
-        <div className="text-center space-y-6">
-          <div className="inline-flex items-center space-x-2 bg-gradient-to-r from-purple-100 to-pink-100 px-4 py-2 rounded-full">
-            <Zap className="h-4 w-4 text-purple-600" />
-            <span className="text-sm font-medium text-purple-700">Powered by AI Agents</span>
+        <div className="text-center mb-12">
+          <div className="flex justify-center mb-6">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
+              <Sparkles className="w-8 h-8 text-white" />
+            </div>
           </div>
-          <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 bg-clip-text text-transparent">
-            Create Brilliant Content
+          
+          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+            Create Amazing Content
           </h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-            Transform your ideas into engaging social media content with the power of advanced AI agents.
-            Generate, customize, and optimize content for any platform.
+          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            Generate engaging social media posts with AI-powered content creation
           </p>
+          
+          {/* Stats */}
+          <div className="flex justify-center space-x-8 mt-8">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">50K+</div>
+              <div className="text-sm text-gray-500">Posts Created</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-indigo-600">5</div>
+              <div className="text-sm text-gray-500">Platforms</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-purple-600">99%</div>
+              <div className="text-sm text-gray-500">Success Rate</div>
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-          {/* Input Section */}
-          <div className="space-y-6">
-            <Card className="bg-white/90 backdrop-blur-sm border-white/50 shadow-2xl">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center space-x-3 text-xl">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <Wand2 className="h-6 w-6 text-purple-600" />
+        {/* Main Content */}
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Content Creation Card */}
+            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-t-lg">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-white/20 rounded-lg">
+                    <Wand2 className="h-6 w-6" />
                   </div>
-                  <span>Content Creator</span>
-                </CardTitle>
-                <CardDescription className="text-base">
-                  Describe your idea and let our AI agents craft the perfect post
-                </CardDescription>
+                  <div>
+                    <CardTitle className="text-xl">AI Content Generator</CardTitle>
+                    <CardDescription className="text-blue-100">
+                      Create engaging posts with artificial intelligence
+                    </CardDescription>
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Prompt Input */}
-                <div className="space-y-3">
-                  <Label htmlFor="prompt" className="text-sm font-semibold text-gray-700">What do you want to create?</Label>
+              <CardContent className="p-6 space-y-6">
+                {/* Content Prompt */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="prompt" className="text-base font-semibold text-gray-700">
+                      What would you like to create?
+                    </Label>
+                    <span className="text-sm text-gray-500">{prompt.length}/500</span>
+                  </div>
+                  
                   <Textarea
                     id="prompt"
-                    placeholder="e.g., Write a motivational LinkedIn post about productivity tips for remote workers, including actionable advice and inspiring quotes..."
+                    placeholder="Describe your content idea... e.g., 'Write a motivational LinkedIn post about productivity tips for remote workers'"
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
-                    className="min-h-[120px] resize-none text-base leading-relaxed border-2 focus:border-purple-400"
+                    className="min-h-[120px] resize-none border-2 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg p-4 transition-all duration-200"
                   />
+
+                  {/* Quick Templates */}
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium text-gray-600">Quick Templates</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { emoji: "💼", text: "Professional LinkedIn post", color: "bg-blue-50 hover:bg-blue-100 text-blue-700" },
+                        { emoji: "🌱", text: "Lifestyle Instagram post", color: "bg-pink-50 hover:bg-pink-100 text-pink-700" },
+                        { emoji: "🚀", text: "Tech Twitter thread", color: "bg-purple-50 hover:bg-purple-100 text-purple-700" },
+                        { emoji: "📈", text: "Business growth tips", color: "bg-green-50 hover:bg-green-100 text-green-700" }
+                      ].map((template, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => setPrompt(template.text)}
+                          className={`p-3 rounded-lg text-sm font-medium transition-colors duration-200 ${template.color} border border-gray-200`}
+                        >
+                          <span className="mr-2">{template.emoji}</span>
+                          {template.text}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Platform Selection */}
-                <div className="space-y-3">
-                  <Label className="text-sm font-semibold text-gray-700">Platform</Label>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
-                      {platforms.map((p) => {
-                        const IconComponent = p.icon === 'linkedin' ? FaLinkedin :
-                                            p.icon === 'twitter' ? FaTwitter :
-                                            p.icon === 'instagram' ? FaInstagram :
-                                            p.icon === 'facebook' ? FaFacebook : FaReddit;
-                        const isConnected = connectionStatus[p.value.toLowerCase()];
-                        return (
-                          <Button
-                            key={p.value}
-                            variant={platform === p.value ? "default" : "outline"}
-                            onClick={() => setPlatform(p.value)}
-                            className={`justify-start space-x-3 h-14 transition-all duration-200 relative ${
-                              platform === p.value
-                                ? 'bg-gradient-to-r from-purple-600 to-pink-600 border-transparent shadow-lg scale-105'
-                                : 'hover:bg-gray-50 hover:scale-102'
-                            }`}
-                          >
-                            <div className="p-1 bg-white/20 rounded">
-                              <IconComponent className="h-5 w-5" style={{
-                                color: platform === p.value ? 'white' : (
-                                  p.icon === 'linkedin' ? '#0077B5' :
-                                  p.icon === 'twitter' ? '#1DA1F2' :
-                                  p.icon === 'instagram' ? '#E4405F' :
-                                  p.icon === 'facebook' ? '#1877F2' : '#FF4500'
-                                )
-                              }} />
+                <div className="space-y-4">
+                  <Label className="text-base font-semibold text-gray-700">Select Platform</Label>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {platforms.map((p) => {
+                      const IconComponent = p.icon === 'linkedin' ? FaLinkedin :
+                                          p.icon === 'twitter' ? FaTwitter :
+                                          p.icon === 'instagram' ? FaInstagram :
+                                          p.icon === 'facebook' ? FaFacebook : FaReddit;
+                      const isConnected = connectionStatus[p.value.toLowerCase()];
+                      const platformColors = {
+                        linkedin: '#0077B5',
+                        twitter: '#1DA1F2',
+                        instagram: '#E4405F',
+                        facebook: '#1877F2',
+                        reddit: '#FF4500'
+                      };
+
+                      return (
+                        <Button
+                          key={p.value}
+                          variant="outline"
+                          onClick={() => setPlatform(p.value)}
+                          className={`h-16 p-4 border-2 transition-all duration-200 ${
+                            platform === p.value
+                              ? 'border-blue-500 bg-blue-50 shadow-md'
+                              : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-3 w-full">
+                            <div className="p-2 rounded-lg bg-gray-50">
+                              <IconComponent
+                                className="h-6 w-6"
+                                style={{ color: platformColors[p.icon as keyof typeof platformColors] }}
+                              />
                             </div>
-                            <span className="font-medium">{p.label}</span>
-                            <div className="absolute top-1 right-1">
+                            <div className="flex-1 text-left">
+                              <div className="font-semibold text-gray-900">{p.label}</div>
+                              <div className="text-sm text-gray-500">
+                                {isConnected ? '✓ Connected' : '○ Not connected'}
+                              </div>
+                            </div>
+                            <div className="flex items-center">
                               {isConnected ? (
-                                <CheckCircle className="h-4 w-4 text-green-500" />
+                                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                               ) : (
-                                <AlertCircle className="h-4 w-4 text-red-500" />
+                                <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
                               )}
                             </div>
-                          </Button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Quick Connect Section */}
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-medium text-blue-900">Connect Social Media Accounts</h4>
-                          <p className="text-sm text-blue-700">Connect your accounts to post content directly</p>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={() => connectPlatform('twitter')}
-                            size="sm"
-                            className="bg-blue-500 hover:bg-blue-600 text-white"
-                            disabled={isConnecting.twitter}
-                          >
-                            {isConnecting.twitter ? (
-                              <>
-                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                Connecting...
-                              </>
-                            ) : (
-                              <>
-                                <FaTwitter className="h-3 w-3 mr-1" />
-                                Connect Twitter
-                              </>
-                            )}
-                          </Button>
-                          <Button
-                            onClick={() => navigate('/settings')}
-                            size="sm"
-                            variant="outline"
-                            className="border-blue-300 text-blue-700 hover:bg-blue-100"
-                          >
-                            <Settings className="h-3 w-3 mr-1" />
-                            All Settings
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
+                          </div>
+                        </Button>
+                      );
+                    })}
                   </div>
-                  {platform && !connectionStatus[platform.toLowerCase()] && (
-                    <div className="flex items-center space-x-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                      <AlertCircle className="h-4 w-4 text-amber-500" />
-                      <div className="flex-1">
-                        <span className="text-sm text-amber-700 font-medium">
-                          {platform} account not connected
-                        </span>
-                        <p className="text-xs text-amber-600 mt-1">
-                          Connect your {platform} account in Settings to post content directly.
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-amber-300 text-amber-700 hover:bg-amber-100"
-                          onClick={() => navigate('/settings')}
-                        >
-                          <Settings className="h-3 w-3 mr-1" />
-                          Settings
-                        </Button>
-                        <Button
-                          size="sm"
-                          className="bg-blue-500 hover:bg-blue-600 text-white"
-                          onClick={() => connectPlatform(platform.toLowerCase() as any)}
-                          disabled={isConnecting[platform.toLowerCase() as keyof typeof isConnecting]}
-                        >
-                          {isConnecting[platform.toLowerCase() as keyof typeof isConnecting] ? (
-                            <>
-                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                              Connecting...
-                            </>
-                          ) : (
-                            <>
-                              Connect {platform}
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 {/* Tone Selection */}
-                <div className="space-y-3">
-                  <Label className="text-sm font-semibold text-gray-700">Tone & Style</Label>
+                <div className="space-y-4">
+                  <Label className="text-base font-semibold text-gray-700">Content Tone</Label>
+
                   <Select value={tone} onValueChange={setTone}>
-                    <SelectTrigger className="h-12 border-2 focus:border-purple-400">
-                      <SelectValue placeholder="Choose tone" />
+                    <SelectTrigger className="h-12 border-2 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg transition-all duration-200">
+                      <SelectValue placeholder="Choose your content tone" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="rounded-lg shadow-lg border border-gray-200">
                       {tones.map((t) => (
-                        <SelectItem key={t.value} value={t.value}>
-                          <div className="flex items-center space-x-2">
-                            <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                            <span>{t.label}</span>
+                        <SelectItem key={t.value} value={t.value} className="rounded-md my-1">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                            <span className="font-medium">{t.label}</span>
                           </div>
                         </SelectItem>
                       ))}
@@ -682,89 +355,96 @@ const CreatePost = () => {
                   </Select>
                 </div>
 
-                <Button
-                  onClick={generatePost}
-                  disabled={isGenerating || !prompt.trim() || !platform || !tone}
-                  className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 hover:from-purple-700 hover:via-pink-700 hover:to-blue-700 shadow-xl transition-all duration-300 hover:scale-105"
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="mr-3 h-5 w-5 animate-spin" />
-                      AI Agents Working...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="mr-3 h-5 w-5" />
-                      Generate with AI {usageCount > 0 && `(${usageCount})`}
-                    </>
-                  )}
-                </Button>
+                {/* Generate Button */}
+                <div className="pt-6">
+                  <Button
+                    onClick={generatePost}
+                    disabled={isGenerating || !prompt.trim() || !platform || !tone}
+                    className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-center justify-center space-x-3">
+                      {isGenerating ? (
+                        <>
+                          <Loader2 className="h-6 w-6 animate-spin" />
+                          <span>Generating Content...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-6 w-6" />
+                          <span>Generate Content</span>
+                          {usageCount > 0 && (
+                            <span className="px-2 py-1 bg-white/20 rounded-full text-sm">
+                              {usageCount}
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
-          </div>
 
-          {/* Preview Section */}
-          <div className="space-y-6">
-            <Card className="bg-white/90 backdrop-blur-sm border-white/50 shadow-2xl">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center space-x-3 text-xl">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <Globe className="h-6 w-6 text-blue-600" />
+            {/* Preview Section */}
+            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <CardHeader className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-t-lg">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-white/20 rounded-lg">
+                    <Globe className="h-6 w-6" />
                   </div>
-                  <span>Content Preview</span>
-                  {platform && (
-                    <Badge className="ml-auto bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0">
-                      {platform}
-                    </Badge>
-                  )}
-                </CardTitle>
-                <CardDescription className="text-base">
-                  See how your content will look on {platform || 'your chosen platform'}
-                </CardDescription>
+                  <div>
+                    <CardTitle className="text-xl">Content Preview</CardTitle>
+                    <CardDescription className="text-indigo-100">
+                      See how your content will look
+                    </CardDescription>
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-6">
                 {generatedText ? (
                   <div className="space-y-6">
-                    <div className="relative">
-                      <div className="p-6 bg-gradient-to-br from-gray-50 to-white rounded-xl border-2 border-dashed border-gray-200 min-h-[250px] shadow-inner">
+                    <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-lg p-6 min-h-[250px] relative">
+                      <div className="absolute top-3 right-3">
+                        <span className="px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
+                          ✨ AI Generated
+                        </span>
+                      </div>
+                      <div className="mt-6">
                         <p className="whitespace-pre-wrap text-base leading-relaxed text-gray-800">
                           {generatedText}
                         </p>
                       </div>
-                      <div className="absolute top-3 right-3">
-                        <Badge className="bg-green-100 text-green-800 border-green-200">
-                          Generated
-                        </Badge>
-                      </div>
                     </div>
                     
-                    <div className="flex flex-wrap gap-3">
-                      <Button onClick={copyToClipboard} variant="outline" className="flex-1 h-11 hover:bg-purple-50">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <Button
+                        onClick={copyToClipboard}
+                        variant="outline"
+                        className="h-12 border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all duration-200"
+                      >
                         <Copy className="h-4 w-4 mr-2" />
                         Copy Content
                       </Button>
-                      <Button onClick={regeneratePost} variant="outline" className="flex-1 h-11 hover:bg-blue-50">
+                      <Button
+                        onClick={regeneratePost}
+                        variant="outline"
+                        className="h-12 border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all duration-200"
+                      >
                         <RefreshCw className="h-4 w-4 mr-2" />
                         Regenerate
                       </Button>
-                      {!showActionButtons && (
-                        <Button onClick={postNow} className="flex-1 h-11 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
-                          <Send className="h-4 w-4 mr-2" />
-                          Post Now to {platform}
-                        </Button>
-                      )}
                     </div>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
                     <div className="p-4 bg-gray-100 rounded-full mb-4">
-                      <TrendingUp className="h-12 w-12 text-gray-300" />
+                      <TrendingUp className="h-12 w-12 text-gray-400" />
                     </div>
-                    <p className="text-center text-lg font-medium">
-                      Your generated content will appear here
-                    </p>
-                    <p className="text-center text-sm mt-2">
-                      Start by describing what you want to create
+                    <h3 className="text-xl font-semibold text-gray-700 mb-2">
+                      Content Preview
+                    </h3>
+                    <p className="text-gray-500 max-w-sm">
+                      Your generated content will appear here. Fill out the form to get started.
                     </p>
                   </div>
                 )}
@@ -772,190 +452,6 @@ const CreatePost = () => {
             </Card>
           </div>
         </div>
-
-        {/* Image Generation Section */}
-        {generatedText && (
-          <Card className="bg-white/90 backdrop-blur-sm border-white/50 shadow-2xl">
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-3 text-xl">
-                <div className="p-2 bg-pink-100 rounded-lg">
-                  <ImageIcon className="h-6 w-6 text-pink-600" />
-                </div>
-                <span>AI Image Generator</span>
-                <Badge variant="secondary" className="ml-auto">
-                  Optional
-                </Badge>
-              </CardTitle>
-              <CardDescription className="text-base">
-                Generate an AI image using advanced AI models or get a description to use with other tools.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="imagePrompt" className="text-sm font-semibold text-gray-700">Image Prompt</Label>
-                    <Textarea
-                      id="imagePrompt"
-                      placeholder="e.g., A modern robot sitting at a desk writing on a laptop, digital art style"
-                      value={imagePrompt}
-                      onChange={(e) => setImagePrompt(e.target.value)}
-                      className="min-h-[100px] border-2 focus:border-pink-400"
-                    />
-                  </div>
-
-                  <Button 
-                    onClick={generateImage} 
-                    disabled={isGeneratingImage || !imagePrompt.trim()}
-                    className="w-full h-12 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 transition-all duration-300"
-                  >
-                    {isGeneratingImage ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Generating Image...
-                      </>
-                    ) : (
-                      <>
-                        <ImageIcon className="mr-2 h-4 w-4" />
-                        Generate Image {usageCount > 0 && `(${usageCount})`}
-                      </>
-                    )}
-                  </Button>
-                </div>
-
-                <div className="flex items-center justify-center">
-                  {generatedImage ? (
-                    <div className="space-y-3 w-full">
-                      <Label className="text-sm font-semibold text-gray-700">
-                        Generated {imageType === 'generated' ? 'Image' : 'Image Description'}
-                      </Label>
-                      {imageType === 'generated' ? (
-                        <div className="bg-white p-4 rounded-lg border-2 border-gray-200 shadow-inner">
-                          <img src={generatedImage} alt="Generated image" className="max-w-full h-auto rounded-lg" />
-                        </div>
-                      ) : (
-                        <div className="bg-white p-4 rounded-lg border-2 border-gray-200 shadow-inner">
-                          <p className="text-gray-800 text-sm leading-relaxed">{generatedImage}</p>
-                          <p className="text-xs text-gray-500 mt-3">Use this description with your preferred image generation tool</p>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center text-gray-400">
-                      <div className="p-3 bg-gray-100 rounded-full mb-3 inline-block">
-                        <ImageIcon className="h-8 w-8" />
-                      </div>
-                      <p className="text-sm">Image will appear here</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Schedule Section */}
-        {generatedText && (
-          <Card className="bg-white/90 backdrop-blur-sm border-white/50 shadow-2xl" data-schedule-section>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-3 text-xl">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <CalendarIcon className="h-6 w-6 text-green-600" />
-                </div>
-                <span>Schedule Post</span>
-                <Badge variant="secondary" className="ml-auto">
-                  Optional
-                </Badge>
-              </CardTitle>
-              <CardDescription className="text-base">
-                Choose when to publish your content across social media platforms.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label className="text-sm font-semibold text-gray-700">Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full h-12 justify-start text-left font-normal border-2 focus:border-green-400",
-                          !scheduleDate && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {scheduleDate ? format(scheduleDate, "PPP") : "Pick a date"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={scheduleDate}
-                        onSelect={setScheduleDate}
-                        disabled={(date) => {
-                          const today = new Date();
-                          today.setHours(0, 0, 0, 0);
-                          return date < today;
-                        }}
-                        initialFocus
-                        className="pointer-events-auto"
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-semibold text-gray-700">Time</Label>
-                  <Input
-                    type="time"
-                    value={scheduleTime}
-                    onChange={(e) => setScheduleTime(e.target.value)}
-                    className="h-12 border-2 focus:border-green-400"
-                  />
-                </div>
-              </div>
-
-              <Button 
-                onClick={schedulePost}
-                className="w-full h-12 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 transition-all duration-300"
-                disabled={!scheduleDate || !scheduleTime}
-              >
-                <Send className="mr-2 h-4 w-4" />
-                Schedule Post
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-        
-        {/* Action Buttons - Show at bottom when image is generated */}
-        {showActionButtons && generatedText && (
-          <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-200 p-4 shadow-lg">
-            <div className="max-w-7xl mx-auto flex gap-4">
-              <Button 
-                onClick={postNow} 
-                className="flex-1 h-12 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-lg font-semibold"
-              >
-                <Send className="h-5 w-5 mr-2" />
-                Post Now to {platform}
-              </Button>
-              <Button 
-                onClick={() => {
-                  // Scroll to schedule section
-                  const scheduleSection = document.querySelector('[data-schedule-section]');
-                  if (scheduleSection) {
-                    scheduleSection.scrollIntoView({ behavior: 'smooth' });
-                  }
-                }}
-                variant="outline" 
-                className="flex-1 h-12 text-lg font-semibold hover:bg-purple-50"
-              >
-                <CalendarIcon className="h-5 w-5 mr-2" />
-                Schedule Later
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

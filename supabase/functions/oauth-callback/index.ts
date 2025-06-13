@@ -214,7 +214,7 @@ serve(async (req) => {
 
     if (error) {
       console.error(`[OAuth Callback] OAuth error: ${error} - ${errorDescription}`);
-      const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'http://localhost:8083';
+      const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'http://localhost:8080';
       return new Response(null, {
         status: 302,
         headers: {
@@ -306,7 +306,7 @@ serve(async (req) => {
 
     console.log(`[OAuth Callback] Successfully connected ${platform} for user ${user_id}`);
 
-    const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'http://localhost:8083';
+    const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'http://localhost:8080';
     const successUrl = `${frontendUrl}/oauth/callback?success=true&platform=${platform}`;
     console.log(`[OAuth Callback] Redirecting to success URL: ${successUrl}`);
 
@@ -321,7 +321,7 @@ serve(async (req) => {
     console.error('[OAuth Callback] Error:', error.message);
     console.error('[OAuth Callback] Stack trace:', error.stack);
 
-    const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'http://localhost:8083';
+    const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'http://localhost:8080';
     const errorUrl = `${frontendUrl}/oauth/callback?error=${encodeURIComponent(error.message)}`;
 
     console.log(`[OAuth Callback] Redirecting to error URL: ${errorUrl}`);
