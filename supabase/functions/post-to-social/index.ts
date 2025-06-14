@@ -255,128 +255,32 @@ async function postToTwitter(content: string, credentials: any, image?: string) 
           throw new Error('Image size exceeds Twitter limit of 5MB');
         }
 
-        // Convert to base64 for the chunked upload process
-        const imageBytes = new Uint8Array(imageBuffer);
+        // Use simple upload for all images (Twitter supports up to 5MB)
+        console.log(`[Twitter] Using simple upload`);
 
-        // Step 1: Initialize upload (INIT)
-        console.log(`[Twitter] Step 1: Initializing chunked upload`);
-        const initResponse = await fetch("https://upload.twitter.com/1.1/media/upload.json", {
+        const imageBase64 = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+
+        const simpleUploadResponse = await fetch("https://upload.twitter.com/1.1/media/upload.json", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${credentials.access_token}`,
             "Content-Type": "application/x-www-form-urlencoded",
           },
           body: new URLSearchParams({
-            command: 'INIT',
-            total_bytes: imageBuffer.byteLength.toString(),
-            media_type: 'image/jpeg', // Adjust based on actual image type
-            media_category: 'tweet_image'
+            media_data: imageBase64,
           }),
         });
 
-        if (!initResponse.ok) {
-          const errorText = await initResponse.text();
-          console.error(`[Twitter] INIT failed:`, errorText);
-          throw new Error(`Upload initialization failed: ${initResponse.status} ${errorText}`);
+        if (simpleUploadResponse.ok) {
+          const uploadData = await simpleUploadResponse.json();
+          const mediaId = uploadData.media_id_string;
+          mediaIds.push(mediaId);
+          console.log(`[Twitter] Simple upload successful, media_id: ${mediaId}`);
+        } else {
+          const errorText = await simpleUploadResponse.text();
+          console.error(`[Twitter] Simple upload failed:`, errorText);
+          throw new Error(`Simple upload failed: ${simpleUploadResponse.status} ${errorText}`);
         }
-
-        const initData = await initResponse.json();
-        const mediaId = initData.media_id_string;
-        console.log(`[Twitter] Upload initialized with media_id: ${mediaId}`);
-
-        // Step 2: Upload media in chunks (APPEND)
-        console.log(`[Twitter] Step 2: Uploading media chunks`);
-        const chunkSize = 1024 * 1024; // 1MB chunks
-        const totalChunks = Math.ceil(imageBuffer.byteLength / chunkSize);
-
-        for (let segmentIndex = 0; segmentIndex < totalChunks; segmentIndex++) {
-          const start = segmentIndex * chunkSize;
-          const end = Math.min(start + chunkSize, imageBuffer.byteLength);
-          const chunk = imageBytes.slice(start, end);
-          const chunkBase64 = btoa(String.fromCharCode(...chunk));
-
-          console.log(`[Twitter] Uploading chunk ${segmentIndex + 1}/${totalChunks}`);
-
-          const appendResponse = await fetch("https://upload.twitter.com/1.1/media/upload.json", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${credentials.access_token}`,
-              "Content-Type": "application/x-www-form-urlencoded",
-            },
-            body: new URLSearchParams({
-              command: 'APPEND',
-              media_id: mediaId,
-              segment_index: segmentIndex.toString(),
-              media_data: chunkBase64
-            }),
-          });
-
-          if (!appendResponse.ok) {
-            const errorText = await appendResponse.text();
-            console.error(`[Twitter] APPEND failed for chunk ${segmentIndex}:`, errorText);
-            throw new Error(`Chunk upload failed: ${appendResponse.status} ${errorText}`);
-          }
-        }
-
-        // Step 3: Finalize upload (FINALIZE)
-        console.log(`[Twitter] Step 3: Finalizing upload`);
-        const finalizeResponse = await fetch("https://upload.twitter.com/1.1/media/upload.json", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${credentials.access_token}`,
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: new URLSearchParams({
-            command: 'FINALIZE',
-            media_id: mediaId
-          }),
-        });
-
-        if (!finalizeResponse.ok) {
-          const errorText = await finalizeResponse.text();
-          console.error(`[Twitter] FINALIZE failed:`, errorText);
-          throw new Error(`Upload finalization failed: ${finalizeResponse.status} ${errorText}`);
-        }
-
-        const finalizeData = await finalizeResponse.json();
-        console.log(`[Twitter] Upload finalized:`, finalizeData);
-
-        // Step 4: Check processing status if needed
-        if (finalizeData.processing_info) {
-          console.log(`[Twitter] Step 4: Checking processing status`);
-          let processingComplete = false;
-          let attempts = 0;
-          const maxAttempts = 10;
-
-          while (!processingComplete && attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, finalizeData.processing_info.check_after_secs * 1000));
-
-            const statusResponse = await fetch(`https://upload.twitter.com/1.1/media/upload.json?command=STATUS&media_id=${mediaId}`, {
-              headers: {
-                Authorization: `Bearer ${credentials.access_token}`,
-              },
-            });
-
-            if (statusResponse.ok) {
-              const statusData = await statusResponse.json();
-              console.log(`[Twitter] Processing status:`, statusData.processing_info);
-
-              if (statusData.processing_info.state === 'succeeded') {
-                processingComplete = true;
-              } else if (statusData.processing_info.state === 'failed') {
-                throw new Error(`Media processing failed: ${statusData.processing_info.error?.message || 'Unknown error'}`);
-              }
-            }
-            attempts++;
-          }
-
-          if (!processingComplete) {
-            throw new Error('Media processing timeout');
-          }
-        }
-
-        mediaIds.push(mediaId);
-        console.log(`[Twitter] Image uploaded successfully, media_id: ${mediaId}`);
 
       } catch (imageError) {
         console.error(`[Twitter] Image upload error:`, imageError);
