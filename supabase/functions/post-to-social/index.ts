@@ -255,32 +255,29 @@ async function postToTwitter(content: string, credentials: any, image?: string) 
           throw new Error('Image size exceeds Twitter limit of 5MB');
         }
 
-        // Use simple upload for all images (Twitter supports up to 5MB)
-        console.log(`[Twitter] Using simple upload`);
+        // For now, include image URL in tweet text since media upload requires OAuth 1.0a
+        console.log(`[Twitter] Including image URL in tweet text`);
 
-        const imageBase64 = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+        // Adjust tweet content to include image URL
+        const imageUrlText = `\n\nImage: ${image}`;
+        const maxContentLength = 280 - imageUrlText.length;
 
-        const simpleUploadResponse = await fetch("https://upload.twitter.com/1.1/media/upload.json", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${credentials.access_token}`,
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: new URLSearchParams({
-            media_data: imageBase64,
-          }),
-        });
-
-        if (simpleUploadResponse.ok) {
-          const uploadData = await simpleUploadResponse.json();
-          const mediaId = uploadData.media_id_string;
-          mediaIds.push(mediaId);
-          console.log(`[Twitter] Simple upload successful, media_id: ${mediaId}`);
+        if (tweetContent.length > maxContentLength) {
+          const words = tweetContent.split(' ');
+          let truncated = '';
+          for (const word of words) {
+            if ((truncated + ' ' + word).length <= maxContentLength - 3) {
+              truncated += (truncated ? ' ' : '') + word;
+            } else {
+              break;
+            }
+          }
+          tweetContent = truncated + "..." + imageUrlText;
         } else {
-          const errorText = await simpleUploadResponse.text();
-          console.error(`[Twitter] Simple upload failed:`, errorText);
-          throw new Error(`Simple upload failed: ${simpleUploadResponse.status} ${errorText}`);
+          tweetContent = tweetContent + imageUrlText;
         }
+
+        console.log(`[Twitter] Updated tweet content with image URL: ${tweetContent.length} chars`)
 
       } catch (imageError) {
         console.error(`[Twitter] Image upload error:`, imageError);
