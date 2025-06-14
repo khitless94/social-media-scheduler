@@ -15,9 +15,17 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, type = 'text' } = await req.json();
+    const { prompt, type = 'text', platforms, characterLimit, tone, contentType, maxLength, singlePost } = await req.json();
 
     if (type === 'text') {
+      // Determine character limit and platform-specific settings
+      const limit = maxLength || characterLimit || (platforms?.includes('twitter') ? 280 : 1000);
+      const isTwitterIncluded = platforms?.includes('twitter');
+
+      // Create platform-aware system prompt with strict instructions
+      const toneInstruction = tone ? ` Use a ${tone} tone.` : '';
+      const systemPrompt = `You are a social media expert. Create ONE single social media post ONLY.${toneInstruction} ${isTwitterIncluded ? `Keep it under 280 characters for Twitter.` : `Keep it under ${limit} characters.`} Return ONLY the post content - no instructions, no multiple options, no explanations, no "Here are some ideas", no numbered lists. Just the actual post text that can be published directly.`;
+
       // Generate text using OpenAI
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -28,10 +36,10 @@ serve(async (req) => {
         body: JSON.stringify({
           model: 'gpt-4o-mini',
           messages: [
-            { role: 'system', content: 'You are a helpful assistant that generates engaging social media content based on user prompts.' },
+            { role: 'system', content: systemPrompt },
             { role: 'user', content: prompt }
           ],
-          max_tokens: 1000,
+          max_tokens: isTwitterIncluded ? 100 : 200,
           temperature: 0.7,
         }),
       });
@@ -42,15 +50,39 @@ serve(async (req) => {
 
       const data = await response.json();
       console.log('OpenAI response:', JSON.stringify(data, null, 2));
-      
+
       let generatedText = '';
       if (data.choices && data.choices.length > 0) {
-        generatedText = data.choices[0].message.content;
+        generatedText = data.choices[0].message.content.trim();
       }
-      
+
       if (!generatedText) {
         generatedText = 'Unable to generate content. Please try a different prompt.';
       }
+
+      // Ensure content fits within the specified limit (strict for Twitter)
+      if (limit && generatedText.length > limit) {
+        if (isTwitterIncluded && limit <= 280) {
+          // For Twitter, be very strict about character limit
+          const truncated = generatedText.substring(0, 277);
+          const lastSpace = truncated.lastIndexOf(' ');
+          generatedText = (lastSpace > 0 ? truncated.substring(0, lastSpace) : truncated) + "...";
+        } else {
+          // For other platforms, truncate by words
+          const words = generatedText.split(' ');
+          let truncated = '';
+          for (const word of words) {
+            if ((truncated + ' ' + word).length <= limit - 3) {
+              truncated += (truncated ? ' ' : '') + word;
+            } else {
+              break;
+            }
+          }
+          generatedText = truncated + "...";
+        }
+      }
+
+      console.log(`Generated content length: ${generatedText.length}, limit: ${limit}`);
 
       return new Response(JSON.stringify({ generatedText }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

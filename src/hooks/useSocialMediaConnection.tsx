@@ -140,8 +140,9 @@ export const useSocialMediaConnection = (
           client_id: clientId,
           redirect_uri: redirectUri,
           state: state,
-          // Use available scopes from LinkedIn app: OpenID Connect + posting
-          scope: 'openid profile email w_member_social',
+          // Updated scopes: Use r_liteprofile and r_emailaddress for better compatibility
+          // w_member_social for posting capability
+          scope: 'r_liteprofile r_emailaddress w_member_social',
         });
         authorizationUrl = `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`;
 

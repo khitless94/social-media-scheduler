@@ -9,11 +9,7 @@ import AuthGuard from '@/components/AuthGuard';
 
 
 import LandingPage from '@/components/LandingPage';
-import Dashboard from '@/components/Dashboard';
-import CreatePost from '@/components/CreatePost';
-import MyPosts from '@/components/MyPosts';
-import Analytics from '@/components/Analytics';
-import Settings from '@/components/Settings';
+import UnifiedDashboard from '@/components/UnifiedDashboard';
 import OAuthCallback from '@/components/OAuthCallback';
 
 
@@ -41,26 +37,27 @@ function App() {
       {/* Add dynamic platform callback route for OAuth */}
       <Route path="/oauth/callback/:platform" element={<OAuthCallback />} />
 
-      {/* Protected Routes */}
+      {/* Protected Routes - Unified Dashboard */}
       <Route
         path="/dashboard"
-        element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
+        element={<UnifiedDashboard />}
       />
+      {/* Legacy routes redirect to unified dashboard */}
       <Route
         path="/create"
-        element={<ProtectedRoute><CreatePost /></ProtectedRoute>}
+        element={<UnifiedDashboard />}
       />
       <Route
         path="/posts"
-        element={<ProtectedRoute><MyPosts /></ProtectedRoute>}
+        element={<UnifiedDashboard />}
       />
       <Route
         path="/analytics"
-        element={<ProtectedRoute><Analytics /></ProtectedRoute>}
+        element={<UnifiedDashboard />}
       />
       <Route
         path="/settings"
-        element={<ProtectedRoute><Settings /></ProtectedRoute>}
+        element={<UnifiedDashboard />}
       />
     </Routes>
   );

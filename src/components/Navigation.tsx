@@ -40,7 +40,7 @@ const Navigation = () => {
   };
 
   return (
-    <nav className="bg-white/95 backdrop-blur-xl border-b border-gray-200/50 sticky top-0 z-50 shadow-sm">
+    <nav className="sticky-nav bg-white/95 border-b border-gray-200/50 shadow-sm">
       <div className="container mx-auto px-8">
         <div className="flex items-center justify-between h-20">
           {/* Enhanced Logo */}

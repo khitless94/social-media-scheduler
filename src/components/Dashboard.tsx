@@ -84,19 +84,19 @@ const Dashboard = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 relative overflow-hidden">
+    <div className="min-h-full bg-gradient-to-br from-blue-50/30 via-indigo-50/30 to-purple-50/30 relative overflow-hidden">
       {/* Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-400/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-indigo-400/10 rounded-full blur-2xl animate-pulse delay-500 transform -translate-x-1/2 -translate-y-1/2"></div>
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-400/5 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-400/5 rounded-full blur-3xl animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-indigo-400/5 rounded-full blur-2xl animate-pulse delay-500 transform -translate-x-1/2 -translate-y-1/2"></div>
       </div>
 
-      <div className="relative z-10 space-y-8 p-6">
+      <div className="relative z-10 space-y-8">
         {/* Enhanced Welcome Section */}
-        <div className="text-center space-y-6 py-12">
+        <div className="text-left space-y-6 py-8">
           {/* Floating Achievement Badges */}
-          <div className="flex justify-center space-x-4 mb-6">
+          <div className="flex flex-wrap gap-3 mb-6">
             <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 shadow-lg animate-bounce">
               <Star className="w-4 h-4 mr-2" />
               Content Creator
@@ -105,17 +105,21 @@ const Dashboard = () => {
               <Zap className="w-4 h-4 mr-2" />
               AI Powered
             </Badge>
+            <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 shadow-lg animate-bounce delay-500">
+              <Target className="w-4 h-4 mr-2" />
+              Pro User
+            </Badge>
           </div>
 
-          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 bg-clip-text text-transparent mb-4 px-4 leading-tight">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 bg-clip-text text-transparent mb-4 leading-tight">
             <span className="inline-block">{greeting}!</span> <span className="inline-block">👋</span>
           </h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-            Ready to create amazing content? Let's turn your ideas into engaging social media posts with the power of AI.
+          <p className="text-xl text-gray-600 max-w-4xl leading-relaxed">
+            Ready to create amazing content today? Let's turn your ideas into engaging social media posts with the power of AI.
           </p>
 
           {/* Enhanced CTA Button */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mt-8">
+          <div className="flex flex-col sm:flex-row gap-4 items-start mt-8">
             <Button
               size="lg"
               className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 px-8 py-4 text-lg rounded-full group"
@@ -134,17 +138,17 @@ const Dashboard = () => {
 
         {/* Enhanced Tabs for Overview and Analytics */}
         <Tabs defaultValue="overview" className="w-full max-w-6xl mx-auto">
-          <TabsList className="grid w-full max-w-lg mx-auto grid-cols-2 bg-white shadow-xl rounded-full p-1 border-0">
+          <TabsList className="grid w-full max-w-lg mx-auto grid-cols-2 bg-white shadow-xl rounded-full p-2 border-0 h-auto">
             <TabsTrigger
               value="overview"
-              className="flex items-center justify-center space-x-2 rounded-full data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:via-purple-600 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-300 py-3 px-4 sm:px-6 text-gray-600 hover:text-gray-900 min-w-0"
+              className="flex items-center justify-center space-x-2 rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:via-purple-600 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-300 py-3 px-4 sm:px-6 text-gray-600 hover:text-gray-900 min-w-0 h-12"
             >
               <Calendar className="h-4 w-4 flex-shrink-0" />
               <span className="font-semibold text-sm sm:text-base truncate">Overview</span>
             </TabsTrigger>
             <TabsTrigger
               value="analytics"
-              className="flex items-center justify-center space-x-2 rounded-full data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:via-purple-600 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-300 py-3 px-4 sm:px-6 text-gray-600 hover:text-gray-900 min-w-0"
+              className="flex items-center justify-center space-x-2 rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:via-purple-600 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-300 py-3 px-4 sm:px-6 text-gray-600 hover:text-gray-900 min-w-0 h-12"
             >
               <BarChart3 className="h-4 w-4 flex-shrink-0" />
               <span className="font-semibold text-sm sm:text-base truncate">Analytics</span>
@@ -328,6 +332,14 @@ const Dashboard = () => {
         <CreatePostModal
           isOpen={showCreateModal}
           onClose={() => setShowCreateModal(false)}
+          onOpenSettings={() => {
+            // Navigate to settings - you might want to implement this based on your routing
+            console.log("Navigate to settings");
+          }}
+          onPostSuccess={() => {
+            // Refresh dashboard data after successful post
+            fetchDashboardData();
+          }}
         />
       </div>
     </div>

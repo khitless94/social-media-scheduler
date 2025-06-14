@@ -42,8 +42,8 @@ const SubscriptionPlans = () => {
         {/* Plans Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Starter Plan */}
-          <Card className="relative p-8 border-2 border-gray-200 rounded-2xl hover:shadow-xl transition-all duration-300 hover:border-blue-300 group">
-            <div className="text-center space-y-6">
+          <Card className="relative p-8 border-2 border-gray-200 rounded-2xl hover:shadow-xl transition-all duration-300 hover:border-blue-300 group h-full flex flex-col">
+            <div className="text-center space-y-6 flex-grow">
               <div className="space-y-2">
                 <h3 className="text-2xl font-bold text-gray-900">Starter</h3>
                 <p className="text-gray-500">Perfect for individuals</p>
@@ -55,7 +55,7 @@ const SubscriptionPlans = () => {
                 </div>
                 <p className="text-sm text-gray-400">Billed monthly</p>
               </div>
-              <ul className="space-y-4 text-left">
+              <ul className="space-y-4 text-left flex-grow">
                 <li className="flex items-start space-x-3">
                   <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
                   <span className="text-gray-700">25 AI posts per month</span>

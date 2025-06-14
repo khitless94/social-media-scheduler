@@ -1,12 +1,16 @@
 # 🔗 LinkedIn OAuth Fix Guide
 
 ## 🚨 Current Issue
-You're seeing scope authorization errors:
-- `unauthorized_scope_error - Scope "r_emailaddress" is not authorized`
-- `unauthorized_scope_error - Scope "r_liteprofile" is not authorized`
+You're seeing LinkedIn API errors:
+- `Failed to fetch LinkedIn` with 403 status code
+- `serviceError` responses from LinkedIn API
+- Profile fetch failures
 
 ## 🔍 Root Cause Analysis
-The LinkedIn app with Client ID `78yhh9neso7awt` doesn't have the required **Products** enabled. LinkedIn requires specific products to be added to your app for different scopes to work.
+The LinkedIn app with Client ID `86z7443djn3cgx` may have one of these issues:
+1. **Products not enabled** - LinkedIn requires specific products for different scopes
+2. **Incorrect API endpoints** - Using wrong endpoints for the available scopes
+3. **Scope authorization issues** - App doesn't have permission for requested scopes
 
 ## 🛠️ Step-by-Step Fix
 
@@ -18,7 +22,7 @@ The LinkedIn app with Client ID `78yhh9neso7awt` doesn't have the required **Pro
    ```
 
 2. **Find Your App:**
-   - Look for app with Client ID: `78yhh9neso7awt`
+   - Look for app with Client ID: `86z7443djn3cgx`
    - If you can't find it, you'll need to create a new app
 
 3. **Check Auth Settings:**
@@ -44,6 +48,19 @@ The LinkedIn app with Client ID `78yhh9neso7awt` doesn't have the required **Pro
    - `w_member_social` ✅ (from "Share on LinkedIn")
    - `r_liteprofile` ✅ (from "Sign In with LinkedIn")
    - `r_emailaddress` ✅ (from "Sign In with LinkedIn")
+
+### Step 2.5: Code Changes Made (Already Applied)
+
+✅ **Updated OAuth scopes** in the code:
+- Changed from `openid profile email w_member_social`
+- To `r_liteprofile r_emailaddress w_member_social`
+
+✅ **Updated API endpoint** in backend:
+- Changed from `/v2/userinfo` (OpenID Connect)
+- To `/v2/people/~` (LinkedIn v2 API)
+
+✅ **Updated profile ID extraction**:
+- Changed from `profile.sub` to `profile.id`
 
 ### Step 3: Test with Debug Tool
 

@@ -14,6 +14,7 @@ const LandingPage = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
 
   // Redirect authenticated users to dashboard
   useEffect(() => {
@@ -21,6 +22,17 @@ const LandingPage = () => {
       navigate('/dashboard');
     }
   }, [user, loading, navigate]);
+
+  // Handle scroll effect for navigation
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrolled = window.scrollY > 10;
+      setIsScrolled(scrolled);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const openAuth = (mode: 'signin' | 'signup') => {
     setAuthMode(mode);
@@ -37,7 +49,11 @@ const LandingPage = () => {
       </div>
 
       {/* Material Design App Bar */}
-      <nav className="sticky top-0 z-50 bg-white shadow-md transition-all duration-300 hover:shadow-lg">
+      <nav className={`sticky-nav transition-all duration-300 border-b ${
+        isScrolled
+          ? 'bg-white/95 shadow-lg border-gray-200/50'
+          : 'bg-white/80 shadow-md border-gray-200/30'
+      }`}>
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg transform transition-transform hover:scale-105">
@@ -101,24 +117,52 @@ const LandingPage = () => {
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-white border-t shadow-lg">
+          <div className="md:hidden bg-white/95 backdrop-blur-xl border-t border-gray-200/50 shadow-lg">
             <div className="px-4 py-4 space-y-4">
-              <a href="#features" className="block text-gray-600 hover:text-blue-600 font-medium">Features</a>
-              <a href="#pricing" className="block text-gray-600 hover:text-blue-600 font-medium">Pricing</a>
-              <a href="#testimonials" className="block text-gray-600 hover:text-blue-600 font-medium">Reviews</a>
-              <div className="pt-4 border-t space-y-3">
+              <a
+                href="#features"
+                className="block text-gray-600 hover:text-blue-600 font-medium transition-colors duration-200"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Features
+              </a>
+              <a
+                href="#pricing"
+                className="block text-gray-600 hover:text-blue-600 font-medium transition-colors duration-200"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Pricing
+              </a>
+              <a
+                href="#testimonials"
+                className="block text-gray-600 hover:text-blue-600 font-medium transition-colors duration-200"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Reviews
+              </a>
+              <div className="pt-4 border-t border-gray-200 space-y-3">
                 {user ? (
                   <Button asChild className="w-full bg-blue-600 hover:bg-blue-700">
                     <Link to="/dashboard">Dashboard</Link>
                   </Button>
                 ) : (
                   <>
-                    <Button variant="outline" onClick={() => openAuth('signin')} className="w-full">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        openAuth('signin');
+                        setMobileMenuOpen(false);
+                      }}
+                      className="w-full"
+                    >
                       Sign In
                     </Button>
                     <Button
                       className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                      onClick={() => openAuth('signup')}
+                      onClick={() => {
+                        openAuth('signup');
+                        setMobileMenuOpen(false);
+                      }}
                     >
                       Start Free Trial
                     </Button>
@@ -1029,123 +1073,143 @@ const LandingPage = () => {
             </p>
           </div>
 
-          {/* Most Popular Badge - positioned absolutely */}
-          <div className="relative">
-            <Badge className="absolute -top-4 left-1/2 md:left-[50%] transform -translate-x-1/2 z-50 bg-gradient-to-r from-yellow-400 to-amber-400 text-yellow-900 px-6 py-2 font-bold shadow-xl rounded-full text-sm whitespace-nowrap border-2 border-yellow-300">
-              🔥 Most Popular
-            </Badge>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8 mt-16">
-            {/* Free Plan */}
-            <Card className="bg-white shadow-lg hover:shadow-xl transition-all duration-300 rounded-3xl border-0 overflow-hidden">
-              <CardContent className="p-8">
-                <div className="text-center mb-8">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-2">Starter</h3>
-                  <div className="text-4xl font-bold text-gray-900 mb-2">Free</div>
-                  <p className="text-gray-600">Perfect for trying out</p>
+          {/* Plans Grid - Using Settings Component Structure */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-16">
+            {/* Starter Plan */}
+            <Card className="relative p-8 border-2 border-gray-200 rounded-2xl hover:shadow-xl transition-all duration-300 hover:border-blue-300 group h-full flex flex-col">
+              <div className="text-center space-y-6 flex-grow">
+                <div className="space-y-2">
+                  <h3 className="text-2xl font-bold text-gray-900">Starter</h3>
+                  <p className="text-gray-500">Perfect for trying out</p>
                 </div>
-                <ul className="space-y-4 mb-8">
-                  <li className="flex items-center space-x-3">
-                    <Check className="w-5 h-5 text-green-500" />
-                    <span>5 posts per month</span>
+                <div className="space-y-1">
+                  <div className="flex items-baseline justify-center space-x-1">
+                    <span className="text-4xl font-bold text-gray-900">Free</span>
+                  </div>
+                  <p className="text-sm text-gray-400">Always free</p>
+                </div>
+                <ul className="space-y-4 text-left flex-grow min-h-[200px]">
+                  <li className="flex items-start space-x-3">
+                    <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-gray-700">5 posts per month</span>
                   </li>
-                  <li className="flex items-center space-x-3">
-                    <Check className="w-5 h-5 text-green-500" />
-                    <span>2 social platforms</span>
+                  <li className="flex items-start space-x-3">
+                    <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-gray-700">2 social platforms</span>
                   </li>
-                  <li className="flex items-center space-x-3">
-                    <Check className="w-5 h-5 text-green-500" />
-                    <span>Basic AI templates</span>
+                  <li className="flex items-start space-x-3">
+                    <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-gray-700">Basic AI templates</span>
                   </li>
-                  <li className="flex items-center space-x-3">
-                    <Check className="w-5 h-5 text-green-500" />
-                    <span>Community support</span>
+                  <li className="flex items-start space-x-3">
+                    <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-gray-700">Community support</span>
                   </li>
                 </ul>
-                <Button
-                  className="w-full bg-gray-900 hover:bg-gray-800 text-white rounded-full py-3"
-                  onClick={() => openAuth('signup')}
-                >
-                  Get Started Free
-                </Button>
-              </CardContent>
+                <div className="mt-auto pt-6">
+                  <Button
+                    className="w-full h-12 bg-gray-900 hover:bg-gray-800 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
+                    onClick={() => openAuth('signup')}
+                  >
+                    Get Started Free
+                  </Button>
+                </div>
+              </div>
             </Card>
 
             {/* Pro Plan - Most Popular */}
-            <Card className="bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-3xl border-0 overflow-hidden transform scale-105 relative z-10">
-              <CardContent className="p-8 text-white pt-12">
-                <div className="text-center mb-8">
-                  <h3 className="text-2xl font-bold mb-2">Pro</h3>
-                  <div className="text-4xl font-bold mb-2">
-                    $29<span className="text-lg font-normal">/month</span>
-                  </div>
-                  <p className="text-blue-100">For growing creators</p>
+            <Card className="relative p-8 border-2 border-purple-300 rounded-2xl hover:shadow-2xl transition-all duration-300 scale-105 bg-gradient-to-br from-purple-50 to-pink-50 h-full flex flex-col">
+              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                <Badge className="bg-gradient-to-r from-yellow-400 to-amber-400 text-yellow-900 px-6 py-2 rounded-full flex items-center space-x-2 shadow-lg font-bold border-2 border-yellow-300">
+                  <Star className="h-4 w-4" />
+                  <span className="font-semibold">Most Popular</span>
+                </Badge>
+              </div>
+              <div className="text-center space-y-6 pt-4 flex-grow flex flex-col">
+                <div className="space-y-2">
+                  <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">Pro</h3>
+                  <p className="text-gray-600">For growing creators</p>
                 </div>
-                <ul className="space-y-4 mb-8">
-                  <li className="flex items-center space-x-3">
-                    <Check className="w-5 h-5 text-green-300" />
-                    <span>Unlimited posts</span>
+                <div className="space-y-1">
+                  <div className="flex items-baseline justify-center space-x-1">
+                    <span className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">$29</span>
+                    <span className="text-gray-500">/month</span>
+                  </div>
+                  <p className="text-sm text-gray-400">Billed monthly</p>
+                </div>
+                <ul className="space-y-4 text-left flex-grow min-h-[200px]">
+                  <li className="flex items-start space-x-3">
+                    <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-gray-700 font-medium">Unlimited posts</span>
                   </li>
-                  <li className="flex items-center space-x-3">
-                    <Check className="w-5 h-5 text-green-300" />
-                    <span>All social platforms</span>
+                  <li className="flex items-start space-x-3">
+                    <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-gray-700">All social platforms</span>
                   </li>
-                  <li className="flex items-center space-x-3">
-                    <Check className="w-5 h-5 text-green-300" />
-                    <span>Advanced AI models</span>
+                  <li className="flex items-start space-x-3">
+                    <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-gray-700">Advanced AI models</span>
                   </li>
-                  <li className="flex items-center space-x-3">
-                    <Check className="w-5 h-5 text-green-300" />
-                    <span>Analytics & insights</span>
+                  <li className="flex items-start space-x-3">
+                    <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-gray-700">Analytics & insights</span>
                   </li>
-                  <li className="flex items-center space-x-3">
-                    <Check className="w-5 h-5 text-green-300" />
-                    <span>Priority support</span>
+                  <li className="flex items-start space-x-3">
+                    <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-gray-700">Priority support</span>
                   </li>
                 </ul>
-                <Button
-                  className="w-full bg-white text-blue-600 hover:bg-gray-100 rounded-full py-3 font-semibold"
-                  onClick={() => openAuth('signup')}
-                >
-                  Start 7-Day Free Trial
-                </Button>
-              </CardContent>
+                <div className="mt-auto pt-6">
+                  <Button
+                    className="w-full h-12 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
+                    onClick={() => openAuth('signup')}
+                  >
+                    Start 7-Day Free Trial
+                  </Button>
+                </div>
+              </div>
             </Card>
 
             {/* Enterprise Plan */}
-            <Card className="bg-white shadow-lg hover:shadow-xl transition-all duration-300 rounded-3xl border-0 overflow-hidden">
-              <CardContent className="p-8">
-                <div className="text-center mb-8">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-2">Enterprise</h3>
-                  <div className="text-4xl font-bold text-gray-900 mb-2">Custom</div>
-                  <p className="text-gray-600">For large teams</p>
+            <Card className="relative p-8 border-2 border-gray-200 rounded-2xl hover:shadow-xl transition-all duration-300 hover:border-green-300 group h-full flex flex-col">
+              <div className="text-center space-y-6 flex-grow">
+                <div className="space-y-2">
+                  <h3 className="text-2xl font-bold text-gray-900">Enterprise</h3>
+                  <p className="text-gray-500">For large teams</p>
                 </div>
-                <ul className="space-y-4 mb-8">
-                  <li className="flex items-center space-x-3">
-                    <Check className="w-5 h-5 text-green-500" />
-                    <span>Everything in Pro</span>
+                <div className="space-y-1">
+                  <div className="flex items-baseline justify-center space-x-1">
+                    <span className="text-4xl font-bold text-green-600">Custom</span>
+                  </div>
+                  <p className="text-sm text-gray-400">Custom pricing available</p>
+                </div>
+                <ul className="space-y-4 text-left flex-grow min-h-[200px]">
+                  <li className="flex items-start space-x-3">
+                    <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-gray-700 font-medium">Everything in Pro</span>
                   </li>
-                  <li className="flex items-center space-x-3">
-                    <Check className="w-5 h-5 text-green-500" />
-                    <span>Team collaboration</span>
+                  <li className="flex items-start space-x-3">
+                    <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-gray-700">Team collaboration</span>
                   </li>
-                  <li className="flex items-center space-x-3">
-                    <Check className="w-5 h-5 text-green-500" />
-                    <span>Custom AI training</span>
+                  <li className="flex items-start space-x-3">
+                    <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-gray-700">Custom AI training</span>
                   </li>
-                  <li className="flex items-center space-x-3">
-                    <Check className="w-5 h-5 text-green-500" />
-                    <span>Dedicated support</span>
+                  <li className="flex items-start space-x-3">
+                    <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-gray-700">Dedicated support</span>
                   </li>
                 </ul>
-                <Button
-                  variant="outline"
-                  className="w-full border-2 border-gray-300 text-gray-700 hover:bg-gray-50 rounded-full py-3"
-                >
-                  Contact Sales
-                </Button>
-              </CardContent>
+                <div className="mt-auto pt-6">
+                  <Button
+                    variant="outline"
+                    className="w-full h-12 border-2 border-green-600 text-green-600 hover:bg-green-50 hover:border-green-700 font-semibold rounded-xl transition-all duration-200"
+                  >
+                    Contact Sales
+                  </Button>
+                </div>
+              </div>
             </Card>
           </div>
 

@@ -10,7 +10,7 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
-export async function postToPlatform({ platform, content, subreddit }) {
+export async function postToPlatform({ platform, content, subreddit, image }) {
   try {
     // Step 1: Get current session
     const sessionResult = await supabase.auth.getSession();
@@ -28,7 +28,7 @@ export async function postToPlatform({ platform, content, subreddit }) {
     };
 
     // Step 3: Prepare request body
-    const body = JSON.stringify({ platform, content, subreddit });
+    const body = JSON.stringify({ platform, content, subreddit, image });
 
     // Step 4: Call the Edge Function
     const response = await fetch(`${SUPABASE_URL}/functions/v1/post-to-social`, {

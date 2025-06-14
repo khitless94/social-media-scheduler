@@ -99,3 +99,28 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  /* Ensure sticky navigation works properly */
+  .sticky-nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* Smooth scrolling for anchor links */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Ensure proper stacking context */
+  .sticky-nav::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: inherit;
+    z-index: -1;
+  }
+}

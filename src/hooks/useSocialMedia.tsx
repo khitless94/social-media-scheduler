@@ -5,6 +5,7 @@ export interface PostToSocialParams {
   content: string;
   platform: 'facebook' | 'instagram' | 'linkedin' | 'twitter' | 'reddit';
   subreddit?: string;
+  image?: string;
 }
 
 export interface PostResponse {
@@ -94,7 +95,7 @@ export const useSocialMedia = () => {
   };
 
   // Post to a single social media platform
-  const postToSocial = async ({ content, platform, subreddit }: PostToSocialParams): Promise<PostResponse> => {
+  const postToSocial = async ({ content, platform, subreddit, image }: PostToSocialParams): Promise<PostResponse> => {
     try {
       setLoading(true);
 
@@ -135,7 +136,8 @@ export const useSocialMedia = () => {
         body: {
           platform,
           content,
-          subreddit: platform === 'reddit' ? subreddit : undefined
+          subreddit: platform === 'reddit' ? subreddit : undefined,
+          image
         }
       });
 
@@ -200,17 +202,19 @@ export const useSocialMedia = () => {
 
   // Post to multiple platforms at once
   const postToMultiplePlatforms = async (
-    content: string, 
-    platforms: Array<{ platform: string, subreddit?: string }>
+    content: string,
+    platforms: Array<{ platform: string, subreddit?: string }>,
+    image?: string
   ): Promise<PostResponse[]> => {
     setLoading(true);
     try {
       const results = await Promise.all(
-        platforms.map(({ platform, subreddit }) => 
-          postToSocial({ 
-            content, 
-            platform: platform as any, 
-            subreddit 
+        platforms.map(({ platform, subreddit }) =>
+          postToSocial({
+            content,
+            platform: platform as any,
+            subreddit,
+            image
           })
         )
       );
