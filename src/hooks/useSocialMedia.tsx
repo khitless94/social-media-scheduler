@@ -69,15 +69,22 @@ export const useSocialMedia = () => {
     try {
       if (!user) return [];
 
-      const { data: tokens } = await supabase
-        .from('oauth_credentials')
-        .select('platform, expires_at, created_at')
-        .eq('user_id', user.id);
+      // Check both tables for backward compatibility
+      const [oauthResult, socialTokensResult] = await Promise.all([
+        supabase.from('oauth_credentials').select('platform, expires_at, created_at').eq('user_id', user.id),
+        supabase.from('social_tokens').select('platform, expires_at, created_at').eq('user_id', user.id)
+      ]);
+
+      // Combine tokens from both tables
+      const allTokens = [
+        ...(oauthResult.data || []),
+        ...(socialTokensResult.data || [])
+      ];
 
       const connectionStatus = platforms.map(platform => {
-        const token = tokens?.find(t => t.platform === platform.id);
+        const token = allTokens.find(t => t.platform === platform.id);
         const isExpired = token?.expires_at && new Date(token.expires_at) < new Date();
-        
+
         return {
           platform: platform.id,
           isConnected: !!token && !isExpired,
@@ -150,41 +157,58 @@ export const useSocialMedia = () => {
         };
       }
 
-      if (data.success) {
-        // Log successful post
-        await supabase.from('post_history').insert({
-          user_id: user.id,
-          platform,
-          content: content.substring(0, 1000), // Truncate for storage
-          post_id: data.postId,
-          status: 'success'
-        });
+      console.log(`[useSocialMedia] Edge function response for ${platform}:`, data);
 
-        // Refresh post history
-        await getPostHistory();
+      // The edge function returns { success: true, results: [...] }
+      if (data.success && data.results && data.results.length > 0) {
+        const result = data.results.find((r: any) => r.platform === platform) || data.results[0];
 
-        return {
-          success: true,
-          message: `Successfully posted to ${platform}`,
-          postId: data.postId,
-          platform
-        };
+        console.log(`[useSocialMedia] Found result for ${platform}:`, result);
+
+        if (result.success) {
+          // Log successful post
+          await supabase.from('post_history').insert({
+            user_id: user.id,
+            platform,
+            content: content.substring(0, 1000), // Truncate for storage
+            post_id: result.postId,
+            status: 'success'
+          });
+
+          // Refresh post history
+          await getPostHistory();
+
+          return {
+            success: true,
+            message: result.message || `Successfully posted to ${platform}`,
+            postId: result.postId,
+            platform
+          };
+        } else {
+          // Log failed post
+          await supabase.from('post_history').insert({
+            user_id: user.id,
+            platform,
+            content: content.substring(0, 1000),
+            status: 'failed',
+            error_message: result.error
+          });
+
+          // Refresh post history
+          await getPostHistory();
+
+          return {
+            success: false,
+            error: result.error || 'Failed to post',
+            platform
+          };
+        }
       } else {
-        // Log failed post
-        await supabase.from('post_history').insert({
-          user_id: user.id,
-          platform,
-          content: content.substring(0, 1000),
-          status: 'failed',
-          error_message: data.error
-        });
-
-        // Refresh post history
-        await getPostHistory();
-
+        // Handle old format or error
+        console.error(`[useSocialMedia] Unexpected response format for ${platform}:`, data);
         return {
           success: false,
-          error: data.error || 'Failed to post',
+          error: data.error || 'Unexpected response format',
           platform
         };
       }

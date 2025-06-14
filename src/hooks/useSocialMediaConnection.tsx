@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -27,17 +27,35 @@ export const useSocialMediaConnection = (
     twitter: false, linkedin: false, instagram: false, facebook: false, reddit: false,
   });
 
+  // Rate limiting: track last connection attempt per platform
+  const lastConnectionAttempt = useRef<Record<Platform, number>>({
+    twitter: 0, linkedin: 0, instagram: 0, facebook: 0, reddit: 0,
+  });
+
+  const CONNECTION_COOLDOWN = 5000; // 5 seconds between attempts
+
   // useCallback ensures this function reference is stable, making dependent useEffects more efficient.
   const loadConnectionStatusFromDB = useCallback(async () => {
     if (!user) return;
     try {
-      const { data, error } = await supabase.from('oauth_credentials').select('platform').eq('user_id', user.id);
-      if (error) throw error;
-      
+      // Check both tables for backward compatibility
+      const [oauthResult, socialTokensResult] = await Promise.all([
+        supabase.from('oauth_credentials').select('platform').eq('user_id', user.id),
+        supabase.from('social_tokens').select('platform').eq('user_id', user.id)
+      ]);
+
       const newStatus: ConnectionStatus = { twitter: false, linkedin: false, instagram: false, facebook: false, reddit: false };
-      data?.forEach(credential => {
+
+      // Combine results from both tables
+      const allCredentials = [
+        ...(oauthResult.data || []),
+        ...(socialTokensResult.data || [])
+      ];
+
+      allCredentials.forEach(credential => {
         newStatus[credential.platform as Platform] = true;
       });
+
       onConnectionStatusChange(newStatus);
     } catch (error) {
       console.error('Error checking connection status:', error);
@@ -53,15 +71,34 @@ export const useSocialMediaConnection = (
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       // Security: only accept messages from your own app's origin
-      if (event.origin !== window.location.origin) return;
+      if (event.origin !== window.location.origin) {
+        console.warn('Rejected message from unauthorized origin:', event.origin);
+        return;
+      }
 
       const { type, platform, error } = event.data;
+
+      // Validate message structure
+      if (!type || !platform) {
+        console.warn('Invalid message structure:', event.data);
+        return;
+      }
+
       if (type === "oauth_success") {
-        toast({ title: "Connected successfully!", description: `Your ${platform} account is linked.` });
+        toast({
+          title: "Connected successfully!",
+          description: `Your ${platform} account is linked.`
+        });
         loadConnectionStatusFromDB();
       } else if (type === "oauth_error") {
-        toast({ title: "Connection Failed", description: error, variant: "destructive" });
+        toast({
+          title: "Connection Failed",
+          description: error || 'Unknown error occurred',
+          variant: "destructive"
+        });
       }
+
+      // Always reset loading state for the platform
       if (platform) {
         setIsConnecting(prev => ({ ...prev, [platform]: false }));
       }
@@ -84,6 +121,28 @@ export const useSocialMediaConnection = (
       toast({ title: "Authentication required", variant: "destructive" });
       return;
     }
+
+    // Prevent multiple simultaneous connection attempts
+    if (isConnecting[platform]) {
+      console.log(`Connection already in progress for ${platform}`);
+      return;
+    }
+
+    // Rate limiting: prevent rapid repeated attempts
+    const now = Date.now();
+    const lastAttempt = lastConnectionAttempt.current[platform];
+    if (now - lastAttempt < CONNECTION_COOLDOWN) {
+      const remainingTime = Math.ceil((CONNECTION_COOLDOWN - (now - lastAttempt)) / 1000);
+      toast({
+        title: "Please wait",
+        description: `Please wait ${remainingTime} seconds before trying again.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    lastConnectionAttempt.current[platform] = now;
+
     try {
       setIsConnecting(prev => ({ ...prev, [platform]: true }));
 
@@ -140,9 +199,9 @@ export const useSocialMediaConnection = (
           client_id: clientId,
           redirect_uri: redirectUri,
           state: state,
-          // Updated scopes: Use r_liteprofile and r_emailaddress for better compatibility
-          // w_member_social for posting capability
-          scope: 'r_liteprofile r_emailaddress w_member_social',
+          // LinkedIn 2024+ requires OpenID Connect scopes
+          // openid, profile, email for account details + w_member_social for posting
+          scope: 'openid profile email w_member_social',
         });
         authorizationUrl = `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`;
 
@@ -172,10 +231,25 @@ export const useSocialMediaConnection = (
         throw new Error("Popup blocked. Please enable popups for this site.");
       }
 
-      // FIXED: Added popup monitoring to handle if user closes popup manually
-      const checkClosed = setInterval(() => {
+      // Enhanced popup monitoring with timeout and cleanup
+      let checkClosedInterval: NodeJS.Timeout;
+      const timeoutId = setTimeout(() => {
+        if (checkClosedInterval) clearInterval(checkClosedInterval);
+        if (!popup.closed) {
+          popup.close();
+        }
+        setIsConnecting(prev => ({ ...prev, [platform]: false }));
+        toast({
+          title: "Connection Timeout",
+          description: `${platform} connection timed out. Please try again.`,
+          variant: "destructive"
+        });
+      }, 300000); // 5 minute timeout
+
+      checkClosedInterval = setInterval(() => {
         if (popup.closed) {
-          clearInterval(checkClosed);
+          clearInterval(checkClosedInterval);
+          clearTimeout(timeoutId);
           setIsConnecting(prev => ({ ...prev, [platform]: false }));
         }
       }, 1000);
@@ -183,7 +257,20 @@ export const useSocialMediaConnection = (
     } catch (error: any) {
       console.error(`OAuth error for ${platform}:`, error);
       setIsConnecting(prev => ({ ...prev, [platform]: false }));
-      toast({ title: "Connection Error", description: error.message, variant: "destructive" });
+
+      // More specific error messages
+      let errorMessage = error.message;
+      if (error.message.includes('Client ID')) {
+        errorMessage = `${platform} is not properly configured. Please check the app settings.`;
+      } else if (error.message.includes('Popup blocked')) {
+        errorMessage = 'Popup was blocked. Please allow popups for this site and try again.';
+      }
+
+      toast({
+        title: "Connection Error",
+        description: errorMessage,
+        variant: "destructive"
+      });
     }
   };
 
@@ -191,11 +278,22 @@ export const useSocialMediaConnection = (
     if (!user) return;
     try {
       setIsConnecting(prev => ({ ...prev, [platform]: true }));
-      const { error } = await supabase.from('oauth_credentials').delete().match({ user_id: user.id, platform });
-      if (error) throw error;
-      toast({ title: "Disconnected successfully" });
+
+      // Delete from both tables for complete cleanup
+      const [oauthResult, socialTokensResult] = await Promise.all([
+        supabase.from('oauth_credentials').delete().match({ user_id: user.id, platform }),
+        supabase.from('social_tokens').delete().match({ user_id: user.id, platform })
+      ]);
+
+      // Check if either deletion had an error
+      if (oauthResult.error && socialTokensResult.error) {
+        throw new Error('Failed to disconnect from both credential stores');
+      }
+
+      toast({ title: "Disconnected successfully", description: `${platform} account has been disconnected.` });
       loadConnectionStatusFromDB(); // Refresh the UI after disconnecting
     } catch (error: any) {
+      console.error(`Error disconnecting ${platform}:`, error);
       toast({ title: "Error", description: "Failed to disconnect account.", variant: "destructive" });
     } finally {
       setIsConnecting(prev => ({ ...prev, [platform]: false }));

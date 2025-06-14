@@ -22,7 +22,7 @@ export const generateOAuthUrl = async (platform: OAuthPlatform, config: OAuthCon
   // Ensure these scopes are configured in your respective social media developer apps
   const scopes: Record<OAuthPlatform, string> = {
     twitter: 'tweet.read tweet.write users.read offline.access',
-    linkedin: 'openid profile email w_member_social',  // OpenID Connect + posting permission
+    linkedin: 'openid profile email w_member_social',  // LinkedIn 2024+ OpenID Connect scopes
     facebook: 'pages_manage_posts,pages_read_engagement,publish_to_groups',
     instagram: 'user_profile,user_media',
     reddit: 'identity submit'

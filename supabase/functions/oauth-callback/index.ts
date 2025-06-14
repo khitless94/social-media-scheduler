@@ -182,6 +182,16 @@ Original error: ${responseText}`);
 
 Original error: ${responseText}`);
       }
+
+      if (responseText.includes('Bummer, something went wrong')) {
+        throw new Error(`LinkedIn OAuth Error: LinkedIn is experiencing issues or your app configuration needs attention. Please:
+1. Check your LinkedIn app status at https://www.linkedin.com/developers/apps
+2. Verify your app has the correct scopes: r_liteprofile, r_emailaddress, w_member_social
+3. Ensure your app is approved for production use
+4. Try again in a few minutes
+
+Original error: ${responseText}`);
+      }
     }
 
     throw new Error(`${platform} token exchange failed: ${response.status} ${response.statusText}. Details: ${responseText}`);
@@ -287,15 +297,26 @@ serve(async (req) => {
     console.log(`[OAuth Callback] Storing credentials for ${platform}/${user_id}`);
     console.log(`[OAuth Callback] Credentials data keys: ${Object.keys(credentialsData).join(', ')}`);
 
-    const { error: tokenError } = await supabase
-      .from('oauth_credentials')
-      .upsert(credentialsData, {
-        onConflict: 'user_id,platform'
-      });
+    // Store the credentials in both tables for backward compatibility
+    const [oauthResult, socialTokensResult] = await Promise.all([
+      supabase.from('oauth_credentials').upsert(credentialsData, { onConflict: 'user_id,platform' }),
+      supabase.from('social_tokens').upsert(credentialsData, { onConflict: 'user_id,platform' })
+    ]);
 
-    if (tokenError) {
-      console.error(`[OAuth Callback] Failed to store tokens:`, tokenError);
+    if (oauthResult.error && socialTokensResult.error) {
+      console.error(`[OAuth Callback] Failed to store tokens in both tables:`, {
+        oauth: oauthResult.error,
+        social: socialTokensResult.error
+      });
       throw new Error('Failed to store authentication tokens');
+    }
+
+    // Log which table(s) succeeded
+    if (oauthResult.error) {
+      console.warn(`[OAuth Callback] Failed to store in oauth_credentials:`, oauthResult.error);
+    }
+    if (socialTokensResult.error) {
+      console.warn(`[OAuth Callback] Failed to store in social_tokens:`, socialTokensResult.error);
     }
 
     // Clean up the oauth session

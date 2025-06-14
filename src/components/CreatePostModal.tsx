@@ -17,6 +17,7 @@ import {
   Image,
   Download
 } from "lucide-react";
+import { FaReddit } from "react-icons/fa";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -54,6 +55,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
     { id: "facebook", name: "Facebook", icon: Facebook, color: "bg-blue-600" },
     { id: "instagram", name: "Instagram", icon: Instagram, color: "bg-pink-500" },
     { id: "linkedin", name: "LinkedIn", icon: Linkedin, color: "bg-blue-700" },
+    { id: "reddit", name: "Reddit", icon: FaReddit, color: "bg-orange-500" },
   ];
 
   const toneOptions = [
@@ -79,6 +81,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
     facebook: 63206,
     instagram: 2200,
     linkedin: 3000,
+    reddit: 40000,
   };
 
   const connectedPlatforms = useMemo(() =>
@@ -532,16 +535,33 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
             message: result.message
           });
 
-          // If postId is missing but success is true, it might still have posted
-          if (!result.postId) {
-            console.warn(`⚠️ ${result.platform} post succeeded but no postId returned. Check your ${result.platform} account to verify.`);
+          // Debug the postId structure
+          console.log(`[DEBUG] ${result.platform} postId type:`, typeof result.postId);
+          console.log(`[DEBUG] ${result.platform} postId value:`, result.postId);
+          console.log(`[DEBUG] ${result.platform} full result:`, result);
+
+          // Check if postId is missing, null, undefined, or empty
+          const hasValidPostId = result.postId &&
+                                result.postId !== null &&
+                                result.postId !== undefined &&
+                                result.postId !== '' &&
+                                result.postId !== 'null' &&
+                                result.postId !== 'undefined';
+
+          if (!hasValidPostId) {
+            console.warn(`⚠️ ${result.platform} post succeeded but no valid postId returned. PostId: ${result.postId}. Check your ${result.platform} account to verify.`);
           }
         }
       });
 
       if (successCount > 0) {
         const successPlatforms = results.filter(r => r.success).map(r => r.platform).join(', ');
-        const hasPostIds = results.some(r => r.success && r.postId);
+        const hasPostIds = results.some(r => r.success && r.postId &&
+                                         r.postId !== null &&
+                                         r.postId !== undefined &&
+                                         r.postId !== '' &&
+                                         r.postId !== 'null' &&
+                                         r.postId !== 'undefined');
 
         toast({
           title: "Post published successfully!",

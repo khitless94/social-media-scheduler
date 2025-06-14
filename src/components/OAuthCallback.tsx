@@ -63,7 +63,7 @@ const OAuthCallback = () => {
         if (success === 'true') {
           setStatus('success');
           setMessage(`Successfully connected your ${activePlatform.charAt(0).toUpperCase() + activePlatform.slice(1)} account!`);
-          
+
           toast({
             title: "Connected successfully!",
             description: `Your ${activePlatform} account has been connected.`,
@@ -73,12 +73,22 @@ const OAuthCallback = () => {
           await supabase.auth.getSession();
 
           // Handle popup vs regular window
-          if (window.opener) {
-            window.opener.postMessage({ 
-              type: "oauth_success", 
-              platform: activePlatform 
-            }, "*");
-            setTimeout(() => window.close(), 1500);
+          if (window.opener && !window.opener.closed) {
+            try {
+              window.opener.postMessage({
+                type: "oauth_success",
+                platform: activePlatform
+              }, window.location.origin);
+              setTimeout(() => {
+                if (!window.closed) window.close();
+              }, 1500);
+            } catch (error) {
+              console.error('Error posting message to opener:', error);
+              // Fallback: just close the window
+              setTimeout(() => {
+                if (!window.closed) window.close();
+              }, 1500);
+            }
           } else {
             setTimeout(() => navigate("/settings"), 1500);
           }
@@ -92,10 +102,18 @@ const OAuthCallback = () => {
 
           // Provide user-friendly error messages for common LinkedIn issues
           let userFriendlyMessage = decodedError;
-          if (activePlatform === 'linkedin' && decodedError.includes('invalid_redirect_uri')) {
-            userFriendlyMessage = "LinkedIn app configuration issue. Please check the setup guide for LinkedIn OAuth configuration.";
-          } else if (activePlatform === 'linkedin' && decodedError.includes('invalid_client_id')) {
-            userFriendlyMessage = "LinkedIn app not found. Please verify your LinkedIn app configuration.";
+          if (activePlatform === 'linkedin') {
+            if (decodedError.includes('invalid_redirect_uri')) {
+              userFriendlyMessage = "LinkedIn app configuration issue. The redirect URL needs to be updated in LinkedIn Developer Console.";
+            } else if (decodedError.includes('invalid_client_id')) {
+              userFriendlyMessage = "LinkedIn app not found. Please verify your LinkedIn app configuration.";
+            } else if (decodedError.includes('Bummer, something went wrong')) {
+              userFriendlyMessage = "LinkedIn is experiencing issues. This usually means:\n• Your LinkedIn app needs approval\n• App permissions need to be configured\n• LinkedIn servers are temporarily down\n\nPlease try again in a few minutes or check your LinkedIn app settings.";
+            } else if (decodedError.includes('unauthorized_client')) {
+              userFriendlyMessage = "LinkedIn app authorization failed. Please check your app's client secret and permissions.";
+            } else if (decodedError.includes('access_denied')) {
+              userFriendlyMessage = "LinkedIn access was denied. Please try connecting again and grant the required permissions.";
+            }
           } else if (decodedError.includes('Bummer, something went wrong')) {
             userFriendlyMessage = `${activePlatform} OAuth configuration error. Please check your app settings.`;
           }
@@ -184,13 +202,22 @@ const OAuthCallback = () => {
               variant: "destructive",
             });
 
-            if (window.opener) {
-              window.opener.postMessage({ 
-                type: "oauth_error", 
-                platform: activePlatform, 
-                error: "Processing failed" 
-              }, "*");
-              setTimeout(() => window.close(), 3000);
+            if (window.opener && !window.opener.closed) {
+              try {
+                window.opener.postMessage({
+                  type: "oauth_error",
+                  platform: activePlatform,
+                  error: "Processing failed"
+                }, window.location.origin);
+                setTimeout(() => {
+                  if (!window.closed) window.close();
+                }, 3000);
+              } catch (error) {
+                console.error('Error posting error message to opener:', error);
+                setTimeout(() => {
+                  if (!window.closed) window.close();
+                }, 3000);
+              }
             } else {
               setTimeout(() => navigate("/settings"), 3000);
             }
