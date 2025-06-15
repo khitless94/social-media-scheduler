@@ -614,32 +614,64 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {step === 1 && "Create Post"}
-            {step === 2 && "Select Variation"}
-            {step === 3 && "Publish Post"}
-          </DialogTitle>
-          <DialogDescription>
-            {step === 1 && "Describe your post and let our AI create engaging content"}
-            {step === 2 && "Choose the post variation you like best"}
-            {step === 3 && "Select which platforms to publish to"}
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto bg-white border-0 shadow-2xl rounded-3xl">
+        {/* Modern Header */}
+        <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 p-6 rounded-t-3xl text-white">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
+                <Sparkles className="h-8 w-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold">
+                  {step === 1 && "Create Amazing Content"}
+                  {step === 2 && "Choose Your Favorite"}
+                  {step === 3 && "Publish & Schedule"}
+                </h1>
+                <p className="text-white/90 text-sm">
+                  {step === 1 && "Let AI create engaging posts for your audience"}
+                  {step === 2 && "Select the variation that resonates with you"}
+                  {step === 3 && "Choose platforms and schedule your posts"}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleClose}
+              className="p-2 hover:bg-white/20 rounded-xl transition-colors"
+            >
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
 
-        <div className="flex justify-center mb-6">
-          <div className="flex items-center space-x-4">
-            {[1, 2, 3].map((stepNum) => (
-              <div key={stepNum} className="flex items-center">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
-                  step >= stepNum ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-500'
-                }`}>
-                  {stepNum}
+        {/* Modern Step Indicator */}
+        <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
+          <div className="flex items-center justify-center space-x-8">
+            {[
+              { num: 1, label: "Create", icon: "✨" },
+              { num: 2, label: "Select", icon: "🎯" },
+              { num: 3, label: "Publish", icon: "🚀" }
+            ].map((stepItem, index) => (
+              <div key={stepItem.num} className="flex items-center">
+                <div className="flex flex-col items-center space-y-2">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-bold transition-all ${
+                    step >= stepItem.num
+                      ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg'
+                      : 'bg-gray-200 text-gray-500'
+                  }`}>
+                    {step >= stepItem.num ? stepItem.icon : stepItem.num}
+                  </div>
+                  <span className={`text-xs font-medium ${
+                    step >= stepItem.num ? 'text-indigo-600' : 'text-gray-500'
+                  }`}>
+                    {stepItem.label}
+                  </span>
                 </div>
-                {stepNum < 3 && (
-                  <div className={`w-8 h-1 mx-2 transition-colors ${
-                    step > stepNum ? 'bg-purple-600' : 'bg-gray-200'
+                {index < 2 && (
+                  <div className={`w-16 h-1 mx-4 rounded-full transition-all ${
+                    step > stepItem.num ? 'bg-gradient-to-r from-indigo-500 to-purple-600' : 'bg-gray-200'
                   }`} />
                 )}
               </div>
@@ -650,11 +682,11 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
         {step === 1 && (
           <div className="space-y-6">
             <div className="text-center space-y-2">
-              <div className="w-16 h-16 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 gradient-primary rounded-full flex items-center justify-center mx-auto mb-4">
                 <Sparkles className="w-8 h-8 text-white" />
               </div>
-              <h3 className="text-xl font-semibold">AI Social Post Generator</h3>
-              <p className="text-gray-500">Describe your post and let our AI create engaging content</p>
+              <h3 className="text-xl font-semibold text-gray-900">AI Social Post Generator</h3>
+              <p className="text-gray-600">Describe your post and let our AI create engaging content</p>
             </div>
 
             <div className="space-y-6">
@@ -706,7 +738,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
                       <div
                         key={platform.id}
                         className={`relative p-3 border rounded-lg cursor-pointer transition-all ${
-                          isSelected ? 'border-purple-300 bg-purple-50 ring-2 ring-purple-200' : 'border-gray-200 hover:border-gray-300'
+                          isSelected ? 'border-blue-300 bg-blue-50 ring-2 ring-blue-200' : 'border-gray-200 hover:border-gray-300'
                         } ${!isConnected ? 'opacity-50' : ''}`}
                         onClick={() => {
                           if (!isConnected) {
@@ -741,7 +773,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
                           )}
                           {isSelected && (
                             <div className="absolute top-2 right-2">
-                              <div className="w-5 h-5 bg-purple-600 rounded-full flex items-center justify-center">
+                              <div className="w-5 h-5 gradient-primary rounded-full flex items-center justify-center">
                                 <span className="text-white text-xs">✓</span>
                               </div>
                             </div>
@@ -761,7 +793,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
                     <div
                       key={tone.id}
                       className={`p-3 border rounded-lg cursor-pointer transition-all ${
-                        selectedTone === tone.id ? 'border-purple-300 bg-purple-50 ring-2 ring-purple-200' : 'border-gray-200 hover:border-gray-300'
+                        selectedTone === tone.id ? 'border-blue-300 bg-blue-50 ring-2 ring-blue-200' : 'border-gray-200 hover:border-gray-300'
                       }`}
                       onClick={() => setSelectedTone(tone.id)}
                     >
@@ -783,7 +815,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
                     <div
                       key={type.id}
                       className={`p-3 border rounded-lg cursor-pointer transition-all ${
-                        selectedContentType === type.id ? 'border-purple-300 bg-purple-50 ring-2 ring-purple-200' : 'border-gray-200 hover:border-gray-300'
+                        selectedContentType === type.id ? 'border-blue-300 bg-blue-50 ring-2 ring-blue-200' : 'border-gray-200 hover:border-gray-300'
                       }`}
                       onClick={() => setSelectedContentType(type.id)}
                     >
@@ -973,7 +1005,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
                 <Button
                   onClick={generateContent}
                   disabled={generating || !prompt.trim() || selectedTargetPlatforms.length === 0}
-                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                  className="w-full btn-primary"
                 >
                   {generating ? (
                     <div className="flex items-center space-x-2">

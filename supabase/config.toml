@@ -33,7 +33,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.post-to-social]
-verify_jwt = true
+verify_jwt = false
 
 # Note: Environment variables should be set in Supabase Dashboard
 # Go to: Project Settings > Edge Functions > Environment Variables

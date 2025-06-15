@@ -127,106 +127,98 @@ const Analytics = () => {
   const COLORS = ['#8b5cf6', '#ec4899', '#06b6d4', '#10b981', '#f59e0b'];
 
   return (
-    <div className="space-y-8">
-      <div className="text-center space-y-4">
-        <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 bg-clip-text text-transparent">
-          Analytics Dashboard
-        </h2>
-        <p className="text-xl text-gray-600 max-w-2xl mx-auto">Track your social media performance across all platforms</p>
-      </div>
-
-      {/* Enhanced Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="group bg-white/80 backdrop-blur-sm border-white/30 hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 rounded-3xl border-0 overflow-hidden relative">
-          <div className="absolute top-4 right-4 z-10">
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-3 py-1 rounded-full text-xs font-medium shadow-lg">
-              📊 Total
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+      <div className="max-w-7xl mx-auto p-6 space-y-8">
+        {/* Modern Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="p-3 bg-gradient-to-r from-purple-500 to-pink-600 rounded-2xl shadow-lg">
+              <BarChart3 className="h-8 w-8 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Analytics</h1>
+              <p className="text-gray-600">Track your social media performance and insights</p>
             </div>
           </div>
-          <CardContent className="p-6 relative">
-            <div className="absolute top-0 right-0 w-20 h-20 bg-blue-100 rounded-full transform translate-x-6 -translate-y-6 opacity-50"></div>
-            <div className="relative z-10">
-              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+
+          <div className="flex items-center space-x-3">
+            <button className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-xl font-medium transition-all flex items-center space-x-2">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span>Export</span>
+            </button>
+            <button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-4 py-2 rounded-xl font-medium transition-all flex items-center space-x-2">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>Refresh</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Modern Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl">
                 <Eye className="h-6 w-6 text-white" />
               </div>
-              <p className="text-sm font-medium text-gray-600 mb-2">Total Posts</p>
-              <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">{totalStats.totalPosts}</p>
+              <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">Total</span>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="group bg-white/80 backdrop-blur-sm border-white/30 hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 rounded-3xl border-0 overflow-hidden relative">
-          <div className="absolute top-4 right-4 z-10">
-            <div className="bg-gradient-to-r from-green-500 to-green-600 text-white px-3 py-1 rounded-full text-xs font-medium shadow-lg">
-              ✅ Live
-            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-1">{totalStats.totalPosts}</h3>
+            <p className="text-sm text-gray-600">Total Posts</p>
           </div>
-          <CardContent className="p-6 relative">
-            <div className="absolute top-0 right-0 w-20 h-20 bg-green-100 rounded-full transform translate-x-6 -translate-y-6 opacity-50"></div>
-            <div className="relative z-10">
-              <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl">
                 <Heart className="h-6 w-6 text-white" />
               </div>
-              <p className="text-sm font-medium text-gray-600 mb-2">Published</p>
-              <p className="text-3xl font-bold bg-gradient-to-r from-green-600 to-green-700 bg-clip-text text-transparent">{totalStats.publishedPosts}</p>
+              <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">Live</span>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="group bg-white/80 backdrop-blur-sm border-white/30 hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 rounded-3xl border-0 overflow-hidden relative">
-          <div className="absolute top-4 right-4 z-10">
-            <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-3 py-1 rounded-full text-xs font-medium shadow-lg animate-pulse">
-              ⏰ Pending
-            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-1">{totalStats.publishedPosts}</h3>
+            <p className="text-sm text-gray-600">Published</p>
           </div>
-          <CardContent className="p-6 relative">
-            <div className="absolute top-0 right-0 w-20 h-20 bg-orange-100 rounded-full transform translate-x-6 -translate-y-6 opacity-50"></div>
-            <div className="relative z-10">
-              <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-gradient-to-r from-orange-500 to-amber-600 rounded-xl">
                 <Share className="h-6 w-6 text-white" />
               </div>
-              <p className="text-sm font-medium text-gray-600 mb-2">Scheduled</p>
-              <p className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-orange-700 bg-clip-text text-transparent">{totalStats.scheduledPosts}</p>
+              <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded-full">Queue</span>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="group bg-white/80 backdrop-blur-sm border-white/30 hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 rounded-3xl border-0 overflow-hidden relative">
-          <div className="absolute top-4 right-4 z-10">
-            <div className="bg-gradient-to-r from-red-500 to-red-600 text-white px-3 py-1 rounded-full text-xs font-medium shadow-lg">
-              ❌ Failed
-            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-1">{totalStats.scheduledPosts}</h3>
+            <p className="text-sm text-gray-600">Scheduled</p>
           </div>
-          <CardContent className="p-6 relative">
-            <div className="absolute top-0 right-0 w-20 h-20 bg-red-100 rounded-full transform translate-x-6 -translate-y-6 opacity-50"></div>
-            <div className="relative z-10">
-              <div className="w-12 h-12 bg-gradient-to-r from-red-500 to-red-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                <MessageCircle className="h-6 w-6 text-white" />
-              </div>
-              <p className="text-sm font-medium text-gray-600 mb-2">Failed</p>
-              <p className="text-3xl font-bold bg-gradient-to-r from-red-600 to-red-700 bg-clip-text text-transparent">{totalStats.failedPosts}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
-      {/* Enhanced Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Platform Performance */}
-        <Card className="bg-white/80 backdrop-blur-sm border-white/30 shadow-2xl rounded-3xl border-0 overflow-hidden">
-          <CardHeader className="bg-gradient-to-r from-purple-50 to-blue-50 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-200/20 rounded-full transform translate-x-8 -translate-y-8"></div>
-            <div className="relative z-10">
-              <CardTitle className="text-xl font-bold text-gray-900 flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg flex items-center justify-center">
-                  <TrendingUp className="h-4 w-4 text-white" />
-                </div>
-                <span>Platform Performance</span>
-              </CardTitle>
-              <CardDescription className="text-gray-600 mt-2">Posts and engagement by platform</CardDescription>
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-gradient-to-r from-purple-500 to-violet-600 rounded-xl">
+                <TrendingUp className="h-6 w-6 text-white" />
+              </div>
+              <span className="text-xs font-medium text-purple-600 bg-purple-50 px-2 py-1 rounded-full">Growth</span>
             </div>
-          </CardHeader>
-          <CardContent className="p-6">
+            <h3 className="text-2xl font-bold text-gray-900 mb-1">12.5%</h3>
+            <p className="text-sm text-gray-600">Engagement Rate</p>
+          </div>
+        </div>
+
+        {/* Charts Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Platform Performance */}
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg">
+                  <TrendingUp className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Platform Performance</h3>
+                  <p className="text-sm text-gray-600">Posts and engagement by platform</p>
+                </div>
+              </div>
+            </div>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={platformData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -254,24 +246,21 @@ const Analytics = () => {
                 </defs>
               </BarChart>
             </ResponsiveContainer>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Engagement Distribution */}
-        <Card className="bg-white/80 backdrop-blur-sm border-white/30 shadow-2xl rounded-3xl border-0 overflow-hidden">
-          <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-200/20 rounded-full transform translate-x-8 -translate-y-8"></div>
-            <div className="relative z-10">
-              <CardTitle className="text-xl font-bold text-gray-900 flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
-                  <Share className="h-4 w-4 text-white" />
+          {/* Platform Distribution */}
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg">
+                  <Share className="h-5 w-5 text-white" />
                 </div>
-                <span>Platform Distribution</span>
-              </CardTitle>
-              <CardDescription className="text-gray-600 mt-2">Your content distribution across platforms</CardDescription>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Platform Distribution</h3>
+                  <p className="text-sm text-gray-600">Your content distribution across platforms</p>
+                </div>
+              </div>
             </div>
-          </CardHeader>
-          <CardContent className="p-6">
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
@@ -300,25 +289,22 @@ const Analytics = () => {
                 />
               </PieChart>
             </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Enhanced Weekly Engagement Trend */}
-      <Card className="bg-white/80 backdrop-blur-sm border-white/30 shadow-2xl rounded-3xl border-0 overflow-hidden">
-        <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-green-200/20 rounded-full transform translate-x-8 -translate-y-8"></div>
-          <div className="relative z-10">
-            <CardTitle className="text-xl font-bold text-gray-900 flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center">
-                <TrendingUp className="h-4 w-4 text-white" />
-              </div>
-              <span>Weekly Engagement Trend</span>
-            </CardTitle>
-            <CardDescription className="text-gray-600 mt-2">Track your engagement over the past week</CardDescription>
           </div>
-        </CardHeader>
-        <CardContent className="p-6">
+        </div>
+
+        {/* Weekly Engagement Trend */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg">
+                <TrendingUp className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Weekly Engagement Trend</h3>
+                <p className="text-sm text-gray-600">Track your engagement over the past week</p>
+              </div>
+            </div>
+          </div>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={generateWeekData()}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -358,64 +344,60 @@ const Analytics = () => {
               />
             </LineChart>
           </ResponsiveContainer>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Enhanced Top Performing Posts */}
-      <Card className="bg-white/80 backdrop-blur-sm border-white/30 shadow-2xl rounded-3xl border-0 overflow-hidden">
-        <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-200/20 rounded-full transform translate-x-8 -translate-y-8"></div>
-          <div className="relative z-10">
-            <CardTitle className="text-xl font-bold text-gray-900 flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
-                <TrendingUp className="h-4 w-4 text-white" />
+        {/* Top Performing Posts */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg">
+                <TrendingUp className="h-5 w-5 text-white" />
               </div>
-              <span>Top Performing Posts</span>
-            </CardTitle>
-            <CardDescription className="text-gray-600 mt-2">Your best content this month</CardDescription>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Top Performing Posts</h3>
+                <p className="text-sm text-gray-600">Your best content this month</p>
+              </div>
+            </div>
           </div>
-        </CardHeader>
-        <CardContent className="p-6">
           <div className="space-y-4">
             {topPosts.length === 0 ? (
               <div className="text-center py-12">
-                <div className="w-24 h-24 bg-gradient-to-r from-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <TrendingUp className="h-12 w-12 text-purple-500" />
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <TrendingUp className="h-8 w-8 text-gray-400" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">No posts yet</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No posts yet</h3>
                 <p className="text-gray-600">Your top performing posts will appear here after you start posting.</p>
               </div>
             ) : (
               topPosts.map((post, index) => (
-                <div key={index} className="group p-6 bg-gradient-to-r from-white to-gray-50 rounded-2xl border border-gray-100 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+                <div key={index} className="p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-3">
-                        <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
-                          #{index + 1}
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="w-6 h-6 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                          {index + 1}
                         </div>
-                        <p className="font-semibold text-gray-900 truncate max-w-md group-hover:text-purple-600 transition-colors duration-200">{post.content}</p>
+                        <p className="font-medium text-gray-900 truncate">{post.content}</p>
                       </div>
-                      <div className="flex items-center space-x-3">
-                        <Badge className="bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 border-blue-300">{post.platform}</Badge>
-                        <Badge className="bg-gradient-to-r from-green-100 to-green-200 text-green-800 border-green-300">{post.type}</Badge>
+                      <div className="flex items-center space-x-2">
+                        <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-md text-xs font-medium">{post.platform}</span>
                         <span className="text-sm text-gray-600 flex items-center">
-                          <Heart className="w-4 h-4 mr-1 text-red-500" />
-                          {post.engagement} total engagement
+                          <Heart className="w-3 h-3 mr-1 text-red-500" />
+                          {post.engagement}
                         </span>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">{post.engagement}</div>
-                      <div className="text-xs text-gray-600 font-medium">interactions</div>
+                      <div className="text-lg font-bold text-purple-600">{post.engagement}</div>
+                      <div className="text-xs text-gray-500">interactions</div>
                     </div>
                   </div>
                 </div>
               ))
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 };

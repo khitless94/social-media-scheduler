@@ -1,43 +1,41 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-requested-with",
+  "Access-Control-Allow-Methods": "POST, OPTIONS, GET",
+  "Access-Control-Max-Age": "86400",
 };
+
+// Initialize Supabase client
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", {
+      status: 200,
+      headers: corsHeaders
+    });
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
+    // Get user from JWT token
+    const authHeader = req.headers.get('authorization');
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Missing authorization header" }), {
+      return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
-    if (!supabaseUrl || !supabaseKey) {
-      return new Response(JSON.stringify({ error: "Server configuration error" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const supabaseClient = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Authentication failed" }), {
+      return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -45,38 +43,17 @@ serve(async (req) => {
 
     const body = await req.json();
     console.log('Request body received:', body);
-    console.log('Request body keys:', Object.keys(body));
 
     let { content, platforms, platform, image } = body;
 
     // Handle both old format (platform: "linkedin") and new format (platforms: ["linkedin"])
     if (platform && !platforms) {
       platforms = [platform];
-      console.log('Converting single platform to array:', platforms);
     }
 
-    console.log('Final values:', {
-      content: content?.substring(0, 50) + '...',
-      platforms,
-      hasImage: !!image,
-      imageUrl: image ? image.substring(0, 100) + '...' : null
-    });
-
     if (!content || !platforms || platforms.length === 0) {
-      console.error('Missing required fields:', {
-        hasContent: !!content,
-        hasPlatforms: !!platforms,
-        platformsLength: platforms?.length || 0,
-        receivedKeys: Object.keys(body)
-      });
       return new Response(JSON.stringify({
-        error: "Content and platform(s) are required",
-        received: {
-          content: !!content,
-          platforms: platforms || null,
-          platform: platform || null,
-          bodyKeys: Object.keys(body)
-        }
+        error: "Content and platform(s) are required"
       }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -89,41 +66,41 @@ serve(async (req) => {
       try {
         console.log(`Processing platform: ${platform} for user: ${user.id}`);
 
-        // First, let's see what credentials exist for this user
-        const { data: allCredentials, error: allCredsError } = await supabaseClient
-          .from("oauth_credentials")
-          .select("platform, created_at, expires_at")
-          .eq("user_id", user.id);
-
-        console.log(`All credentials for user ${user.id}:`, allCredentials);
-
-        const { data: credentials, error: credError } = await supabaseClient
-          .from("oauth_credentials")
-          .select("*")
-          .eq("user_id", user.id)
-          .eq("platform", platform.toLowerCase())
+        // Get OAuth credentials for this platform and user
+        const { data: credentials, error: credError } = await supabase
+          .from('oauth_credentials')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('platform', platform)
           .single();
 
-        console.log(`Credentials query for ${platform}:`, { credentials: !!credentials, error: credError?.message });
-
         if (credError || !credentials) {
-          console.error(`No credentials found for ${platform}:`, credError?.message);
-          results.push({ platform, success: false, error: `No valid credentials found for ${platform}. Available platforms: ${allCredentials?.map(c => c.platform).join(', ') || 'none'}` });
+          console.error(`No credentials found for ${platform}:`, credError);
+          results.push({
+            platform,
+            success: false,
+            error: `No OAuth credentials found for ${platform}. Please connect your account first.`,
+            needsReconnection: true
+          });
           continue;
         }
 
-        console.log(`Found credentials for ${platform}, access_token length: ${credentials.access_token?.length || 0}`);
-
-        const now = new Date();
-        const expiresAt = new Date(credentials.expires_at);
-        if (now >= expiresAt) {
-          results.push({ platform, success: false, error: `Token expired for ${platform}` });
+        // Check if token is expired
+        if (credentials.expires_at && new Date(credentials.expires_at) < new Date()) {
+          console.error(`Token expired for ${platform}`);
+          results.push({
+            platform,
+            success: false,
+            error: `OAuth token expired for ${platform}. Please reconnect your account.`,
+            needsReconnection: true
+          });
           continue;
         }
 
-        const result = await postToSocialMedia(platform, content, credentials, image);
+        const result = await postToSocialMedia(platform, content, image, credentials);
         results.push(result);
       } catch (err) {
+        console.error(`Error posting to ${platform}:`, err);
         results.push({ platform, success: false, error: err.message });
       }
     }
@@ -175,419 +152,534 @@ function optimizeContentForPlatform(content: string, platform: string): string {
   return (lastSpace > 0 ? truncated.substring(0, lastSpace) : truncated) + "...";
 }
 
-async function postToSocialMedia(platform: string, content: string, credentials: any, image?: string) {
-  // Optimize content for the specific platform
-  const optimizedContent = optimizeContentForPlatform(content, platform);
-
-  console.log(`[${platform}] Original content length: ${content.length}`);
-  console.log(`[${platform}] Optimized content length: ${optimizedContent.length}`);
-  console.log(`[${platform}] Has image: ${!!image}`);
-
-  switch (platform.toLowerCase()) {
-    case "twitter":
-      return await postToTwitter(optimizedContent, credentials, image);
-    case "linkedin":
-      return await postToLinkedIn(optimizedContent, credentials, image);
-    case "reddit":
-      return await postToReddit(optimizedContent, credentials, image);
-    case "facebook":
-      return await postToFacebook(optimizedContent, credentials, image);
-    case "instagram":
-      return await postToInstagram(optimizedContent, credentials, image);
-    default:
-      return { platform, success: false, error: `Unsupported platform: ${platform}` };
-  }
-}
-
-
-
-async function postToTwitter(content: string, credentials: any, image?: string) {
+// Twitter posting function
+async function postToTwitter(content: string, image?: string, credentials?: any) {
   try {
-    console.log(`[Twitter] Starting Twitter post process`);
-    console.log(`[Twitter] Content length: ${content.length}`);
-    console.log(`[Twitter] Access token available: ${!!credentials.access_token}`);
-    console.log(`[Twitter] Has image: ${!!image}`);
-
-    if (!credentials.access_token) {
-      return { platform: "twitter", success: false, error: "No access token available for Twitter" };
+    const accessToken = credentials.access_token;
+    if (!accessToken) {
+      throw new Error('No Twitter access token found');
     }
 
-    // Clean and optimize content for Twitter
-    let tweetContent = content.trim();
-    tweetContent = tweetContent.replace(/\n{3,}/g, '\n\n').replace(/\s+/g, ' ');
-
-    // Ensure content fits Twitter's character limit (280 chars)
-    if (tweetContent.length > 280) {
-      const words = tweetContent.split(' ');
-      let truncated = '';
-      for (const word of words) {
-        if ((truncated + ' ' + word).length <= 277) {
-          truncated += (truncated ? ' ' : '') + word;
-        } else {
-          break;
-        }
-      }
-      tweetContent = truncated + "...";
-      console.log(`[Twitter] Content truncated to fit 280 character limit`);
-    }
-
-    console.log(`[Twitter] Final content: "${tweetContent}"`);
-    console.log(`[Twitter] Final content length: ${tweetContent.length}`);
-
-    let mediaIds: string[] = [];
+    let mediaId = null;
 
     // Upload image if provided
     if (image) {
       try {
-        console.log(`[Twitter] Uploading image...`);
-
-        // Download image from URL
+        // Download image
         const imageResponse = await fetch(image);
         if (!imageResponse.ok) {
-          throw new Error(`Failed to fetch image: ${imageResponse.status}`);
+          throw new Error(`Failed to download image: ${imageResponse.status}`);
         }
 
         const imageBuffer = await imageResponse.arrayBuffer();
-        console.log(`[Twitter] Image size: ${imageBuffer.byteLength} bytes`);
+        const imageBlob = new Blob([imageBuffer]);
 
-        // Validate image size (Twitter limit is 5MB for images)
-        if (imageBuffer.byteLength > 5 * 1024 * 1024) {
-          throw new Error('Image size exceeds Twitter limit of 5MB');
-        }
+        // Upload to Twitter media endpoint using OAuth 1.0a
+        const formData = new FormData();
+        formData.append('media', imageBlob);
 
-        // For now, include image URL in tweet text since media upload requires OAuth 1.0a
-        console.log(`[Twitter] Including image URL in tweet text`);
+        const mediaResponse = await fetch('https://upload.twitter.com/1.1/media/upload.json', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+          body: formData
+        });
 
-        // Adjust tweet content to include image URL
-        const imageUrlText = `\n\nImage: ${image}`;
-        const maxContentLength = 280 - imageUrlText.length;
-
-        if (tweetContent.length > maxContentLength) {
-          const words = tweetContent.split(' ');
-          let truncated = '';
-          for (const word of words) {
-            if ((truncated + ' ' + word).length <= maxContentLength - 3) {
-              truncated += (truncated ? ' ' : '') + word;
-            } else {
-              break;
-            }
-          }
-          tweetContent = truncated + "..." + imageUrlText;
+        if (mediaResponse.ok) {
+          const mediaData = await mediaResponse.json();
+          mediaId = mediaData.media_id_string;
+          console.log('[Twitter] Image uploaded successfully:', mediaId);
         } else {
-          tweetContent = tweetContent + imageUrlText;
+          console.error('[Twitter] Image upload failed:', await mediaResponse.text());
         }
-
-        console.log(`[Twitter] Updated tweet content with image URL: ${tweetContent.length} chars`)
-
       } catch (imageError) {
-        console.error(`[Twitter] Image upload error:`, imageError);
-        // Continue without image if upload fails
-        return { platform: "twitter", success: false, error: `Image upload failed: ${imageError.message}` };
+        console.error('[Twitter] Image upload error:', imageError);
+        // Continue without image
       }
     }
 
-    // Step 5: Create the tweet
-    console.log(`[Twitter] Step 5: Creating tweet`);
-    const tweetData: any = { text: tweetContent };
-    
-    if (mediaIds.length > 0) {
-      tweetData.media = { media_ids: mediaIds };
+    // Post tweet using Twitter API v2
+    const tweetData: any = {
+      text: content
+    };
+
+    if (mediaId) {
+      tweetData.media = {
+        media_ids: [mediaId]
+      };
     }
 
-    console.log(`[Twitter] Posting tweet with data:`, JSON.stringify(tweetData, null, 2));
-
-    const response = await fetch("https://api.x.com/2/tweets", {
-      method: "POST",
+    const response = await fetch('https://api.twitter.com/2/tweets', {
+      method: 'POST',
       headers: {
-        Authorization: `Bearer ${credentials.access_token}`,
-        "Content-Type": "application/json",
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify(tweetData),
-    });
-
-    const data = await response.json();
-    console.log(`[Twitter] Tweet response status: ${response.status}`);
-    console.log(`[Twitter] Tweet response data:`, JSON.stringify(data, null, 2));
-    
-    // Additional debugging for response structure
-    console.log(`[Twitter] Response analysis:`, {
-      isObject: typeof data === 'object',
-      hasData: 'data' in data,
-      dataType: typeof data.data,
-      dataIsObject: data.data && typeof data.data === 'object',
-      allKeys: Object.keys(data),
-      dataKeys: data.data ? Object.keys(data.data) : null
+      body: JSON.stringify(tweetData)
     });
 
     if (!response.ok) {
-      // Handle specific Twitter API errors
-      if (response.status === 401) {
-        return { platform: "twitter", success: false, error: "Twitter authentication failed. Please reconnect your account." };
-      } else if (response.status === 403) {
-        const errorMsg = data.detail || data.errors?.[0]?.message || "Twitter API access forbidden";
-        return { platform: "twitter", success: false, error: `Twitter API error: ${errorMsg}` };
-      } else if (response.status === 429) {
-        return { platform: "twitter", success: false, error: "Twitter rate limit exceeded. Please try again later." };
-      }
-
-      const errorMsg = data.detail || data.error || data.errors?.[0]?.message || `HTTP ${response.status}`;
-      console.error(`[Twitter] Post failed:`, errorMsg);
-      return { platform: "twitter", success: false, error: `Twitter API error: ${errorMsg}` };
+      const errorText = await response.text();
+      console.error('[Twitter] API Error:', errorText);
+      throw new Error(`Twitter API error: ${response.status} - ${errorText}`);
     }
 
-    // Extract post ID from response - Twitter API v2 structure
-    let postId: string | null = null;
-    
-    // Log the full response structure for debugging
-    console.log(`[Twitter] Full response structure:`, {
-      hasData: !!data.data,
-      dataKeys: data.data ? Object.keys(data.data) : null,
-      topLevelKeys: Object.keys(data),
-      dataId: data.data?.id,
-      dataIdStr: data.data?.id_str,
-      directId: data.id,
-      directIdStr: data.id_str
-    });
-    
-    // CRITICAL FIX: Always ensure we have a valid postId
-    console.log(`[Twitter] DEBUGGING - Full response:`, JSON.stringify(data, null, 2));
-    console.log(`[Twitter] DEBUGGING - Response keys:`, Object.keys(data));
-    console.log(`[Twitter] DEBUGGING - data.data exists:`, !!data.data);
-    if (data.data) {
-      console.log(`[Twitter] DEBUGGING - data.data keys:`, Object.keys(data.data));
-      console.log(`[Twitter] DEBUGGING - data.data.id:`, data.data.id);
-      console.log(`[Twitter] DEBUGGING - data.data.id type:`, typeof data.data.id);
-    }
-
-    // Try multiple ways to extract the post ID
-    if (data.data && data.data.id) {
-      postId = String(data.data.id);
-      console.log(`[Twitter] ✅ Post ID from data.data.id: ${postId}`);
-    } else if (data.data && data.data.id_str) {
-      postId = String(data.data.id_str);
-      console.log(`[Twitter] ✅ Post ID from data.data.id_str: ${postId}`);
-    } else if (data.id) {
-      postId = String(data.id);
-      console.log(`[Twitter] ✅ Post ID from data.id: ${postId}`);
-    } else if (data.id_str) {
-      postId = String(data.id_str);
-      console.log(`[Twitter] ✅ Post ID from data.id_str: ${postId}`);
-    } else {
-      // ALWAYS generate a valid fallback ID
-      postId = `twitter_success_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
-      console.log(`[Twitter] ⚠️ Using fallback post ID: ${postId}`);
-    }
-
-    // FINAL CHECK: Ensure postId is never null/undefined
-    if (!postId || postId === 'null' || postId === 'undefined') {
-      postId = `twitter_posted_${Date.now()}`;
-      console.log(`[Twitter] 🔧 EMERGENCY FALLBACK post ID: ${postId}`);
-    }
-
-    console.log(`[Twitter] 🎉 Tweet posted successfully with FINAL ID: ${postId}`);
+    const result = await response.json();
+    console.log('[Twitter] Post successful:', result);
 
     return {
       platform: "twitter",
       success: true,
-      postId: postId,
-      message: "Successfully posted to Twitter" + (mediaIds.length > 0 ? " with image" : "")
+      postId: result.data.id,
+      url: `https://twitter.com/user/status/${result.data.id}`,
+      message: `✅ Successfully posted to Twitter! ${mediaId ? 'Image included.' : ''}`
     };
 
-  } catch (err) {
-    console.error(`[Twitter] Unexpected error:`, err);
-    return { platform: "twitter", success: false, error: `Twitter posting failed: ${err.message}` };
+  } catch (error) {
+    console.error('[Twitter] Error:', error);
+    return {
+      platform: "twitter",
+      success: false,
+      error: error.message
+    };
   }
 }
 
-async function postToReddit(content: string, credentials: any, image?: string) {
+// LinkedIn posting function
+async function postToLinkedIn(content: string, image?: string, credentials?: any) {
   try {
-    console.log(`[Reddit] Starting Reddit post process`);
-    console.log(`[Reddit] Content to post: ${content.substring(0, 200)}...`);
-    console.log(`[Reddit] Has image: ${!!image}`);
-
-    const subreddit = "test";
-
-    // Extract title from content (first line or first 100 chars)
-    const lines = content.split('\n').filter(line => line.trim());
-    let title = lines[0] || content;
-
-    // Clean title - remove markdown, emojis, and extra formatting
-    title = title.replace(/[#*_`~]/g, '').replace(/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
-
-    // Ensure title is within Reddit limits (300 chars max)
-    if (title.length > 300) {
-      title = title.substring(0, 297) + "...";
+    const accessToken = credentials.access_token;
+    if (!accessToken) {
+      throw new Error('No LinkedIn access token found');
     }
 
-    // Use remaining content as body text (remove title from content)
-    let bodyText = content;
-    if (lines.length > 1) {
-      bodyText = lines.slice(1).join('\n').trim();
-    }
-
-    console.log(`[Reddit] Title: ${title}`);
-    console.log(`[Reddit] Body length: ${bodyText.length}`);
-
-    const response = await fetch("https://oauth.reddit.com/api/submit", {
-      method: "POST",
+    // Get user profile first to get the person URN
+    const profileResponse = await fetch('https://api.linkedin.com/v2/userinfo', {
       headers: {
-        Authorization: `Bearer ${credentials.access_token}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-        "User-Agent": "ContentPilotAI/1.0",
-      },
-      body: new URLSearchParams({
-        api_type: "json",
-        kind: image ? "link" : "self",
-        sr: subreddit,
-        title: title,
-        ...(image ? { url: image } : { text: bodyText }),
-      }),
+        'Authorization': `Bearer ${accessToken}`,
+      }
     });
 
-    const data = await response.json();
-    console.log(`[Reddit] Response:`, JSON.stringify(data, null, 2));
-
-    if (!response.ok || data.json?.errors?.length > 0) {
-      const errorMsg = data.json?.errors?.[0]?.[1] || `HTTP ${response.status}`;
-      console.error(`[Reddit] Post failed:`, errorMsg);
-      return { platform: "reddit", success: false, error: errorMsg };
+    if (!profileResponse.ok) {
+      throw new Error(`Failed to get LinkedIn profile: ${profileResponse.status}`);
     }
 
-    const postId = data.json?.data?.name;
-    console.log(`[Reddit] Post created successfully with ID: ${postId}`);
-    return { platform: "reddit", success: true, postId };
-  } catch (err) {
-    console.error(`[Reddit] Unexpected error:`, err);
-    return { platform: "reddit", success: false, error: err.message };
-  }
-}
+    const profile = await profileResponse.json();
+    const personUrn = `urn:li:person:${profile.sub}`;
 
-async function postToFacebook(content: string, credentials: any, image?: string) {
-  try {
-    console.log(`[Facebook] Starting Facebook post process`);
-    console.log(`[Facebook] Content length: ${content.length}`);
-    console.log(`[Facebook] Has image: ${!!image}`);
+    let mediaUrn = null;
 
-    if (!credentials.access_token) {
-      return { platform: "facebook", success: false, error: "No access token available for Facebook" };
-    }
-
-    // Facebook has a very high limit (63,206 chars) but let's be reasonable
-    let facebookContent = content.trim();
-    if (facebookContent.length > 8000) {
-      facebookContent = facebookContent.substring(0, 7997) + "...";
-      console.log(`[Facebook] Content truncated for readability`);
-    }
-
-    console.log(`[Facebook] Final content length: ${facebookContent.length}`);
-
-    let response: Response;
-
+    // Upload image if provided
     if (image) {
-      // For Facebook posts with images, use the photos endpoint
-      console.log(`[Facebook] Posting with image`);
-
-      const formData = new FormData();
-
       try {
-        // Download the image
+        // Download image
         const imageResponse = await fetch(image);
-        const imageBlob = await imageResponse.blob();
+        if (!imageResponse.ok) {
+          throw new Error(`Failed to download image: ${imageResponse.status}`);
+        }
 
-        formData.append('source', imageBlob);
-        formData.append('message', facebookContent);
-        formData.append('access_token', credentials.access_token);
+        const imageBuffer = await imageResponse.arrayBuffer();
 
-        response = await fetch(`https://graph.facebook.com/me/photos`, {
-          method: "POST",
-          body: formData,
-        });
-      } catch (imageError) {
-        console.error(`[Facebook] Image processing failed, posting text only:`, imageError);
-        // Fall back to text-only post
-        response = await fetch(`https://graph.facebook.com/me/feed`, {
-          method: "POST",
+        // Register upload with LinkedIn
+        const registerResponse = await fetch('https://api.linkedin.com/v2/assets?action=registerUpload', {
+          method: 'POST',
           headers: {
-            "Content-Type": "application/json",
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            message: facebookContent + `\n\nImage: ${image}`,
-            access_token: credentials.access_token,
-          }),
+            registerUploadRequest: {
+              recipes: ['urn:li:digitalmediaRecipe:feedshare-image'],
+              owner: personUrn,
+              serviceRelationships: [{
+                relationshipType: 'OWNER',
+                identifier: 'urn:li:userGeneratedContent'
+              }]
+            }
+          })
         });
+
+        if (registerResponse.ok) {
+          const registerData = await registerResponse.json();
+          const uploadUrl = registerData.value.uploadMechanism['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'].uploadUrl;
+          const asset = registerData.value.asset;
+
+          // Upload the actual image
+          const uploadResponse = await fetch(uploadUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+            },
+            body: imageBuffer
+          });
+
+          if (uploadResponse.ok) {
+            mediaUrn = asset;
+            console.log('[LinkedIn] Image uploaded successfully:', mediaUrn);
+          }
+        }
+      } catch (imageError) {
+        console.error('[LinkedIn] Image upload error:', imageError);
+        // Continue without image
       }
-    } else {
-      // Text-only post
-      response = await fetch(`https://graph.facebook.com/me/feed`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          message: facebookContent,
-          access_token: credentials.access_token,
-        }),
-      });
     }
 
-    const data = await response.json();
-    console.log(`[Facebook] Response status: ${response.status}`);
-    console.log(`[Facebook] Response data:`, JSON.stringify(data, null, 2));
+    // Create the post
+    const postData: any = {
+      author: personUrn,
+      lifecycleState: 'PUBLISHED',
+      specificContent: {
+        'com.linkedin.ugc.ShareContent': {
+          shareCommentary: {
+            text: content
+          },
+          shareMediaCategory: mediaUrn ? 'IMAGE' : 'NONE'
+        }
+      },
+      visibility: {
+        'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC'
+      }
+    };
+
+    if (mediaUrn) {
+      postData.specificContent['com.linkedin.ugc.ShareContent'].media = [{
+        status: 'READY',
+        description: {
+          text: 'Image'
+        },
+        media: mediaUrn,
+        title: {
+          text: 'Image'
+        }
+      }];
+    }
+
+    const response = await fetch('https://api.linkedin.com/v2/ugcPosts', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(postData)
+    });
 
     if (!response.ok) {
-      console.error(`[Facebook] Post failed:`, data);
-
-      if (response.status === 401) {
-        return { platform: "facebook", success: false, error: "Facebook authentication failed. Please reconnect your account." };
-      } else if (response.status === 403) {
-        return { platform: "facebook", success: false, error: "Facebook posting failed due to insufficient permissions." };
-      } else if (response.status === 429) {
-        return { platform: "facebook", success: false, error: "Facebook rate limit exceeded. Please try again later." };
-      }
-
-      const errorMsg = data.error?.message || data.error || "Facebook posting failed";
-      return { platform: "facebook", success: false, error: errorMsg };
+      const errorText = await response.text();
+      console.error('[LinkedIn] API Error:', errorText);
+      throw new Error(`LinkedIn API error: ${response.status} - ${errorText}`);
     }
 
-    console.log(`[Facebook] Post created successfully with ID: ${data.id}`);
-    return { platform: "facebook", success: true, postId: data.id };
-  } catch (err) {
-    console.error(`[Facebook] Unexpected error:`, err);
-    return { platform: "facebook", success: false, error: `Facebook posting failed: ${err.message}` };
+    const result = await response.json();
+    console.log('[LinkedIn] Post successful:', result);
+
+    return {
+      platform: "linkedin",
+      success: true,
+      postId: result.id,
+      url: `https://www.linkedin.com/feed/update/${result.id}`,
+      message: `✅ Successfully posted to LinkedIn! ${mediaUrn ? 'Image included.' : ''}`
+    };
+
+  } catch (error) {
+    console.error('[LinkedIn] Error:', error);
+    return {
+      platform: "linkedin",
+      success: false,
+      error: error.message
+    };
   }
 }
 
-async function postToInstagram(_content: string, credentials: any, image?: string) {
+// Facebook posting function
+async function postToFacebook(content: string, image?: string, credentials?: any) {
   try {
-    console.log(`[Instagram] Starting Instagram post process`);
-    console.log(`[Instagram] Has image: ${!!image}`);
+    const accessToken = credentials.access_token;
+    if (!accessToken) {
+      throw new Error('No Facebook access token found');
+    }
 
+    // Get user's pages (Facebook requires posting to pages, not personal profiles)
+    const pagesResponse = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${accessToken}`);
+
+    if (!pagesResponse.ok) {
+      throw new Error(`Failed to get Facebook pages: ${pagesResponse.status}`);
+    }
+
+    const pagesData = await pagesResponse.json();
+
+    if (!pagesData.data || pagesData.data.length === 0) {
+      throw new Error('No Facebook pages found. You need to have a Facebook page to post.');
+    }
+
+    // Use the first page
+    const page = pagesData.data[0];
+    const pageAccessToken = page.access_token;
+    const pageId = page.id;
+
+    let photoId = null;
+
+    // Upload image if provided
+    if (image) {
+      try {
+        const imageResponse = await fetch(image);
+        if (!imageResponse.ok) {
+          throw new Error(`Failed to download image: ${imageResponse.status}`);
+        }
+
+        const imageBuffer = await imageResponse.arrayBuffer();
+        const imageBlob = new Blob([imageBuffer]);
+
+        const formData = new FormData();
+        formData.append('source', imageBlob);
+        formData.append('published', 'false'); // Upload but don't publish yet
+        formData.append('access_token', pageAccessToken);
+
+        const photoResponse = await fetch(`https://graph.facebook.com/v18.0/${pageId}/photos`, {
+          method: 'POST',
+          body: formData
+        });
+
+        if (photoResponse.ok) {
+          const photoData = await photoResponse.json();
+          photoId = photoData.id;
+          console.log('[Facebook] Image uploaded successfully:', photoId);
+        } else {
+          console.error('[Facebook] Image upload failed:', await photoResponse.text());
+        }
+      } catch (imageError) {
+        console.error('[Facebook] Image upload error:', imageError);
+        // Continue without image
+      }
+    }
+
+    // Create the post
+    const postData = new URLSearchParams();
+    postData.append('message', content);
+    postData.append('access_token', pageAccessToken);
+
+    if (photoId) {
+      postData.append('attached_media[0]', JSON.stringify({ media_fbid: photoId }));
+    }
+
+    const response = await fetch(`https://graph.facebook.com/v18.0/${pageId}/feed`, {
+      method: 'POST',
+      body: postData
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[Facebook] API Error:', errorText);
+      throw new Error(`Facebook API error: ${response.status} - ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log('[Facebook] Post successful:', result);
+
+    return {
+      platform: "facebook",
+      success: true,
+      postId: result.id,
+      url: `https://www.facebook.com/${result.id}`,
+      message: `✅ Successfully posted to Facebook page "${page.name}"! ${photoId ? 'Image included.' : ''}`
+    };
+
+  } catch (error) {
+    console.error('[Facebook] Error:', error);
+    return {
+      platform: "facebook",
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+// Instagram posting function
+async function postToInstagram(content: string, image?: string, credentials?: any) {
+  try {
+    const accessToken = credentials.access_token;
+    if (!accessToken) {
+      throw new Error('No Instagram access token found');
+    }
+
+    // Instagram requires an image for posts
     if (!image) {
-      return {
-        platform: "instagram",
-        success: false,
-        error: "Instagram requires an image. Please generate an image first."
-      };
+      throw new Error('Instagram posts require an image');
     }
 
-    if (!credentials.access_token) {
-      return { platform: "instagram", success: false, error: "No access token available for Instagram" };
+    // Get Instagram business account ID
+    const accountResponse = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${accessToken}`);
+
+    if (!accountResponse.ok) {
+      throw new Error(`Failed to get Instagram account: ${accountResponse.status}`);
     }
 
-    // Instagram posting requires multiple steps:
-    // 1. Upload media to Instagram
-    // 2. Create media container
-    // 3. Publish the container
+    const accountData = await accountResponse.json();
 
-    // For now, return success with a note that Instagram posting is complex
-    // and would require additional Instagram Business API setup
+    if (!accountData.data || accountData.data.length === 0) {
+      throw new Error('No Instagram business account found');
+    }
+
+    const instagramAccountId = accountData.data[0].instagram_business_account?.id;
+    if (!instagramAccountId) {
+      throw new Error('No Instagram business account linked to Facebook page');
+    }
+
+    // Create media container
+    const containerData = new URLSearchParams();
+    containerData.append('image_url', image);
+    containerData.append('caption', content);
+    containerData.append('access_token', accessToken);
+
+    const containerResponse = await fetch(`https://graph.facebook.com/v18.0/${instagramAccountId}/media`, {
+      method: 'POST',
+      body: containerData
+    });
+
+    if (!containerResponse.ok) {
+      const errorText = await containerResponse.text();
+      console.error('[Instagram] Container creation failed:', errorText);
+      throw new Error(`Instagram container creation failed: ${containerResponse.status} - ${errorText}`);
+    }
+
+    const containerResult = await containerResponse.json();
+    const containerId = containerResult.id;
+
+    // Publish the media
+    const publishData = new URLSearchParams();
+    publishData.append('creation_id', containerId);
+    publishData.append('access_token', accessToken);
+
+    const publishResponse = await fetch(`https://graph.facebook.com/v18.0/${instagramAccountId}/media_publish`, {
+      method: 'POST',
+      body: publishData
+    });
+
+    if (!publishResponse.ok) {
+      const errorText = await publishResponse.text();
+      console.error('[Instagram] Publish failed:', errorText);
+      throw new Error(`Instagram publish failed: ${publishResponse.status} - ${errorText}`);
+    }
+
+    const result = await publishResponse.json();
+    console.log('[Instagram] Post successful:', result);
+
+    return {
+      platform: "instagram",
+      success: true,
+      postId: result.id,
+      url: `https://www.instagram.com/p/${result.id}`,
+      message: `✅ Successfully posted to Instagram with image!`
+    };
+
+  } catch (error) {
+    console.error('[Instagram] Error:', error);
     return {
       platform: "instagram",
       success: false,
-      error: "Instagram posting requires Instagram Business API setup. Please use the generated image manually on Instagram."
+      error: error.message
     };
-  } catch (err) {
-    console.error(`[Instagram] Unexpected error:`, err);
-    return { platform: "instagram", success: false, error: err.message };
+  }
+}
+
+// Reddit posting function
+async function postToReddit(content: string, image?: string, credentials?: any) {
+  try {
+    const accessToken = credentials.access_token;
+    if (!accessToken) {
+      throw new Error('No Reddit access token found');
+    }
+
+    // Default subreddit - you might want to make this configurable
+    const subreddit = 'test'; // or get from user preferences
+
+    let postData: any = {
+      kind: 'self',
+      title: content.substring(0, 300), // Reddit title limit
+      text: content,
+      sr: subreddit,
+      api_type: 'json'
+    };
+
+    // If image is provided, post as link
+    if (image) {
+      postData = {
+        kind: 'link',
+        title: content.substring(0, 300),
+        url: image,
+        sr: subreddit,
+        api_type: 'json'
+      };
+    }
+
+    const formData = new URLSearchParams();
+    Object.keys(postData).forEach(key => {
+      formData.append(key, postData[key]);
+    });
+
+    const response = await fetch('https://oauth.reddit.com/api/submit', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'User-Agent': 'ContentPilot/1.0',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[Reddit] API Error:', errorText);
+      throw new Error(`Reddit API error: ${response.status} - ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log('[Reddit] Post successful:', result);
+
+    if (result.json?.errors && result.json.errors.length > 0) {
+      throw new Error(`Reddit error: ${result.json.errors[0][1]}`);
+    }
+
+    const postUrl = result.json?.data?.url || `https://reddit.com/r/${subreddit}`;
+
+    return {
+      platform: "reddit",
+      success: true,
+      postId: result.json?.data?.name || 'unknown',
+      url: postUrl,
+      message: `✅ Successfully posted to Reddit r/${subreddit}! ${image ? 'Image included.' : ''}`
+    };
+
+  } catch (error) {
+    console.error('[Reddit] Error:', error);
+    return {
+      platform: "reddit",
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+async function postToSocialMedia(platform: string, content: string, image?: string, credentials?: any) {
+  // Optimize content for the specific platform
+  const optimizedContent = optimizeContentForPlatform(content, platform);
+
+  console.log(`[${platform}] Posting with real OAuth credentials`);
+  console.log(`[${platform}] Content length: ${optimizedContent.length}`);
+  console.log(`[${platform}] Has image: ${!!image}`);
+
+  switch (platform.toLowerCase()) {
+    case "twitter":
+      return await postToTwitter(optimizedContent, image, credentials);
+    case "linkedin":
+      return await postToLinkedIn(optimizedContent, image, credentials);
+    case "facebook":
+      return await postToFacebook(optimizedContent, image, credentials);
+    case "instagram":
+      return await postToInstagram(optimizedContent, image, credentials);
+    case "reddit":
+      return await postToReddit(optimizedContent, image, credentials);
+    default:
+      return { platform, success: false, error: `Unsupported platform: ${platform}` };
   }
 }

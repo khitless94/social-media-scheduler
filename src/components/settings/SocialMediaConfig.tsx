@@ -45,7 +45,7 @@ const SocialMediaConfig = ({ connectionStatus, onConnectionStatusChange }: Socia
         </div>
       </CardHeader>
       <CardContent className="space-y-6 p-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {platforms.map((platform) => {
             const isConnected = connectionStatus[platform.key as keyof typeof connectionStatus];
             const isLoading = isConnecting[platform.key as keyof typeof isConnecting];

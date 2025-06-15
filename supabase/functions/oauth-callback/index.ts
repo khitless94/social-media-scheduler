@@ -23,7 +23,7 @@ const tokenConfigs = {
   twitter: {
     tokenUrl: 'https://api.twitter.com/2/oauth2/token',
     clientId: Deno.env.get('TWITTER_CLIENT_ID') || 'ZHRveEJIcVduLVdkdGJJUWYwZFc6MTpjaQ',
-    clientSecret: Deno.env.get('TWITTER_CLIENT_SECRET'),
+    clientSecret: Deno.env.get('TWITTER_CLIENT_SECRET') || 'Jnf9qcMh15eB29j3wlvxrMWn7lhlv8TUsAKPF8FOSAM85oR30T',
     grantType: 'authorization_code'
   },
   facebook: {

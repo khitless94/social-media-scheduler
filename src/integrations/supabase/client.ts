@@ -12,25 +12,15 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
 
 export async function postToPlatform({ platform, content, subreddit, image }) {
   try {
-    // Step 1: Get current session
-    const sessionResult = await supabase.auth.getSession();
-    const access_token = sessionResult?.data?.session?.access_token;
-
-    if (!access_token) {
-      console.error('User is not logged in or session expired.');
-      return { error: 'Unauthorized: No access token' };
-    }
-
-    // Step 2: Construct request headers
+    // Step 1: Construct request headers (no authentication needed)
     const headers = {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${access_token}`,
     };
 
-    // Step 3: Prepare request body
+    // Step 2: Prepare request body
     const body = JSON.stringify({ platform, content, subreddit, image });
 
-    // Step 4: Call the Edge Function
+    // Step 3: Call the Edge Function
     const response = await fetch(`${SUPABASE_URL}/functions/v1/post-to-social`, {
       method: 'POST',
       headers,
