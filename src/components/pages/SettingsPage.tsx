@@ -4,6 +4,8 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSocialMediaConnection } from "@/hooks/useSocialMediaConnection";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Settings as SettingsIcon,
   User,
@@ -19,16 +21,38 @@ import {
   Key,
   Globe,
   Smartphone,
-  Mail
+  Mail,
+  MapPin,
+  Users
 } from "lucide-react";
 
 const SettingsPage = () => {
   const [activeTab, setActiveTab] = useState("profile");
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Profile data
+  const [profileData, setProfileData] = useState({
+    full_name: "",
+    email: "",
+    country: "",
+    gender: "",
+    mobile_number: ""
+  });
+
+  // Password change
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: ""
+  });
+
+  // Notifications
   const [notifications, setNotifications] = useState({
-    email: true,
-    push: false,
-    marketing: true,
-    security: true
+    email_notifications: true,
+    push_notifications: false,
+    marketing_notifications: true,
+    security_notifications: true
   });
 
   const [connectionStatus, setConnectionStatus] = useState({
@@ -40,7 +64,271 @@ const SettingsPage = () => {
   });
 
   const { user } = useAuth();
+  const { toast } = useToast();
   const { isConnecting, connectPlatform, disconnectPlatform } = useSocialMediaConnection(setConnectionStatus);
+
+  // Fetch user profile data
+  useEffect(() => {
+    if (user) {
+      fetchUserProfile();
+      fetchNotificationSettings();
+    }
+  }, [user]);
+
+  const fetchUserProfile = async () => {
+    if (!user) return;
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+
+      if (data) {
+        setProfileData({
+          full_name: data.full_name || "",
+          email: user.email || "",
+          country: data.country || "",
+          gender: data.gender || "",
+          mobile_number: data.mobile_number || ""
+        });
+      } else {
+        // Create profile if doesn't exist
+        setProfileData({
+          full_name: "",
+          email: user.email || "",
+          country: "",
+          gender: "",
+          mobile_number: ""
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch profile data",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchNotificationSettings = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('user_preferences')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (data) {
+        setNotifications({
+          email_notifications: data.email_notifications ?? true,
+          push_notifications: data.push_notifications ?? false,
+          marketing_notifications: data.marketing_notifications ?? true,
+          security_notifications: data.security_notifications ?? true
+        });
+      }
+    } catch (error: any) {
+      console.log("No notification preferences found, using defaults");
+    }
+  };
+
+  const saveProfile = async () => {
+    if (!user) return;
+
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          full_name: profileData.full_name,
+          country: profileData.country,
+          gender: profileData.gender,
+          mobile_number: profileData.mobile_number,
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Profile updated successfully"
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to update profile",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveNotifications = async () => {
+    if (!user) return;
+
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('user_preferences')
+        .upsert({
+          user_id: user.id,
+          email_notifications: notifications.email_notifications,
+          push_notifications: notifications.push_notifications,
+          marketing_notifications: notifications.marketing_notifications,
+          security_notifications: notifications.security_notifications,
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Notification preferences updated"
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to update notifications",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveAllSettings = async () => {
+    await Promise.all([saveProfile(), saveNotifications()]);
+  };
+
+  const resetSettings = () => {
+    fetchUserProfile();
+    fetchNotificationSettings();
+    setPasswordData({
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: ""
+    });
+    toast({
+      title: "Settings Reset",
+      description: "All settings have been reset to saved values"
+    });
+  };
+
+  const changePassword = async () => {
+    if (!passwordData.newPassword || !passwordData.confirmPassword) {
+      toast({
+        title: "Error",
+        description: "Please fill in all password fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast({
+        title: "Error",
+        description: "New passwords don't match",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 6 characters",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: passwordData.newPassword
+      });
+
+      if (error) throw error;
+
+      setPasswordData({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: ""
+      });
+
+      toast({
+        title: "Success",
+        description: "Password updated successfully"
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update password",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteAccount = async () => {
+    if (!confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
+      return;
+    }
+
+    if (!confirm("This will permanently delete all your data, posts, and connections. Are you absolutely sure?")) {
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // Delete user data from profiles table
+      await supabase.from('profiles').delete().eq('id', user?.id);
+
+      // Delete user preferences
+      await supabase.from('user_preferences').delete().eq('user_id', user?.id);
+
+      // Delete OAuth connections
+      await supabase.from('oauth_connections').delete().eq('user_id', user?.id);
+
+      // Delete posts
+      await supabase.from('posts').delete().eq('user_id', user?.id);
+
+      // Finally delete the auth user
+      const { error } = await supabase.rpc('delete_user');
+
+      if (error) throw error;
+
+      toast({
+        title: "Account Deleted",
+        description: "Your account has been permanently deleted"
+      });
+
+      // Sign out and redirect
+      await supabase.auth.signOut();
+      window.location.href = '/';
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete account",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const platforms = [
     {
@@ -119,15 +407,24 @@ const SettingsPage = () => {
               <p className="text-gray-600">Manage your account and preferences</p>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-3">
-            <Button variant="outline" className="border-gray-200 hover:bg-gray-50">
+            <Button
+              variant="outline"
+              className="border-gray-200 hover:bg-gray-50"
+              onClick={resetSettings}
+              disabled={loading || saving}
+            >
               <RefreshCw className="h-4 w-4 mr-2" />
               Reset
             </Button>
-            <Button className="bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white">
+            <Button
+              className="bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white"
+              onClick={saveAllSettings}
+              disabled={loading || saving}
+            >
               <Save className="h-4 w-4 mr-2" />
-              Save All
+              {saving ? "Saving..." : "Save All"}
             </Button>
           </div>
         </div>
@@ -217,6 +514,8 @@ const SettingsPage = () => {
                       <input
                         type="text"
                         placeholder="Enter your full name"
+                        value={profileData.full_name}
+                        onChange={(e) => setProfileData(prev => ({ ...prev, full_name: e.target.value }))}
                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                       />
                     </div>
@@ -224,16 +523,63 @@ const SettingsPage = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
                       <input
                         type="email"
-                        placeholder="Enter your email"
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        value={profileData.email}
+                        disabled
+                        className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-600 cursor-not-allowed"
                       />
+                      <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <MapPin className="h-4 w-4 inline mr-1" />
+                        Country
+                      </label>
+                      <select
+                        value={profileData.country}
+                        onChange={(e) => setProfileData(prev => ({ ...prev, country: e.target.value }))}
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      >
+                        <option value="">Select Country</option>
+                        <option value="US">United States</option>
+                        <option value="UK">United Kingdom</option>
+                        <option value="CA">Canada</option>
+                        <option value="AU">Australia</option>
+                        <option value="DE">Germany</option>
+                        <option value="FR">France</option>
+                        <option value="IN">India</option>
+                        <option value="JP">Japan</option>
+                        <option value="BR">Brazil</option>
+                        <option value="MX">Mexico</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <Users className="h-4 w-4 inline mr-1" />
+                        Gender
+                      </label>
+                      <select
+                        value={profileData.gender}
+                        onChange={(e) => setProfileData(prev => ({ ...prev, gender: e.target.value }))}
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      >
+                        <option value="">Select Gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                        <option value="prefer_not_to_say">Prefer not to say</option>
+                      </select>
                     </div>
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Bio</label>
-                      <textarea
-                        rows={4}
-                        placeholder="Tell us about yourself..."
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <Smartphone className="h-4 w-4 inline mr-1" />
+                        Mobile Number
+                      </label>
+                      <input
+                        type="tel"
+                        placeholder="Enter your mobile number"
+                        value={profileData.mobile_number}
+                        onChange={(e) => setProfileData(prev => ({ ...prev, mobile_number: e.target.value }))}
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                       />
                     </div>
                   </div>
@@ -320,8 +666,8 @@ const SettingsPage = () => {
                         </div>
                       </div>
                       <Switch
-                        checked={notifications.email}
-                        onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, email: checked }))}
+                        checked={notifications.email_notifications}
+                        onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, email_notifications: checked }))}
                       />
                     </div>
 
@@ -334,8 +680,8 @@ const SettingsPage = () => {
                         </div>
                       </div>
                       <Switch
-                        checked={notifications.push}
-                        onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, push: checked }))}
+                        checked={notifications.push_notifications}
+                        onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, push_notifications: checked }))}
                       />
                     </div>
 
@@ -348,8 +694,8 @@ const SettingsPage = () => {
                         </div>
                       </div>
                       <Switch
-                        checked={notifications.marketing}
-                        onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, marketing: checked }))}
+                        checked={notifications.marketing_notifications}
+                        onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, marketing_notifications: checked }))}
                       />
                     </div>
 
@@ -362,8 +708,8 @@ const SettingsPage = () => {
                         </div>
                       </div>
                       <Switch
-                        checked={notifications.security}
-                        onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, security: checked }))}
+                        checked={notifications.security_notifications}
+                        onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, security_notifications: checked }))}
                       />
                     </div>
                   </div>
@@ -376,17 +722,42 @@ const SettingsPage = () => {
                   <h3 className="text-lg font-bold text-gray-900 mb-4">Security Settings</h3>
                   <div className="space-y-6">
                     <div className="p-6 bg-gray-50 rounded-xl">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center space-x-3">
-                          <Key className="h-5 w-5 text-blue-600" />
-                          <div>
-                            <h4 className="font-medium text-gray-900">Change Password</h4>
-                            <p className="text-sm text-gray-600">Update your account password</p>
+                      <div className="flex items-start space-x-3 mb-4">
+                        <Key className="h-5 w-5 text-blue-600 mt-1" />
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900 mb-2">Change Password</h4>
+                          <p className="text-sm text-gray-600 mb-4">Update your account password</p>
+
+                          <div className="space-y-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+                              <input
+                                type="password"
+                                placeholder="Enter new password"
+                                value={passwordData.newPassword}
+                                onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
+                              <input
+                                type="password"
+                                placeholder="Confirm new password"
+                                value={passwordData.confirmPassword}
+                                onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                              />
+                            </div>
+                            <Button
+                              onClick={changePassword}
+                              disabled={saving || !passwordData.newPassword || !passwordData.confirmPassword}
+                              className="bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                              {saving ? "Updating..." : "Update Password"}
+                            </Button>
                           </div>
                         </div>
-                        <Button variant="outline">
-                          Change Password
-                        </Button>
                       </div>
                     </div>
 
@@ -396,10 +767,18 @@ const SettingsPage = () => {
                           <Shield className="h-5 w-5 text-green-600" />
                           <div>
                             <h4 className="font-medium text-gray-900">Two-Factor Authentication</h4>
-                            <p className="text-sm text-gray-600">Add an extra layer of security</p>
+                            <p className="text-sm text-gray-600">Add an extra layer of security (Available with Supabase Auth)</p>
                           </div>
                         </div>
-                        <Button className="bg-green-600 hover:bg-green-700 text-white">
+                        <Button
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                          onClick={() => {
+                            toast({
+                              title: "2FA Setup",
+                              description: "2FA setup will be available in the next update. Your account is secured with Supabase Auth.",
+                            });
+                          }}
+                        >
                           Enable 2FA
                         </Button>
                       </div>
@@ -411,11 +790,17 @@ const SettingsPage = () => {
                           <X className="h-5 w-5 text-red-600" />
                           <div>
                             <h4 className="font-medium text-red-900">Delete Account</h4>
-                            <p className="text-sm text-red-700">Permanently delete your account and data</p>
+                            <p className="text-sm text-red-700">Permanently delete your account and all associated data</p>
+                            <p className="text-xs text-red-600 mt-1">This action cannot be undone!</p>
                           </div>
                         </div>
-                        <Button variant="outline" className="text-red-600 border-red-300 hover:bg-red-50">
-                          Delete Account
+                        <Button
+                          variant="outline"
+                          className="text-red-600 border-red-300 hover:bg-red-50"
+                          onClick={deleteAccount}
+                          disabled={saving}
+                        >
+                          {saving ? "Deleting..." : "Delete Account"}
                         </Button>
                       </div>
                     </div>

@@ -236,14 +236,6 @@ const ModernDashboard = () => {
                 <Bell className="h-5 w-5 text-gray-600" />
                 <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
               </button>
-              
-              <Button
-                onClick={() => setShowCreateModal(true)}
-                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-4 py-2 rounded-xl font-medium transition-all shadow-lg hover:shadow-xl"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                <span className="hidden sm:inline">Create</span>
-              </Button>
 
               <div className="flex items-center space-x-2">
                 <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
@@ -277,6 +269,17 @@ const ModernDashboard = () => {
                   <X className="h-4 w-4" />
                 </button>
               </div>
+            </div>
+
+            {/* Create Button */}
+            <div className="p-4 border-b border-gray-200/50">
+              <Button
+                onClick={() => setShowCreateModal(true)}
+                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl font-medium transition-all shadow-lg hover:shadow-xl"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create Post
+              </Button>
             </div>
 
             {/* Navigation */}
