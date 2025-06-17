@@ -12,19 +12,32 @@ import {
   Bell,
   Shield,
   Link,
-  Palette,
   Save,
   RefreshCw,
-  Check,
   X,
-  ExternalLink,
   Key,
   Globe,
   Smartphone,
   Mail,
   MapPin,
-  Users
+  Users,
+  Camera,
+  Upload,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
+
+// Helper function to convert data URI to Blob
+function dataURItoBlob(dataURI: string) {
+  const byteString = atob(dataURI.split(',')[1]);
+  const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+  const ab = new ArrayBuffer(byteString.length);
+  const ia = new Uint8Array(ab);
+  for (let i = 0; i < byteString.length; i++) {
+    ia[i] = byteString.charCodeAt(i);
+  }
+  return new Blob([ab], { type: mimeString });
+}
 
 const SettingsPage = () => {
   const [activeTab, setActiveTab] = useState("profile");
@@ -37,7 +50,8 @@ const SettingsPage = () => {
     email: "",
     country: "",
     gender: "",
-    mobile_number: ""
+    mobile_number: "",
+    profile_picture: ""
   });
 
   // Password change
@@ -46,6 +60,7 @@ const SettingsPage = () => {
     newPassword: "",
     confirmPassword: ""
   });
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
 
   // Notifications
   const [notifications, setNotifications] = useState({
@@ -83,11 +98,31 @@ const SettingsPage = () => {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', user.id)
+        .eq('user_id', user.id)
         .single();
 
       if (error && error.code !== 'PGRST116') {
-        throw error;
+        // Check if table doesn't exist
+        if (error.message?.includes('relation "profiles" does not exist') || error.code === '42P01') {
+          console.log("Profiles table doesn't exist, checking localStorage");
+
+          // Check localStorage as fallback
+          const localProfile = localStorage.getItem(`profile_${user.id}`);
+          if (localProfile) {
+            try {
+              const parsed = JSON.parse(localProfile);
+              setProfileData({
+                ...parsed,
+                email: user.email || ""
+              });
+              return;
+            } catch (e) {
+              console.log("Failed to parse local profile");
+            }
+          }
+        } else {
+          throw error;
+        }
       }
 
       if (data) {
@@ -95,25 +130,53 @@ const SettingsPage = () => {
           full_name: data.full_name || "",
           email: user.email || "",
           country: data.country || "",
-          gender: data.gender || "",
-          mobile_number: data.mobile_number || ""
+          gender: data.sex || "", // Use 'sex' field from database
+          mobile_number: "", // data.mobile_number || "", // Temporarily disabled until schema cache refreshes
+          profile_picture: data.avatar_url || ""
         });
       } else {
-        // Create profile if doesn't exist
+        // Create default profile
         setProfileData({
           full_name: "",
           email: user.email || "",
           country: "",
           gender: "",
-          mobile_number: ""
+          mobile_number: "",
+          profile_picture: ""
         });
       }
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: "Failed to fetch profile data",
-        variant: "destructive"
-      });
+      console.error('Failed to fetch profile:', error);
+
+      // Fallback to localStorage
+      const localProfile = localStorage.getItem(`profile_${user.id}`);
+      if (localProfile) {
+        try {
+          const parsed = JSON.parse(localProfile);
+          setProfileData({
+            ...parsed,
+            email: user.email || ""
+          });
+        } catch (e) {
+          setProfileData({
+            full_name: "",
+            email: user.email || "",
+            country: "",
+            gender: "",
+            mobile_number: "",
+            profile_picture: ""
+          });
+        }
+      } else {
+        setProfileData({
+          full_name: "",
+          email: user.email || "",
+          country: "",
+          gender: "",
+          mobile_number: "",
+          profile_picture: ""
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -123,51 +186,217 @@ const SettingsPage = () => {
     if (!user) return;
 
     try {
+      // Try to fetch from database first
       const { data, error } = await supabase
         .from('user_preferences')
         .select('*')
         .eq('user_id', user.id)
         .single();
 
-      if (data) {
+      if (data && !error) {
         setNotifications({
-          email_notifications: data.email_notifications ?? true,
-          push_notifications: data.push_notifications ?? false,
-          marketing_notifications: data.marketing_notifications ?? true,
-          security_notifications: data.security_notifications ?? true
+          email_notifications: data.email_notifications,
+          push_notifications: data.push_notifications,
+          marketing_notifications: data.marketing_notifications,
+          security_notifications: data.security_notifications
         });
+        return;
       }
-    } catch (error: any) {
-      console.log("No notification preferences found, using defaults");
+    } catch (error) {
+      console.log("Failed to fetch notifications from database, trying localStorage");
     }
+
+    // Fallback to localStorage
+    const localNotifications = localStorage.getItem(`notifications_${user.id}`);
+    if (localNotifications) {
+      try {
+        const parsed = JSON.parse(localNotifications);
+        setNotifications(parsed);
+        return;
+      } catch (e) {
+        console.log("Failed to parse local notifications, using defaults");
+      }
+    }
+
+    // Use defaults if no data found
+    setNotifications({
+      email_notifications: true,
+      push_notifications: false,
+      marketing_notifications: true,
+      security_notifications: true
+    });
+  };
+
+  const handleProfilePictureUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+          title: "File too large",
+          description: "Please select an image smaller than 5MB",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setProfileData(prev => ({ ...prev, profile_picture: result }));
+        toast({
+          title: "Profile picture updated",
+          description: "Your profile picture has been updated successfully"
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const validateProfile = () => {
+    const errors = [];
+
+    // Full name validation
+    if (!profileData.full_name.trim()) {
+      errors.push("Full name is required");
+    } else if (profileData.full_name.trim().length < 4) {
+      errors.push("Full name must be at least 4 characters");
+    } else if (/\d/.test(profileData.full_name)) {
+      errors.push("Full name cannot contain numbers");
+    }
+
+    // Country validation
+    if (!profileData.country.trim()) {
+      errors.push("Country is required");
+    }
+
+    // Gender validation
+    if (!profileData.gender.trim()) {
+      errors.push("Gender is required");
+    }
+
+    // Mobile number validation
+    if (!profileData.mobile_number.trim()) {
+      errors.push("Mobile number is required");
+    } else {
+      const mobileRegex = /^[\+]?[1-9][\d]{0,15}$/;
+      const cleanNumber = profileData.mobile_number.replace(/[\s\-\(\)]/g, '');
+      if (!mobileRegex.test(cleanNumber) || cleanNumber.length < 10) {
+        errors.push("Please enter a valid mobile number (minimum 10 digits)");
+      }
+    }
+
+    return errors;
   };
 
   const saveProfile = async () => {
     if (!user) return;
 
+    // Validate profile data
+    const validationErrors = validateProfile();
+    if (validationErrors.length > 0) {
+      toast({
+        title: "Validation Error",
+        description: validationErrors.join(", "),
+        variant: "destructive"
+      });
+      return;
+    }
+
     setSaving(true);
     try {
-      const { error } = await supabase
+      // Prepare the profile data for database
+      let avatarUrl = profileData.profile_picture;
+
+      // If a new profile picture is selected (base64 string), upload it
+      if (profileData.profile_picture && profileData.profile_picture.startsWith('data:image')) {
+        const blob = dataURItoBlob(profileData.profile_picture);
+        const fileExtension = profileData.profile_picture.split(';')[0].split('/')[1];
+        const fileName = `${user.id}.${fileExtension}`;
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(fileName, blob, {
+            upsert: true,
+            contentType: `image/${fileExtension}`,
+          });
+
+        if (uploadError) {
+          throw new Error(`Failed to upload avatar: ${uploadError.message}`);
+        }
+
+        const { data: publicUrlData } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(fileName);
+
+        avatarUrl = publicUrlData.publicUrl;
+      }
+
+      const profileUpdateData = {
+        id: user.id,
+        user_id: user.id,
+        full_name: profileData.full_name.trim(),
+        country: profileData.country.trim(),
+        sex: profileData.gender.trim(),
+        avatar_url: avatarUrl || null,
+        // mobile_number: profileData.mobile_number.trim() || null, // Temporarily disabled until schema cache refreshes
+        updated_at: new Date().toISOString()
+      };
+
+      console.log('Saving profile data:', profileUpdateData);
+
+      const { data, error } = await supabase
         .from('profiles')
-        .upsert({
-          id: user.id,
-          full_name: profileData.full_name,
-          country: profileData.country,
-          gender: profileData.gender,
-          mobile_number: profileData.mobile_number,
-          updated_at: new Date().toISOString()
+        .upsert(profileUpdateData, {
+          onConflict: 'user_id'
+        })
+        .select();
+
+      if (error) {
+        console.error('Profile save error:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
         });
 
-      if (error) throw error;
+        // Check if it's a column missing error
+        if (error.message?.includes('column') && error.message?.includes('does not exist')) {
+          toast({
+            title: "Database Schema Issue",
+            description: `Database column missing: ${error.message}. Please update your database schema.`,
+            variant: "destructive"
+          });
+          return;
+        }
+
+        // If table doesn't exist, create it or show error
+        if (error.message?.includes('relation "profiles" does not exist') || error.code === '42P01') {
+          toast({
+            title: "Database Table Missing",
+            description: "The profiles table doesn't exist. Please run the database setup script.",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        throw error;
+      }
+
+      console.log('Profile saved successfully:', data);
 
       toast({
         title: "Success",
-        description: "Profile updated successfully"
+        description: "Profile updated successfully in database"
       });
     } catch (error: any) {
+      console.error('Failed to save profile:', {
+        message: error?.message || 'Unknown error',
+        code: error?.code,
+        details: error?.details
+      });
+
       toast({
         title: "Error",
-        description: "Failed to update profile",
+        description: `Failed to save profile: ${error?.message || 'Unknown error'}`,
         variant: "destructive"
       });
     } finally {
@@ -179,37 +408,87 @@ const SettingsPage = () => {
     if (!user) return;
 
     setSaving(true);
+
     try {
+      // Save to database first
+      const notificationData = {
+        user_id: user.id,
+        email_notifications: notifications.email_notifications,
+        push_notifications: notifications.push_notifications,
+        marketing_notifications: notifications.marketing_notifications,
+        security_notifications: notifications.security_notifications,
+        updated_at: new Date().toISOString()
+      };
+
       const { error } = await supabase
         .from('user_preferences')
-        .upsert({
-          user_id: user.id,
-          email_notifications: notifications.email_notifications,
-          push_notifications: notifications.push_notifications,
-          marketing_notifications: notifications.marketing_notifications,
-          security_notifications: notifications.security_notifications,
-          updated_at: new Date().toISOString()
+        .upsert(notificationData, {
+          onConflict: 'user_id'
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Failed to save notifications to database:', error);
+        // Fallback to localStorage if database fails
+        localStorage.setItem(`notifications_${user.id}`, JSON.stringify(notifications));
+
+        toast({
+          title: "Partial Save",
+          description: "Notification preferences saved locally. Database sync failed.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Also save to localStorage as backup
+      localStorage.setItem(`notifications_${user.id}`, JSON.stringify(notifications));
 
       toast({
         title: "Success",
-        description: "Notification preferences updated"
+        description: "Notification preferences saved successfully"
       });
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: "Failed to update notifications",
-        variant: "destructive"
-      });
+      console.error('Failed to save notifications:', error);
+
+      // Fallback to localStorage
+      try {
+        localStorage.setItem(`notifications_${user.id}`, JSON.stringify(notifications));
+        toast({
+          title: "Partial Save",
+          description: "Notification preferences saved locally only.",
+          variant: "destructive"
+        });
+      } catch (localError) {
+        toast({
+          title: "Error",
+          description: "Failed to save notification preferences. Please try again.",
+          variant: "destructive"
+        });
+      }
     } finally {
       setSaving(false);
     }
   };
 
   const saveAllSettings = async () => {
-    await Promise.all([saveProfile(), saveNotifications()]);
+    setSaving(true);
+    try {
+      // Save both profile and notifications
+      await Promise.all([saveProfile(), saveNotifications()]);
+
+      toast({
+        title: "All Settings Saved",
+        description: "Profile and notification preferences have been saved successfully"
+      });
+    } catch (error: any) {
+      console.error('Failed to save all settings:', error);
+      toast({
+        title: "Partial Save",
+        description: "Some settings may not have been saved. Please check individual sections.",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const resetSettings = () => {
@@ -227,7 +506,7 @@ const SettingsPage = () => {
   };
 
   const changePassword = async () => {
-    if (!passwordData.newPassword || !passwordData.confirmPassword) {
+    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
       toast({
         title: "Error",
         description: "Please fill in all password fields",
@@ -254,13 +533,37 @@ const SettingsPage = () => {
       return;
     }
 
+    if (passwordData.currentPassword === passwordData.newPassword) {
+      toast({
+        title: "Error",
+        description: "New password must be different from current password",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setSaving(true);
     try {
-      const { error } = await supabase.auth.updateUser({
+      // First verify the current password by attempting to sign in
+      if (!user?.email) {
+        throw new Error("User email not found");
+      }
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: passwordData.currentPassword
+      });
+
+      if (signInError) {
+        throw new Error("Current password is incorrect");
+      }
+
+      // If current password is correct, update to new password
+      const { error: updateError } = await supabase.auth.updateUser({
         password: passwordData.newPassword
       });
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
       setPasswordData({
         currentPassword: "",
@@ -295,25 +598,22 @@ const SettingsPage = () => {
     setSaving(true);
     try {
       // Delete user data from profiles table
-      await supabase.from('profiles').delete().eq('id', user?.id);
+      await supabase.from('profiles').delete().eq('user_id', user?.id);
 
-      // Delete user preferences
-      await supabase.from('user_preferences').delete().eq('user_id', user?.id);
-
-      // Delete OAuth connections
-      await supabase.from('oauth_connections').delete().eq('user_id', user?.id);
-
-      // Delete posts
+      // Delete posts and post history
       await supabase.from('posts').delete().eq('user_id', user?.id);
+      await supabase.from('post_history').delete().eq('user_id', user?.id);
 
-      // Finally delete the auth user
-      const { error } = await supabase.rpc('delete_user');
+      // Delete OAuth credentials
+      await supabase.from('oauth_credentials').delete().eq('user_id', user?.id);
 
-      if (error) throw error;
+      // Clear localStorage data
+      localStorage.removeItem(`profile_${user.id}`);
+      localStorage.removeItem(`notifications_${user.id}`);
 
       toast({
-        title: "Account Deleted",
-        description: "Your account has been permanently deleted"
+        title: "Account Data Deleted",
+        description: "Your account data has been deleted. You will be signed out."
       });
 
       // Sign out and redirect
@@ -407,8 +707,7 @@ const SettingsPage = () => {
               <p className="text-gray-600">Manage your account and preferences</p>
             </div>
           </div>
-
-          <div className="flex items-center space-x-3">
+          <div className="flex space-x-2">
             <Button
               variant="outline"
               className="border-gray-200 hover:bg-gray-50"
@@ -419,9 +718,9 @@ const SettingsPage = () => {
               Reset
             </Button>
             <Button
-              className="bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white"
+              className="bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white disabled:opacity-50"
               onClick={saveAllSettings}
-              disabled={loading || saving}
+              disabled={loading || saving || validateProfile().length > 0}
             >
               <Save className="h-4 w-4 mr-2" />
               {saving ? "Saving..." : "Save All"}
@@ -508,16 +807,59 @@ const SettingsPage = () => {
               <TabsContent value="profile" className="mt-0 space-y-6">
                 <div>
                   <h3 className="text-lg font-bold text-gray-900 mb-4">Profile Information</h3>
+
+                  {/* Profile Picture Section */}
+                  <div className="mb-8 flex flex-col items-center">
+                    <div className="relative">
+                      <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-200 border-4 border-white shadow-lg">
+                        {profileData.profile_picture ? (
+                          <img
+                            src={profileData.profile_picture}
+                            alt="Profile"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-r from-blue-500 to-purple-600">
+                            <User className="h-12 w-12 text-white" />
+                          </div>
+                        )}
+                      </div>
+                      <label className="absolute bottom-0 right-0 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center cursor-pointer hover:bg-blue-700 transition-colors shadow-lg">
+                        <Camera className="h-4 w-4 text-white" />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleProfilePictureUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-2">Click the camera icon to upload a new profile picture</p>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Full Name <span className="text-red-500">*</span>
+                      </label>
                       <input
                         type="text"
-                        placeholder="Enter your full name"
+                        placeholder="Enter your full name (minimum 4 characters, no numbers)"
                         value={profileData.full_name}
                         onChange={(e) => setProfileData(prev => ({ ...prev, full_name: e.target.value }))}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                          profileData.full_name.trim().length > 0 && (profileData.full_name.trim().length < 4 || /\d/.test(profileData.full_name))
+                            ? 'border-red-300 focus:ring-red-500'
+                            : 'border-gray-200 focus:ring-blue-500'
+                        }`}
+                        required
                       />
+                      {profileData.full_name.trim().length > 0 && profileData.full_name.trim().length < 4 && (
+                        <p className="text-red-500 text-xs mt-1">Full name must be at least 4 characters</p>
+                      )}
+                      {/\d/.test(profileData.full_name) && (
+                        <p className="text-red-500 text-xs mt-1">Full name cannot contain numbers</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
@@ -532,14 +874,17 @@ const SettingsPage = () => {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         <MapPin className="h-4 w-4 inline mr-1" />
-                        Country
+                        Country <span className="text-red-500">*</span>
                       </label>
                       <select
                         value={profileData.country}
                         onChange={(e) => setProfileData(prev => ({ ...prev, country: e.target.value }))}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                          !profileData.country ? 'border-red-300 focus:ring-red-500' : 'border-gray-200 focus:ring-blue-500'
+                        }`}
+                        required
                       >
-                        <option value="">Select Country</option>
+                        <option value="">Select Country *</option>
                         <option value="US">United States</option>
                         <option value="UK">United Kingdom</option>
                         <option value="CA">Canada</option>
@@ -555,14 +900,17 @@ const SettingsPage = () => {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         <Users className="h-4 w-4 inline mr-1" />
-                        Gender
+                        Gender <span className="text-red-500">*</span>
                       </label>
                       <select
                         value={profileData.gender}
                         onChange={(e) => setProfileData(prev => ({ ...prev, gender: e.target.value }))}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                          !profileData.gender ? 'border-red-300 focus:ring-red-500' : 'border-gray-200 focus:ring-blue-500'
+                        }`}
+                        required
                       >
-                        <option value="">Select Gender</option>
+                        <option value="">Select Gender *</option>
                         <option value="male">Male</option>
                         <option value="female">Female</option>
                         <option value="other">Other</option>
@@ -572,15 +920,29 @@ const SettingsPage = () => {
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         <Smartphone className="h-4 w-4 inline mr-1" />
-                        Mobile Number
+                        Mobile Number <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="tel"
-                        placeholder="Enter your mobile number"
+                        placeholder="Enter your mobile number (e.g., +1234567890)"
                         value={profileData.mobile_number}
                         onChange={(e) => setProfileData(prev => ({ ...prev, mobile_number: e.target.value }))}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                          profileData.mobile_number.trim().length > 0 &&
+                          (!/^[\+]?[1-9][\d]{0,15}$/.test(profileData.mobile_number.replace(/[\s\-\(\)]/g, '')) ||
+                           profileData.mobile_number.replace(/[\s\-\(\)]/g, '').length < 10)
+                            ? 'border-red-300 focus:ring-red-500'
+                            : !profileData.mobile_number.trim()
+                              ? 'border-red-300 focus:ring-red-500'
+                              : 'border-gray-200 focus:ring-blue-500'
+                        }`}
+                        required
                       />
+                      {profileData.mobile_number.trim().length > 0 &&
+                       (!/^[\+]?[1-9][\d]{0,15}$/.test(profileData.mobile_number.replace(/[\s\-\(\)]/g, '')) ||
+                        profileData.mobile_number.replace(/[\s\-\(\)]/g, '').length < 10) && (
+                        <p className="text-red-500 text-xs mt-1">Please enter a valid mobile number (minimum 10 digits)</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -722,43 +1084,69 @@ const SettingsPage = () => {
                   <h3 className="text-lg font-bold text-gray-900 mb-4">Security Settings</h3>
                   <div className="space-y-6">
                     <div className="p-6 bg-gray-50 rounded-xl">
-                      <div className="flex items-start space-x-3 mb-4">
-                        <Key className="h-5 w-5 text-blue-600 mt-1" />
-                        <div className="flex-1">
-                          <h4 className="font-medium text-gray-900 mb-2">Change Password</h4>
-                          <p className="text-sm text-gray-600 mb-4">Update your account password</p>
-
-                          <div className="space-y-4">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
-                              <input
-                                type="password"
-                                placeholder="Enter new password"
-                                value={passwordData.newPassword}
-                                onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
-                                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
-                              <input
-                                type="password"
-                                placeholder="Confirm new password"
-                                value={passwordData.confirmPassword}
-                                onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                              />
-                            </div>
-                            <Button
-                              onClick={changePassword}
-                              disabled={saving || !passwordData.newPassword || !passwordData.confirmPassword}
-                              className="bg-blue-600 hover:bg-blue-700 text-white"
-                            >
-                              {saving ? "Updating..." : "Update Password"}
-                            </Button>
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-3">
+                          <Key className="h-5 w-5 text-blue-600" />
+                          <div>
+                            <h4 className="font-medium text-gray-900">Change Password</h4>
+                            <p className="text-sm text-gray-600">Update your account password</p>
                           </div>
                         </div>
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowPasswordForm(!showPasswordForm)}
+                          className="flex items-center space-x-2"
+                        >
+                          <span>{showPasswordForm ? "Cancel" : "Change Password"}</span>
+                          {showPasswordForm ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </Button>
                       </div>
+
+                      {showPasswordForm && (
+                        <div className="space-y-4 pt-4 border-t border-gray-200">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
+                            <input
+                              type="password"
+                              placeholder="Enter current password"
+                              value={passwordData.currentPassword}
+                              onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+                            <input
+                              type="password"
+                              placeholder="Enter new password"
+                              value={passwordData.newPassword}
+                              onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
+                            <input
+                              type="password"
+                              placeholder="Confirm new password"
+                              value={passwordData.confirmPassword}
+                              onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                            />
+                          </div>
+                          <Button
+                            onClick={changePassword}
+                            disabled={saving || !passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                          >
+                            {saving ? "Updating..." : "Update Password"}
+                          </Button>
+                        </div>
+                      )}
                     </div>
 
                     <div className="p-6 bg-gray-50 rounded-xl">

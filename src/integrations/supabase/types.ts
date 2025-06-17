@@ -161,6 +161,7 @@ export type Database = {
           created_at: string
           full_name: string | null
           id: string
+          mobile_number: string | null
           sex: string | null
           updated_at: string
           user_id: string
@@ -171,7 +172,8 @@ export type Database = {
           country?: string | null
           created_at?: string
           full_name?: string | null
-          id?: string
+          id: string
+          mobile_number?: string | null
           sex?: string | null
           updated_at?: string
           user_id: string
@@ -183,6 +185,7 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
+          mobile_number?: string | null
           sex?: string | null
           updated_at?: string
           user_id?: string
@@ -219,6 +222,39 @@ export type Database = {
           refresh_token?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      user_preferences: {
+        Row: {
+          id: string
+          user_id: string
+          email_notifications: boolean
+          push_notifications: boolean
+          marketing_notifications: boolean
+          security_notifications: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          email_notifications?: boolean
+          push_notifications?: boolean
+          marketing_notifications?: boolean
+          security_notifications?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          email_notifications?: boolean
+          push_notifications?: boolean
+          marketing_notifications?: boolean
+          security_notifications?: boolean
+          created_at?: string
+          updated_at?: string
         }
         Relationships: []
       }
