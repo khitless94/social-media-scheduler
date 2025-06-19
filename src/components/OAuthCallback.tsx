@@ -34,15 +34,37 @@ const OAuthCallback = () => {
         // Use platform from URL params or search params
         const activePlatform = platform || platformFromParams;
 
-        console.log('OAuth callback received:', { 
-          platform, 
-          platformFromParams, 
+        console.log('OAuth callback received:', {
+          platform,
+          platformFromParams,
           activePlatform,
-          success, 
-          errorMessageFromEdge, 
+          success,
+          errorMessageFromEdge,
           code: code ? 'present' : 'missing',
           state: state ? 'present' : 'missing'
         });
+
+        // If no platform is specified, show error
+        if (!activePlatform) {
+          setStatus('error');
+          setMessage('Authentication Failed - No platform specified');
+          toast({
+            title: "Authentication Error",
+            description: "No platform specified in OAuth callback",
+            variant: "destructive",
+          });
+
+          if (window.opener && !window.opener.closed) {
+            window.opener.postMessage({
+              type: "oauth_error",
+              error: "No platform specified"
+            }, window.location.origin);
+            setTimeout(() => window.close(), 3000);
+          } else {
+            setTimeout(() => navigate("/settings"), 3000);
+          }
+          return;
+        }
 
         console.log('OAuth callback params:', { 
           success, 

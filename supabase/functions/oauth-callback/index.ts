@@ -24,7 +24,8 @@ const tokenConfigs = {
     tokenUrl: 'https://api.twitter.com/2/oauth2/token',
     clientId: Deno.env.get('TWITTER_CLIENT_ID') || 'ZHRveEJIcVduLVdkdGJJUWYwZFc6MTpjaQ',
     clientSecret: Deno.env.get('TWITTER_CLIENT_SECRET') || 'Jnf9qcMh15eB29j3wlvxrMWn7lhlv8TUsAKPF8FOSAM85oR30T',
-    grantType: 'authorization_code'
+    grantType: 'authorization_code',
+    requiresPKCE: true
   },
   facebook: {
     tokenUrl: 'https://graph.facebook.com/v19.0/oauth/access_token',
@@ -78,6 +79,9 @@ async function exchangeCodeForToken(platform: string, code: string, redirectUri:
   if (codeVerifier) {
     body.append('code_verifier', codeVerifier);
     console.log(`[OAuth Callback] Added code_verifier for PKCE flow on ${platform}`);
+  } else if (platform === 'twitter') {
+    // Twitter requires PKCE, so code_verifier is mandatory
+    throw new Error(`Twitter OAuth Error: Missing code_verifier. Twitter requires PKCE (Proof Key for Code Exchange). Please try connecting again.`);
   }
 
   // Add client_secret for platforms that need it (will be removed later for Basic Auth platforms)
@@ -217,10 +221,12 @@ serve(async (req) => {
     const state = url.searchParams.get('state');
     const error = url.searchParams.get('error');
     const errorDescription = url.searchParams.get('error_description');
+    const platformFromUrl = url.searchParams.get('platform');
 
     console.log(`[OAuth Callback] Received callback with state: ${state}`);
     console.log(`[OAuth Callback] Code exists: ${!!code}`);
     console.log(`[OAuth Callback] Error: ${error}`);
+    console.log(`[OAuth Callback] Platform from URL: ${platformFromUrl}`);
 
     if (error) {
       console.error(`[OAuth Callback] OAuth error: ${error} - ${errorDescription}`);
@@ -228,7 +234,7 @@ serve(async (req) => {
       return new Response(null, {
         status: 302,
         headers: {
-          'Location': `${frontendUrl}/oauth/callback?error=${encodeURIComponent(error)}&description=${encodeURIComponent(errorDescription || '')}`
+          'Location': `${frontendUrl}/oauth/callback?error=${encodeURIComponent(error)}&description=${encodeURIComponent(errorDescription || '')}&platform=${encodeURIComponent(platformFromUrl || '')}`
         }
       });
     }
@@ -238,16 +244,34 @@ serve(async (req) => {
     }
 
     console.log(`[OAuth Callback] Looking up session for state: ${state}`);
-    
+
+    // First, let's see what sessions exist for debugging
+    const { data: allSessions, error: allSessionsError } = await supabase
+      .from('oauth_sessions')
+      .select('state, platform, user_id, created_at, expires_at')
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    console.log(`[OAuth Callback] Recent sessions in database:`, allSessions);
+    console.log(`[OAuth Callback] All sessions query error:`, allSessionsError);
+
     const { data: sessionData, error: sessionError } = await supabase
       .from('oauth_sessions')
       .select('*')
       .eq('state', state)
       .single();
 
+    console.log(`[OAuth Callback] Session lookup result:`, { sessionData, sessionError });
+
     if (sessionError || !sessionData) {
       console.error(`[OAuth Callback] State validation failed:`, sessionError);
-      throw new Error(`Invalid state format for ${sessionData?.platform || 'unknown'}. The authorization state was corrupted or malformed. Please try connecting your account again.`);
+
+      // More detailed error message
+      if (sessionError?.code === 'PGRST116') {
+        throw new Error(`OAuth session not found. The session may have expired or been cleaned up. Please try connecting your account again.`);
+      } else {
+        throw new Error(`Database error during session lookup: ${sessionError?.message || 'Unknown error'}. Please try connecting your account again.`);
+      }
     }
 
     const now = new Date();
@@ -343,10 +367,31 @@ serve(async (req) => {
     console.error('[OAuth Callback] Stack trace:', error.stack);
 
     const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'http://localhost:8080';
-    const errorUrl = `${frontendUrl}/oauth/callback?error=${encodeURIComponent(error.message)}`;
+
+    // Try to get platform from URL or session data for better error reporting
+    const url = new URL(req.url);
+    const platformFromUrl = url.searchParams.get('platform');
+    const state = url.searchParams.get('state');
+    let platformFromSession = '';
+
+    if (state) {
+      try {
+        const { data: sessionData } = await supabase
+          .from('oauth_sessions')
+          .select('platform')
+          .eq('state', state)
+          .single();
+        platformFromSession = sessionData?.platform || '';
+      } catch (e) {
+        // Ignore session lookup errors in error handler
+      }
+    }
+
+    const platform = platformFromSession || platformFromUrl || '';
+    const errorUrl = `${frontendUrl}/oauth/callback?error=${encodeURIComponent(error.message)}&platform=${encodeURIComponent(platform)}`;
 
     console.log(`[OAuth Callback] Redirecting to error URL: ${errorUrl}`);
-    
+
     return new Response(null, {
       status: 302,
       headers: { 'Location': errorUrl }

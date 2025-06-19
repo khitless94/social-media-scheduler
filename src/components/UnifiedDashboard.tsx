@@ -1,11 +1,11 @@
-import ModernDashboard from "./ModernDashboard";
+import ProfessionalDashboard from "./ProfessionalDashboard";
 import AuthGuard from "./AuthGuard";
 
-// Modern Dashboard with AuthGuard
+// Use the professional dashboard with world-class UI design
 const UnifiedDashboard = () => {
   return (
     <AuthGuard>
-      <ModernDashboard />
+      <ProfessionalDashboard />
     </AuthGuard>
   );
 };

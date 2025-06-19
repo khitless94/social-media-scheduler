@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +36,7 @@ interface ConnectionStatus {
 }
 
 const AuthModal = ({ isOpen, onClose, mode }: AuthModalProps) => {
+  const navigate = useNavigate();
   const [currentMode, setCurrentMode] = useState<'signin' | 'signup'>(mode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -131,9 +133,10 @@ const AuthModal = ({ isOpen, onClose, mode }: AuthModalProps) => {
         if (error) throw error;
         setSuccess("Successfully signed in!");
         await checkUser();
-        // Close modal after successful login
+        // Close modal and redirect to dashboard after successful login
         setTimeout(() => {
           onClose();
+          navigate('/dashboard');
         }, 1000);
       }
     } catch (error: any) {

@@ -146,6 +146,36 @@ export const useSocialMediaConnection = (
     try {
       setIsConnecting(prev => ({ ...prev, [platform]: true }));
 
+      // Verify user is authenticated
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('User not authenticated. Please log in first.');
+      }
+
+      console.log(`[OAuth] User authenticated:`, {
+        userId: user.id,
+        sessionUserId: session.user.id,
+        accessToken: session.access_token ? 'present' : 'missing'
+      });
+
+      // Test database permissions by trying a simple query first
+      try {
+        const { data: testData, error: testError } = await supabase
+          .from('oauth_sessions')
+          .select('count')
+          .limit(1);
+
+        if (testError) {
+          console.error(`[OAuth] Database permission test failed:`, testError);
+          throw new Error(`Database access error: ${testError.message}`);
+        }
+
+        console.log(`[OAuth] Database permission test passed`);
+      } catch (permissionError: any) {
+        console.error(`[OAuth] Database permission error:`, permissionError);
+        throw new Error(`Database connection failed: ${permissionError.message}`);
+      }
+
       const state = generateRandomString();
       let codeVerifier: string | null = null;
       let codeChallenge: string | null = null;
@@ -157,6 +187,18 @@ export const useSocialMediaConnection = (
       // Set expires_at to 10 minutes from now to match backend expectations
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
+      console.log(`[OAuth] Creating session for ${platform} with state: ${state}`);
+      console.log(`[OAuth] Session data:`, {
+        state,
+        user_id: user.id,
+        platform,
+        code_verifier: codeVerifier ? 'present' : 'null',
+        expires_at: expiresAt,
+      });
+
+      // Save session to database for OAuth callback
+      console.log(`[OAuth] Saving session to database for ${platform}`);
+
       const { error: sessionError } = await supabase.from('oauth_sessions').insert({
         state,
         user_id: user.id,
@@ -164,11 +206,31 @@ export const useSocialMediaConnection = (
         code_verifier: codeVerifier,
         expires_at: expiresAt,
       });
-      if (sessionError) throw new Error(`Failed to initialize OAuth session: ${sessionError.message}`);
+
+      if (sessionError) {
+        console.error(`[OAuth] Failed to save session:`, sessionError);
+        console.error(`[OAuth] Session error details:`, {
+          code: sessionError.code,
+          message: sessionError.message,
+          details: sessionError.details,
+          hint: sessionError.hint
+        });
+
+        // Check if it's a permission issue
+        if (sessionError.code === 'PGRST301' || sessionError.message.includes('permission')) {
+          throw new Error(`Database permission error. Please check your authentication.`);
+        } else if (sessionError.code === '42501') {
+          throw new Error(`Insufficient permissions to create OAuth session.`);
+        } else {
+          throw new Error(`Failed to initialize OAuth session: ${sessionError.message}`);
+        }
+      }
+
+      console.log(`[OAuth] Session saved for ${platform}`);
 
       // Use the exact redirect URI that matches your LinkedIn app configuration
       // This should match what you have registered in LinkedIn Developer Console
-      const redirectUri = `https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback`;
+      const redirectUri = `https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback?platform=${platform}`;
       const clientId = getClientIdForPlatform(platform);
       let authorizationUrl = '';
 
@@ -219,13 +281,13 @@ export const useSocialMediaConnection = (
         });
         authorizationUrl = `https://www.facebook.com/v19.0/dialog/oauth?${params.toString()}`;
       }
-      
+
       if (!authorizationUrl) {
         throw new Error(`Platform "${platform}" is not configured for OAuth connection.`);
       }
 
       console.log(`Opening OAuth popup for ${platform}:`, authorizationUrl);
-      
+
       const popup = window.open(authorizationUrl, 'oauth-popup', 'width=600,height=750,scrollbars=yes,resizable=yes');
       if (!popup || popup.closed || typeof popup.closed === 'undefined') {
         throw new Error("Popup blocked. Please enable popups for this site.");
@@ -264,6 +326,8 @@ export const useSocialMediaConnection = (
         errorMessage = `${platform} is not properly configured. Please check the app settings.`;
       } else if (error.message.includes('Popup blocked')) {
         errorMessage = 'Popup was blocked. Please allow popups for this site and try again.';
+      } else if (error.message.includes('Failed to fetch')) {
+        errorMessage = 'Database connection issue. OAuth flow will continue, but session may not be saved.';
       }
 
       toast({
@@ -279,22 +343,39 @@ export const useSocialMediaConnection = (
     try {
       setIsConnecting(prev => ({ ...prev, [platform]: true }));
 
-      // Delete from both tables for complete cleanup
-      const [oauthResult, socialTokensResult] = await Promise.all([
-        supabase.from('oauth_credentials').delete().match({ user_id: user.id, platform }),
-        supabase.from('social_tokens').delete().match({ user_id: user.id, platform })
-      ]);
+      // Delete from social_tokens table (the correct table name)
+      const { error: deleteError } = await supabase
+        .from('social_tokens')
+        .delete()
+        .match({ user_id: user.id, platform });
 
-      // Check if either deletion had an error
-      if (oauthResult.error && socialTokensResult.error) {
-        throw new Error('Failed to disconnect from both credential stores');
+      if (deleteError) {
+        console.error(`Error deleting ${platform} tokens:`, deleteError);
+        // Don't throw error if the record doesn't exist (user might not have been connected)
+        if (!deleteError.message.includes('No rows found')) {
+          throw deleteError;
+        }
       }
 
-      toast({ title: "Disconnected successfully", description: `${platform} account has been disconnected.` });
+      // Also clean up any oauth sessions for this platform
+      await supabase
+        .from('oauth_sessions')
+        .delete()
+        .match({ user_id: user.id, platform });
+
+      toast({
+        title: "Disconnected successfully",
+        description: `${platform} account has been disconnected.`
+      });
+
       loadConnectionStatusFromDB(); // Refresh the UI after disconnecting
     } catch (error: any) {
       console.error(`Error disconnecting ${platform}:`, error);
-      toast({ title: "Error", description: "Failed to disconnect account.", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: `Failed to disconnect ${platform} account: ${error.message}`,
+        variant: "destructive"
+      });
     } finally {
       setIsConnecting(prev => ({ ...prev, [platform]: false }));
     }
