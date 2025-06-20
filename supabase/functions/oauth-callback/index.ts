@@ -10,7 +10,7 @@ const supabase = createClient(
 const tokenConfigs = {
   linkedin: {
     tokenUrl: 'https://www.linkedin.com/oauth/v2/accessToken',
-    clientId: Deno.env.get('LINKEDIN_CLIENT_ID') || '86z7443djn3cgx',
+    clientId: Deno.env.get('LINKEDIN_CLIENT_ID') || '78yhh9neso7awt',
     clientSecret: Deno.env.get('LINKEDIN_CLIENT_SECRET'),
     grantType: 'authorization_code'
   },
@@ -23,7 +23,7 @@ const tokenConfigs = {
   twitter: {
     tokenUrl: 'https://api.twitter.com/2/oauth2/token',
     clientId: Deno.env.get('TWITTER_CLIENT_ID') || 'ZHRveEJIcVduLVdkdGJJUWYwZFc6MTpjaQ',
-    clientSecret: Deno.env.get('TWITTER_CLIENT_SECRET') || 'Jnf9qcMh15eB29j3wlvxrMWn7lhlv8TUsAKPF8FOSAM85oR30T',
+    clientSecret: Deno.env.get('TWITTER_CLIENT_SECRET'),
     grantType: 'authorization_code',
     requiresPKCE: true
   },
@@ -53,6 +53,16 @@ async function exchangeCodeForToken(platform: string, code: string, redirectUri:
 
   // Check if required secrets are missing
   if (!config.clientSecret) {
+    if (platform === 'twitter') {
+      throw new Error(`Twitter authentication failed: Missing TWITTER_CLIENT_SECRET environment variable.
+
+Please set your Twitter Client Secret in Supabase:
+1. Go to https://supabase.com/dashboard/project/eqiuukwwpdiyncahrdny/settings/environment-variables
+2. Add TWITTER_CLIENT_SECRET with your actual Twitter app's Client Secret
+3. Get your Client Secret from: https://developer.twitter.com/en/portal/dashboard
+
+Your Twitter Client ID: ${config.clientId}`);
+    }
     throw new Error(`${platform} authentication failed: Missing client secret. Please configure ${platform.toUpperCase()}_CLIENT_SECRET in your Supabase environment variables.`);
   }
 
@@ -135,6 +145,25 @@ async function exchangeCodeForToken(platform: string, code: string, redirectUri:
     
     // Enhanced error handling for common OAuth errors
     if (responseText.includes('unauthorized_client') || responseText.includes('Missing valid authorization header')) {
+      if (platform === 'twitter') {
+        throw new Error(`Twitter OAuth Error: Invalid client credentials. This usually means:
+
+🔧 TWITTER CONFIGURATION CHECKLIST:
+1. ❌ TWITTER_CLIENT_SECRET is missing or incorrect in Supabase
+2. ❌ Client ID/Secret mismatch in Twitter Developer Console
+3. ❌ Redirect URI not configured correctly in Twitter app
+4. ❌ Twitter app type is incorrect (should be "Web App, Automated App or Bot")
+
+✅ TO FIX:
+1. Go to https://developer.twitter.com/en/portal/dashboard
+2. Find your app with Client ID: ${config.clientId}
+3. Copy the Client Secret from "Keys and tokens" tab
+4. Set TWITTER_CLIENT_SECRET in Supabase: https://supabase.com/dashboard/project/eqiuukwwpdiyncahrdny/settings/environment-variables
+5. Ensure redirect URI is: https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback
+6. Ensure app type is "Confidential client" (not Public client)
+
+Original error: ${responseText}`);
+      }
       throw new Error(`${platform} OAuth Error: Invalid client credentials or missing authorization. This usually means:
 1. The ${platform.toUpperCase()}_CLIENT_SECRET is incorrect or missing
 2. The client ID doesn't match the client secret
@@ -215,13 +244,39 @@ Original error: ${responseText}`);
 }
 
 serve(async (req) => {
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  };
+
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
   try {
-    const url = new URL(req.url);
-    const code = url.searchParams.get('code');
-    const state = url.searchParams.get('state');
-    const error = url.searchParams.get('error');
-    const errorDescription = url.searchParams.get('error_description');
-    const platformFromUrl = url.searchParams.get('platform');
+    let code, state, error, errorDescription, platformFromUrl, sessionData;
+
+    // Handle both GET (redirect) and POST (fetch) requests
+    if (req.method === 'POST') {
+      const body = await req.json();
+      code = body.code;
+      state = body.state;
+      error = body.error;
+      errorDescription = body.error_description;
+      platformFromUrl = body.platform;
+      sessionData = body.session_data;
+      console.log('[OAuth Callback] POST request received:', { platform: platformFromUrl, code: code ? 'present' : 'missing', state: state ? 'present' : 'missing' });
+    } else {
+      const url = new URL(req.url);
+      code = url.searchParams.get('code');
+      state = url.searchParams.get('state');
+      error = url.searchParams.get('error');
+      errorDescription = url.searchParams.get('error_description');
+      platformFromUrl = url.searchParams.get('platform');
+      console.log('[OAuth Callback] GET request received:', { platform: platformFromUrl, code: code ? 'present' : 'missing', state: state ? 'present' : 'missing' });
+    }
 
     console.log(`[OAuth Callback] Received callback with state: ${state}`);
     console.log(`[OAuth Callback] Code exists: ${!!code}`);
@@ -243,49 +298,91 @@ serve(async (req) => {
       throw new Error('Missing required parameters: code or state');
     }
 
-    console.log(`[OAuth Callback] Looking up session for state: ${state}`);
+    console.log(`[OAuth Callback] Processing OAuth callback for state: ${state}`);
 
-    // First, let's see what sessions exist for debugging
-    const { data: allSessions, error: allSessionsError } = await supabase
-      .from('oauth_sessions')
-      .select('state, platform, user_id, created_at, expires_at')
-      .order('created_at', { ascending: false })
-      .limit(10);
+    let platform, user_id, code_verifier;
 
-    console.log(`[OAuth Callback] Recent sessions in database:`, allSessions);
-    console.log(`[OAuth Callback] All sessions query error:`, allSessionsError);
+    // Use session data from request if available (POST method), otherwise decode from state (GET method)
+    if (sessionData && req.method === 'POST') {
+      console.log(`[OAuth Callback] Using session data from request`);
+      platform = sessionData.platform || platformFromUrl;
+      user_id = sessionData.user_id;
+      code_verifier = sessionData.code_verifier;
 
-    const { data: sessionData, error: sessionError } = await supabase
-      .from('oauth_sessions')
-      .select('*')
-      .eq('state', state)
-      .single();
+      // Validate timestamp (session should be recent)
+      const sessionAge = Date.now() - sessionData.timestamp;
+      if (sessionAge > 10 * 60 * 1000) { // 10 minutes
+        throw new Error('OAuth session has expired. Please try connecting again.');
+      }
+    } else {
+      console.log(`[OAuth Callback] Trying to decode session data from state parameter`);
 
-    console.log(`[OAuth Callback] Session lookup result:`, { sessionData, sessionError });
+      // Try to decode session data from state parameter (for GET requests)
+      let decodedSessionData = null;
+      if (state && state.includes('|')) {
+        try {
+          const [originalState, encodedData] = state.split('|');
+          decodedSessionData = JSON.parse(atob(encodedData));
+          console.log(`[OAuth Callback] Decoded session data from state:`, decodedSessionData);
 
-    if (sessionError || !sessionData) {
-      console.error(`[OAuth Callback] State validation failed:`, sessionError);
+          platform = decodedSessionData.platform || platformFromUrl;
+          user_id = decodedSessionData.user_id;
+          code_verifier = decodedSessionData.code_verifier;
 
-      // More detailed error message
-      if (sessionError?.code === 'PGRST116') {
-        throw new Error(`OAuth session not found. The session may have expired or been cleaned up. Please try connecting your account again.`);
-      } else {
-        throw new Error(`Database error during session lookup: ${sessionError?.message || 'Unknown error'}. Please try connecting your account again.`);
+          // Validate timestamp
+          const sessionAge = Date.now() - decodedSessionData.timestamp;
+          if (sessionAge > 10 * 60 * 1000) { // 10 minutes
+            throw new Error('OAuth session has expired. Please try connecting again.');
+          }
+        } catch (e) {
+          console.warn(`[OAuth Callback] Failed to decode session data from state:`, e);
+        }
+      }
+
+      // If we couldn't decode from state, fall back to database lookup
+      if (!decodedSessionData) {
+        console.log(`[OAuth Callback] Falling back to database session lookup`);
+
+        const { data: dbSessionData, error: sessionError } = await supabase
+          .from('oauth_sessions')
+          .select('*')
+          .eq('state', state.split('|')[0] || state) // Use original state if encoded
+          .single();
+
+        if (sessionError || !dbSessionData) {
+          console.error(`[OAuth Callback] State validation failed:`, sessionError);
+          throw new Error(`OAuth session not found. Please try connecting your account again.`);
+        }
+
+        const now = new Date();
+        const expiresAt = new Date(dbSessionData.expires_at);
+        if (now > expiresAt) {
+          console.error(`[OAuth Callback] Session expired for state: ${state}`);
+          throw new Error('OAuth session has expired. Please try connecting again.');
+        }
+
+        platform = dbSessionData.platform;
+        user_id = dbSessionData.user_id;
+        code_verifier = dbSessionData.code_verifier;
       }
     }
 
-    const now = new Date();
-    const expiresAt = new Date(sessionData.expires_at);
-    if (now > expiresAt) {
-      console.error(`[OAuth Callback] Session expired for state: ${state}`);
-      throw new Error('OAuth session has expired. Please try connecting again.');
+    // Final platform validation and fallback detection
+    if (!platform) {
+      // Try to detect platform from the authorization code or other clues
+      if (code && code.length > 50) {
+        // Twitter codes are typically longer
+        platform = 'twitter';
+        console.log(`[OAuth Callback] Detected platform as Twitter based on code length`);
+      } else {
+        throw new Error('Unable to determine platform for OAuth callback. Please try connecting again.');
+      }
     }
 
-    const { platform, user_id, code_verifier } = sessionData;
     console.log(`[OAuth Callback] Valid session found for platform: ${platform}, user: ${user_id}`);
     console.log(`[OAuth Callback] Session code_verifier exists: ${!!code_verifier}`);
-    console.log(`[OAuth Callback] Session created at: ${sessionData.created_at || 'unknown'}`);
-    console.log(`[OAuth Callback] Session expires at: ${sessionData.expires_at}`);
+    console.log(`[OAuth Callback] Session created at: ${sessionData?.created_at || 'unknown'}`);
+    console.log(`[OAuth Callback] Session expires at: ${sessionData?.expires_at || 'unknown'}`);
     
     // Check if user already has an account connected for this platform
     const { data: existingAccount, error: checkError } = await supabase
@@ -301,7 +398,8 @@ serve(async (req) => {
       console.log(`[OAuth Callback] No existing ${platform} account found for user ${user_id}, will create new`);
     }
 
-    const redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/oauth-callback`;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'http://127.0.0.1:54321';
+    const redirectUri = `${supabaseUrl}/functions/v1/oauth-callback`;
     console.log(`[OAuth Callback] Using redirect URI: ${redirectUri}`);
 
     const tokenData = await exchangeCodeForToken(platform, code, redirectUri, code_verifier);
@@ -343,24 +441,38 @@ serve(async (req) => {
       console.warn(`[OAuth Callback] Failed to store in social_tokens:`, socialTokensResult.error);
     }
 
-    // Clean up the oauth session
+    // Clean up the oauth session (use original state if encoded)
+    const originalState = state.includes('|') ? state.split('|')[0] : state;
     await supabase
       .from('oauth_sessions')
       .delete()
-      .eq('state', state);
+      .eq('state', originalState);
 
     console.log(`[OAuth Callback] Successfully connected ${platform} for user ${user_id}`);
 
-    const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'http://localhost:8080';
-    const successUrl = `${frontendUrl}/oauth/callback?success=true&platform=${platform}`;
-    console.log(`[OAuth Callback] Redirecting to success URL: ${successUrl}`);
+    // Handle response based on request method
+    if (req.method === 'POST') {
+      // Return JSON response for POST requests (fetch calls)
+      return new Response(JSON.stringify({
+        success: true,
+        platform,
+        message: `Successfully connected ${platform} account`
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    } else {
+      // Redirect for GET requests (browser redirects)
+      const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'http://localhost:8081';
+      const successUrl = `${frontendUrl}/oauth/callback?success=true&platform=${platform}`;
+      console.log(`[OAuth Callback] Redirecting to success URL: ${successUrl}`);
 
-    return new Response(null, {
-      status: 302,
-      headers: {
-        'Location': successUrl
-      }
-    });
+      return new Response(null, {
+        status: 302,
+        headers: {
+          'Location': successUrl
+        }
+      });
+    }
 
   } catch (error: any) {
     console.error('[OAuth Callback] Error:', error.message);
@@ -388,14 +500,27 @@ serve(async (req) => {
     }
 
     const platform = platformFromSession || platformFromUrl || '';
-    const errorUrl = `${frontendUrl}/oauth/callback?error=${encodeURIComponent(error.message)}&platform=${encodeURIComponent(platform)}`;
 
-    console.log(`[OAuth Callback] Redirecting to error URL: ${errorUrl}`);
+    // Handle error response based on request method
+    if (req.method === 'POST') {
+      // Return JSON error response for POST requests
+      return new Response(JSON.stringify({
+        error: error.message,
+        platform
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    } else {
+      // Redirect for GET requests
+      const errorUrl = `${frontendUrl}/oauth/callback?error=${encodeURIComponent(error.message)}&platform=${encodeURIComponent(platform)}`;
+      console.log(`[OAuth Callback] Redirecting to error URL: ${errorUrl}`);
 
-    return new Response(null, {
-      status: 302,
-      headers: { 'Location': errorUrl }
-    });
+      return new Response(null, {
+        status: 302,
+        headers: { 'Location': errorUrl }
+      });
+    }
   }
 });
 

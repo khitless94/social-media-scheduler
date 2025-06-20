@@ -27,7 +27,7 @@ const oauthConfigs = {
   },
   linkedin: {
     authUrl: "https://www.linkedin.com/oauth/v2/authorization",
-    clientId: Deno.env.get("LINKEDIN_CLIENT_ID") || "86z7443djn3cgx",
+    clientId: Deno.env.get("LINKEDIN_CLIENT_ID") || "78yhh9neso7awt",
     scope: "openid profile email w_member_social",  // LinkedIn 2024+ OpenID Connect scopes
     responseType: "code",
     requiresPKCE: false,  // LinkedIn doesn't require PKCE
@@ -140,7 +140,8 @@ serve(async (req) => {
       throw new Error("Could not store session");
     }
 
-    const redirectUri = `${Deno.env.get("SUPABASE_URL")}/functions/v1/oauth-callback`;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "http://127.0.0.1:54321";
+    const redirectUri = `${supabaseUrl}/functions/v1/oauth-callback`;
     console.log(`[Auth Redirect] Using redirect URI: ${redirectUri}`);
 
     const params = new URLSearchParams({
@@ -177,7 +178,7 @@ serve(async (req) => {
     console.error("[Auth Redirect] Error:", err);
     console.error("[Auth Redirect] Stack trace:", err.stack);
     
-    const fallback = Deno.env.get("YOUR_FRONTEND_URL") || "http://localhost:8080";
+    const fallback = Deno.env.get("YOUR_FRONTEND_URL") || "http://localhost:8081";
     const platform = new URL(req.url).searchParams.get("platform") || "unknown";
     const errorRedirect = `${fallback}/oauth/callback?error=${encodeURIComponent(
       err.message

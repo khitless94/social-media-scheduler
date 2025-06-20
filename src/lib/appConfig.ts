@@ -15,8 +15,8 @@ export const AppConfig = {
   },
   linkedin: {
     // LinkedIn Client ID - Updated to match your actual LinkedIn app
-    // From your LinkedIn Developer Console: 86z7443djn3cgx
-    clientId: "86z7443djn3cgx"
+    // From your LinkedIn Developer Console: 78yhh9neso7awt
+    clientId: "78yhh9neso7awt"
   },
   facebook: {
     // TODO: Replace this with your real Facebook App ID from the Meta Developer Portal.
