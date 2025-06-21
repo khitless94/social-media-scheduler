@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OAuth Test - Reddit & LinkedIn</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .platform { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        .button { padding: 10px 20px; margin: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .button:hover { background: #0056b3; }
+        .reddit { border-color: #ff4500; }
+        .linkedin { border-color: #0077b5; }
+        .status { margin: 10px 0; padding: 10px; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+    </style>
+</head>
+<body>
+    <h1>🔗 OAuth Test - Reddit & LinkedIn</h1>
+    
+    <div class="platform reddit">
+        <h2>🔴 Reddit OAuth Test</h2>
+        <p><strong>Client ID:</strong> kBrkkv-sRC-3jE9RIUt6-g</p>
+        <p><strong>Redirect URI:</strong> https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback</p>
+        <button class="button" onclick="testReddit()">🚀 Test Reddit OAuth</button>
+        <div id="reddit-status"></div>
+    </div>
+
+    <div class="platform linkedin">
+        <h2>🔵 LinkedIn OAuth Test</h2>
+        <p><strong>Client ID:</strong> 86z7443djn3cgx</p>
+        <p><strong>Redirect URI:</strong> https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback</p>
+        <button class="button" onclick="testLinkedIn()">🚀 Test LinkedIn OAuth</button>
+        <div id="linkedin-status"></div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function showStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        async function testReddit() {
+            log('Testing Reddit OAuth...');
+            showStatus('reddit-status', '🔄 Testing Reddit OAuth...', 'info');
+
+            try {
+                // Generate state parameter
+                const state = Math.random().toString(36).substring(2, 15);
+                
+                // Reddit OAuth URL
+                const params = new URLSearchParams({
+                    client_id: 'kBrkkv-sRC-3jE9RIUt6-g',
+                    response_type: 'code',
+                    state: state,
+                    redirect_uri: 'https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback',
+                    duration: 'permanent',
+                    scope: 'identity read submit'
+                });
+
+                const authUrl = `https://www.reddit.com/api/v1/authorize?${params.toString()}`;
+                
+                log(`Reddit OAuth URL: ${authUrl}`);
+                showStatus('reddit-status', '✅ Reddit OAuth URL generated successfully! Opening popup...', 'success');
+                
+                // Open popup
+                const popup = window.open(authUrl, 'reddit-oauth', 'width=600,height=700');
+                
+                // Monitor popup
+                const checkClosed = setInterval(() => {
+                    if (popup.closed) {
+                        clearInterval(checkClosed);
+                        showStatus('reddit-status', '🔄 Popup closed. Check if Reddit connection was successful in your main app.', 'info');
+                    }
+                }, 1000);
+
+            } catch (error) {
+                log(`Reddit OAuth error: ${error.message}`, 'error');
+                showStatus('reddit-status', `❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testLinkedIn() {
+            log('Testing LinkedIn OAuth...');
+            showStatus('linkedin-status', '🔄 Testing LinkedIn OAuth...', 'info');
+
+            try {
+                // Generate state parameter
+                const state = Math.random().toString(36).substring(2, 15);
+                
+                // LinkedIn OAuth URL
+                const params = new URLSearchParams({
+                    response_type: 'code',
+                    client_id: '86z7443djn3cgx',
+                    redirect_uri: 'https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback',
+                    state: state,
+                    scope: 'openid profile email w_member_social'
+                });
+
+                const authUrl = `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`;
+                
+                log(`LinkedIn OAuth URL: ${authUrl}`);
+                showStatus('linkedin-status', '✅ LinkedIn OAuth URL generated successfully! Opening popup...', 'success');
+                
+                // Open popup
+                const popup = window.open(authUrl, 'linkedin-oauth', 'width=600,height=700');
+                
+                // Monitor popup
+                const checkClosed = setInterval(() => {
+                    if (popup.closed) {
+                        clearInterval(checkClosed);
+                        showStatus('linkedin-status', '🔄 Popup closed. Check if LinkedIn connection was successful in your main app.', 'info');
+                    }
+                }, 1000);
+
+            } catch (error) {
+                log(`LinkedIn OAuth error: ${error.message}`, 'error');
+                showStatus('linkedin-status', `❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Show initial status
+        showStatus('reddit-status', '⏳ Ready to test Reddit OAuth', 'info');
+        showStatus('linkedin-status', '⏳ Ready to test LinkedIn OAuth', 'info');
+    </script>
+</body>
+</html>

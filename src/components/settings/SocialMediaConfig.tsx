@@ -1,8 +1,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useSocialMediaConnection } from "@/hooks/useSocialMediaConnection";
 import { platforms } from "@/constants/platforms";
 import { PlatformCard } from "./PlatformCard";
-import { Share2 } from "lucide-react";
+import { Share2, RefreshCw } from "lucide-react";
 
 interface SocialMediaConfigProps {
   connectionStatus: {
@@ -16,27 +17,40 @@ interface SocialMediaConfigProps {
 }
 
 const SocialMediaConfig = ({ connectionStatus, onConnectionStatusChange }: SocialMediaConfigProps) => {
-  const { isConnecting, connectPlatform, disconnectPlatform } = useSocialMediaConnection(onConnectionStatusChange);
+  const { isConnecting, connectPlatform, disconnectPlatform, refreshConnectionStatus } = useSocialMediaConnection(onConnectionStatusChange);
 
   return (
     <Card className="bg-white/95 backdrop-blur-xl border-0 shadow-2xl rounded-3xl overflow-hidden">
       <CardHeader className="pb-6 bg-gradient-to-r from-blue-50 to-indigo-50 relative">
         <div className="absolute top-0 right-0 w-32 h-32 bg-blue-200/20 rounded-full transform translate-x-8 -translate-y-8"></div>
         <div className="relative z-10">
-          <CardTitle className="flex items-center space-x-4 text-2xl">
-            <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl shadow-lg">
-              <Share2 className="h-7 w-7 text-white" />
-            </div>
-            <div>
-              <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent font-bold">
-                Social Media Connections
-              </span>
-              <div className="flex items-center space-x-2 mt-1">
-                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                <span className="text-sm text-blue-600 font-medium">
-                  {Object.values(connectionStatus).filter(Boolean).length} Connected
-                </span>
+          <CardTitle className="flex items-center justify-between text-2xl">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl shadow-lg">
+                <Share2 className="h-7 w-7 text-white" />
               </div>
+              <div>
+                <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent font-bold">
+                  Social Media Connections
+                </span>
+                <div className="flex items-center space-x-2 mt-1">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm text-blue-600 font-medium">
+                    {Object.values(connectionStatus).filter(Boolean).length} Connected
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="flex space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={refreshConnectionStatus}
+                className="text-xs bg-white/80 hover:bg-white"
+              >
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Refresh
+              </Button>
             </div>
           </CardTitle>
           <CardDescription className="text-base text-gray-600 mt-3">

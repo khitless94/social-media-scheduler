@@ -15,13 +15,11 @@ import OAuthCallback from '@/components/OAuthCallback';
 
 
 
-// This component combines the guard and layout for cleaner routes
+// This component only uses AuthGuard without ProtectedLayout to avoid double sidebars
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return (
     <AuthGuard>
-      <ProtectedLayout>
-        {children}
-      </ProtectedLayout>
+      {children}
     </AuthGuard>
   );
 };
@@ -40,24 +38,44 @@ function App() {
       {/* Protected Routes - Unified Dashboard */}
       <Route
         path="/dashboard"
-        element={<UnifiedDashboard />}
+        element={
+          <ProtectedRoute>
+            <UnifiedDashboard />
+          </ProtectedRoute>
+        }
       />
       {/* Legacy routes redirect to unified dashboard */}
       <Route
         path="/create"
-        element={<UnifiedDashboard />}
+        element={
+          <ProtectedRoute>
+            <UnifiedDashboard />
+          </ProtectedRoute>
+        }
       />
       <Route
         path="/posts"
-        element={<UnifiedDashboard />}
+        element={
+          <ProtectedRoute>
+            <UnifiedDashboard />
+          </ProtectedRoute>
+        }
       />
       <Route
         path="/analytics"
-        element={<UnifiedDashboard />}
+        element={
+          <ProtectedRoute>
+            <UnifiedDashboard />
+          </ProtectedRoute>
+        }
       />
       <Route
         path="/settings"
-        element={<UnifiedDashboard />}
+        element={
+          <ProtectedRoute>
+            <UnifiedDashboard />
+          </ProtectedRoute>
+        }
       />
     </Routes>
   );

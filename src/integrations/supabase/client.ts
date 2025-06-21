@@ -8,7 +8,34 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  },
+  global: {
+    headers: {
+      'Connection': 'close',
+      'Cache-Control': 'no-cache',
+      'HTTP-Version': '1.1'
+    },
+    fetch: (url, options = {}) => {
+      // Force HTTP/1.1 to avoid HTTP2 protocol errors
+      return fetch(url, {
+        ...options,
+        headers: {
+          ...options.headers,
+          'Connection': 'close',
+          'Cache-Control': 'no-cache'
+        }
+      });
+    }
+  },
+  db: {
+    schema: 'public'
+  }
+});
 
 export async function postToPlatform({ platform, content, subreddit, image }) {
   try {

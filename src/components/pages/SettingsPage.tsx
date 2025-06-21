@@ -131,7 +131,7 @@ const SettingsPage = () => {
           email: user.email || "",
           country: data.country || "",
           gender: data.sex || "", // Use 'sex' field from database
-          mobile_number: "", // data.mobile_number || "", // Temporarily disabled until schema cache refreshes
+          mobile_number: data.mobile_number || "",
           profile_picture: data.avatar_url || ""
         });
       } else {
@@ -337,11 +337,24 @@ const SettingsPage = () => {
         country: profileData.country.trim(),
         sex: profileData.gender.trim(),
         avatar_url: avatarUrl || null,
-        // mobile_number: profileData.mobile_number.trim() || null, // Temporarily disabled until schema cache refreshes
+        mobile_number: profileData.mobile_number.trim() || null,
         updated_at: new Date().toISOString()
       };
 
       console.log('Saving profile data:', profileUpdateData);
+
+      // Test database connection first
+      const { data: testData, error: testError } = await supabase
+        .from('profiles')
+        .select('count')
+        .limit(1);
+
+      if (testError) {
+        console.error('Database connection test failed:', testError);
+        throw new Error(`Database connection failed: ${testError.message}`);
+      }
+
+      console.log('Database connection test passed');
 
       const { data, error } = await supabase
         .from('profiles')
@@ -383,6 +396,9 @@ const SettingsPage = () => {
 
       console.log('Profile saved successfully:', data);
 
+      // Also save to localStorage as backup
+      localStorage.setItem(`profile_${user.id}`, JSON.stringify(profileData));
+
       toast({
         title: "Success",
         description: "Profile updated successfully in database"
@@ -394,11 +410,21 @@ const SettingsPage = () => {
         details: error?.details
       });
 
-      toast({
-        title: "Error",
-        description: `Failed to save profile: ${error?.message || 'Unknown error'}`,
-        variant: "destructive"
-      });
+      // Fallback to localStorage if database fails
+      try {
+        localStorage.setItem(`profile_${user.id}`, JSON.stringify(profileData));
+        toast({
+          title: "Partial Save",
+          description: "Profile saved locally. Database sync failed. Please try again later.",
+          variant: "destructive"
+        });
+      } catch (localError) {
+        toast({
+          title: "Error",
+          description: `Failed to save profile: ${error?.message || 'Unknown error'}`,
+          variant: "destructive"
+        });
+      }
     } finally {
       setSaving(false);
     }
@@ -944,6 +970,33 @@ const SettingsPage = () => {
                         <p className="text-red-500 text-xs mt-1">Please enter a valid mobile number (minimum 10 digits)</p>
                       )}
                     </div>
+                  </div>
+
+                  {/* Save Profile Button */}
+                  <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setProfileData({
+                          full_name: "",
+                          email: user?.email || "",
+                          country: "",
+                          gender: "",
+                          mobile_number: "",
+                          profile_picture: ""
+                        });
+                      }}
+                      disabled={saving}
+                    >
+                      Clear Form
+                    </Button>
+                    <Button
+                      onClick={saveProfile}
+                      disabled={saving || validateProfile().length > 0}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      {saving ? "Saving..." : "Save Profile"}
+                    </Button>
                   </div>
                 </div>
               </TabsContent>

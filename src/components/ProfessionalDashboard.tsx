@@ -68,6 +68,7 @@ import {
 } from "lucide-react";
 import { Facebook, Instagram, Twitter, Linkedin } from "lucide-react";
 import CreatePostModal from "./CreatePostModal";
+import SettingsPage from "./pages/SettingsPage";
 import { useSocialMediaConnection } from "@/hooks/useSocialMediaConnection";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -239,8 +240,8 @@ const ProfessionalDashboard = () => {
       title: "Team & Settings",
       items: [
         { id: "collaboration", label: "Team Collaboration", icon: Users, shortcut: "⌘U" },
-        { id: "settings", label: "Settings", icon: Settings, shortcut: "⌘," },
-        { id: "integrations", label: "Integrations", icon: Link, shortcut: "⌘I" }
+        { id: "integrations", label: "Integrations", icon: Link, shortcut: "⌘I" },
+        { id: "settings", label: "Settings", icon: Settings, shortcut: "⌘," }
       ]
     }
   ];
@@ -445,7 +446,7 @@ const ProfessionalDashboard = () => {
                 {activeTab === 'posts' && 'Manage your content library'}
                 {activeTab === 'calendar' && 'Schedule and plan your posts'}
                 {activeTab === 'analytics' && 'Track your performance metrics'}
-                {activeTab === 'settings' && 'Configure your workspace'}
+                {activeTab === 'settings' && 'Configure your account and preferences'}
               </p>
             </div>
           </div>
@@ -831,368 +832,8 @@ const ProfessionalDashboard = () => {
               </div>
             )}
 
-            {activeTab === "settings" && (
-              <div className="space-y-6">
-                {/* Settings Header */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Settings</h2>
-                    <p className="text-gray-600 mt-1">Configure your workspace</p>
-                  </div>
-                  {!isEditingProfile && (
-                    <Button
-                      onClick={handleProfileEdit}
-                      className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
-                    >
-                      <Edit3 className="w-4 h-4 mr-2" />
-                      Edit Profile
-                    </Button>
-                  )}
-                </div>
 
-                {/* Social Media Connections */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Social Media Connections</h3>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {/* Twitter */}
-                    <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
-                          <Twitter className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-gray-900">Twitter</h4>
-                          <p className={`text-sm ${connectionStatus.twitter ? 'text-green-600' : 'text-gray-500'}`}>
-                            {connectionStatus.twitter ? 'Connected' : 'Not Connected'}
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant={connectionStatus.twitter ? "outline" : "default"}
-                        onClick={() => connectionStatus.twitter ? disconnectPlatform('twitter') : connectPlatform('twitter')}
-                        disabled={isConnecting.twitter}
-                      >
-                        {isConnecting.twitter ? 'Connecting...' : (connectionStatus.twitter ? 'Disconnect' : 'Connect')}
-                      </Button>
-                    </div>
-
-                    {/* Instagram */}
-                    <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-pink-500 rounded-lg flex items-center justify-center">
-                          <Instagram className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-gray-900">Instagram</h4>
-                          <p className={`text-sm ${connectionStatus.instagram ? 'text-green-600' : 'text-gray-500'}`}>
-                            {connectionStatus.instagram ? 'Connected' : 'Not Connected'}
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant={connectionStatus.instagram ? "outline" : "default"}
-                        onClick={() => connectionStatus.instagram ? disconnectPlatform('instagram') : connectPlatform('instagram')}
-                        disabled={isConnecting.instagram}
-                      >
-                        {isConnecting.instagram ? 'Connecting...' : (connectionStatus.instagram ? 'Disconnect' : 'Connect')}
-                      </Button>
-                    </div>
-
-                    {/* LinkedIn */}
-                    <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                          <Linkedin className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-gray-900">LinkedIn</h4>
-                          <p className={`text-sm ${connectionStatus.linkedin ? 'text-green-600' : 'text-gray-500'}`}>
-                            {connectionStatus.linkedin ? 'Connected' : 'Not Connected'}
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant={connectionStatus.linkedin ? "outline" : "default"}
-                        onClick={() => connectionStatus.linkedin ? disconnectPlatform('linkedin') : connectPlatform('linkedin')}
-                        disabled={isConnecting.linkedin}
-                      >
-                        {isConnecting.linkedin ? 'Connecting...' : (connectionStatus.linkedin ? 'Disconnect' : 'Connect')}
-                      </Button>
-                    </div>
-
-                    {/* Facebook */}
-                    <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                          <Facebook className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-gray-900">Facebook</h4>
-                          <p className={`text-sm ${connectionStatus.facebook ? 'text-green-600' : 'text-gray-500'}`}>
-                            {connectionStatus.facebook ? 'Connected' : 'Not Connected'}
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant={connectionStatus.facebook ? "outline" : "default"}
-                        onClick={() => connectionStatus.facebook ? disconnectPlatform('facebook') : connectPlatform('facebook')}
-                        disabled={isConnecting.facebook}
-                      >
-                        {isConnecting.facebook ? 'Connecting...' : (connectionStatus.facebook ? 'Disconnect' : 'Connect')}
-                      </Button>
-                    </div>
-
-                    {/* Reddit */}
-                    <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
-                          <MessageCircle className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-gray-900">Reddit</h4>
-                          <p className={`text-sm ${connectionStatus.reddit ? 'text-green-600' : 'text-gray-500'}`}>
-                            {connectionStatus.reddit ? 'Connected' : 'Not Connected'}
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant={connectionStatus.reddit ? "outline" : "default"}
-                        onClick={() => connectionStatus.reddit ? disconnectPlatform('reddit') : connectPlatform('reddit')}
-                        disabled={isConnecting.reddit}
-                      >
-                        {isConnecting.reddit ? 'Connecting...' : (connectionStatus.reddit ? 'Disconnect' : 'Connect')}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Account Information */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                        <User className="w-5 h-5 text-white" />
-                      </div>
-                      <h3 className="text-lg font-semibold text-gray-900">Personal Details</h3>
-                    </div>
-                    {isEditingProfile ? (
-                      <div className="flex space-x-2">
-                        <Button
-                          onClick={handleProfileCancel}
-                          variant="outline"
-                          size="sm"
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          onClick={handleProfileSave}
-                          size="sm"
-                          className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
-                        >
-                          <Save className="w-4 h-4 mr-2" />
-                          Save Changes
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button
-                        onClick={handleProfileEdit}
-                        size="sm"
-                        className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
-                      >
-                        <Edit3 className="w-4 h-4 mr-2" />
-                        Edit Profile
-                      </Button>
-                    )}
-                  </div>
-                  {/* Profile Picture Section */}
-                  <div className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg mb-6">
-                    <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-gray-200">
-                      {(profileData.profilePicture || user?.user_metadata?.profile_picture) ? (
-                        <img
-                          src={profileData.profilePicture || user?.user_metadata?.profile_picture}
-                          alt="Profile"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-r from-violet-600 to-purple-600 flex items-center justify-center text-white text-lg font-medium">
-                          {user?.email?.charAt(0).toUpperCase() || 'U'}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900 mb-1">Profile Picture</h4>
-                      <p className="text-sm text-gray-500 mb-2">
-                        {(profileData.profilePicture || user?.user_metadata?.profile_picture)
-                          ? "Click to change your profile picture"
-                          : "Upload a profile picture to personalize your account"
-                        }
-                      </p>
-                      {isEditingProfile && (
-                        <div className="flex items-center space-x-3">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleProfilePictureUpload}
-                            className="hidden"
-                            id="profile-picture-upload"
-                          />
-                          <label
-                            htmlFor="profile-picture-upload"
-                            className="inline-flex items-center px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg cursor-pointer transition-colors"
-                          >
-                            <Camera className="w-4 h-4 mr-1" />
-                            {(profileData.profilePicture || user?.user_metadata?.profile_picture) ? 'Change' : 'Upload'}
-                          </label>
-                          {(profileData.profilePicture || user?.user_metadata?.profile_picture) && (
-                            <button
-                              onClick={() => setProfileData(prev => ({ ...prev, profilePicture: '' }))}
-                              className="text-sm text-red-600 hover:text-red-700 transition-colors"
-                            >
-                              Remove
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-6">
-                    {/* Email Field */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        <Mail className="w-4 h-4 inline mr-2" />
-                        Email Address
-                      </label>
-                      <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <p className="text-gray-600 text-sm">{user?.email}</p>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Your email address cannot be changed for security reasons
-                      </p>
-                    </div>
-
-                    {/* Name Field */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        <User className="w-4 h-4 inline mr-2" />
-                        Full Name
-                      </label>
-                      {isEditingProfile ? (
-                        <input
-                          type="text"
-                          value={profileData.name}
-                          onChange={(e) => setProfileData(prev => ({ ...prev, name: e.target.value }))}
-                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="Enter your full name"
-                        />
-                      ) : (
-                        <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                          <p className="text-gray-900">{profileData.name || 'Not set'}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Country Section */}
-                  <div className="mt-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      <MapPin className="w-4 h-4 inline mr-2" />
-                      Country
-                    </label>
-                    {isEditingProfile ? (
-                      <select
-                        value={profileData.country || ''}
-                        onChange={(e) => setProfileData(prev => ({ ...prev, country: e.target.value }))}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        <option value="">🌍 Select your country</option>
-                        <option value="US">🇺🇸 United States</option>
-                        <option value="CA">🇨🇦 Canada</option>
-                        <option value="GB">🇬🇧 United Kingdom</option>
-                        <option value="AU">🇦🇺 Australia</option>
-                        <option value="DE">🇩🇪 Germany</option>
-                        <option value="FR">🇫🇷 France</option>
-                        <option value="IT">🇮🇹 Italy</option>
-                        <option value="ES">🇪🇸 Spain</option>
-                        <option value="NL">🇳🇱 Netherlands</option>
-                        <option value="SE">🇸🇪 Sweden</option>
-                        <option value="NO">🇳🇴 Norway</option>
-                        <option value="DK">🇩🇰 Denmark</option>
-                        <option value="FI">🇫🇮 Finland</option>
-                        <option value="JP">🇯🇵 Japan</option>
-                        <option value="KR">🇰🇷 South Korea</option>
-                        <option value="SG">🇸🇬 Singapore</option>
-                        <option value="IN">🇮🇳 India</option>
-                        <option value="BR">🇧🇷 Brazil</option>
-                        <option value="MX">🇲🇽 Mexico</option>
-                        <option value="AR">🇦🇷 Argentina</option>
-                        <option value="ZA">🇿🇦 South Africa</option>
-                        <option value="NZ">🇳🇿 New Zealand</option>
-                      </select>
-                    ) : (
-                      <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <p className="text-gray-900">
-                          {profileData.country && profileData.country.trim() !== '' ? (
-                            <>
-                              {profileData.country === 'US' && '🇺🇸 United States'}
-                              {profileData.country === 'CA' && '🇨🇦 Canada'}
-                              {profileData.country === 'GB' && '🇬🇧 United Kingdom'}
-                              {profileData.country === 'AU' && '🇦🇺 Australia'}
-                              {profileData.country === 'DE' && '🇩🇪 Germany'}
-                              {profileData.country === 'FR' && '🇫🇷 France'}
-                              {profileData.country === 'IT' && '🇮🇹 Italy'}
-                              {profileData.country === 'ES' && '🇪🇸 Spain'}
-                              {profileData.country === 'NL' && '🇳🇱 Netherlands'}
-                              {profileData.country === 'SE' && '🇸🇪 Sweden'}
-                              {profileData.country === 'NO' && '🇳🇴 Norway'}
-                              {profileData.country === 'DK' && '🇩🇰 Denmark'}
-                              {profileData.country === 'FI' && '🇫🇮 Finland'}
-                              {profileData.country === 'JP' && '🇯🇵 Japan'}
-                              {profileData.country === 'KR' && '🇰🇷 South Korea'}
-                              {profileData.country === 'SG' && '🇸🇬 Singapore'}
-                              {profileData.country === 'IN' && '🇮🇳 India'}
-                              {profileData.country === 'BR' && '🇧🇷 Brazil'}
-                              {profileData.country === 'MX' && '🇲🇽 Mexico'}
-                              {profileData.country === 'AR' && '🇦🇷 Argentina'}
-                              {profileData.country === 'ZA' && '🇿🇦 South Africa'}
-                              {profileData.country === 'NZ' && '🇳🇿 New Zealand'}
-                            </>
-                          ) : (
-                            "Not set"
-                          )}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                </div>
-
-                {/* Plan Information */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6 mt-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-gradient-to-r from-violet-500 to-purple-600 rounded-lg flex items-center justify-center">
-                        <Crown className="w-5 h-5 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">Current Plan</h3>
-                        <p className="text-violet-600 font-medium">Professional</p>
-                      </div>
-                    </div>
-                    <Button className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white">
-                      <ArrowUpRight className="w-4 h-4 mr-2" />
-                      Upgrade Plan
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {activeTab === "media" && (
               <div className="text-center py-16">
@@ -1541,7 +1182,7 @@ const ProfessionalDashboard = () => {
                 </p>
                 <div className="flex items-center justify-center space-x-3">
                   <Button
-                    onClick={() => setActiveTab("settings")}
+                    onClick={() => toast({ title: "Coming Soon", description: "Team collaboration features will be available soon!" })}
                     className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white"
                   >
                     <Users className="w-4 h-4 mr-2" />
@@ -1981,6 +1622,13 @@ const ProfessionalDashboard = () => {
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Settings */}
+            {activeTab === "settings" && (
+              <div className="-m-6">
+                <SettingsPage />
               </div>
             )}
           </div>

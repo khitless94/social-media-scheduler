@@ -10,7 +10,7 @@ const supabase = createClient(
 // --- COMPLETE OAUTH CONFIGURATIONS FOR ALL PLATFORMS ---
 const oauthConfigs = {
   twitter: {
-    authUrl: "https://twitter.com/i/oauth2/authorize",
+    authUrl: "https://x.com/i/oauth2/authorize",
     clientId: Deno.env.get("TWITTER_CLIENT_ID") || "ZHRveEJIcVduLVdkdGJJUWYwZFc6MTpjaQ",
     scope: "tweet.read tweet.write users.read offline.access",
     responseType: "code",
@@ -19,8 +19,7 @@ const oauthConfigs = {
   reddit: {
     authUrl: "https://www.reddit.com/api/v1/authorize",
     clientId: Deno.env.get("REDDIT_CLIENT_ID") || "kBrkkv-sRC-3jE9RIUt6-g",
-    scope:
-      "identity edit flair history modconfig modflair modlog modposts modwiki mysubreddits privatemessages read report save submit subscribe vote wikiedit wikiread",
+    scope: "identity submit read",
     responseType: "code",
     duration: "permanent",
     requiresPKCE: false,

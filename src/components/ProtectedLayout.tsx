@@ -40,7 +40,6 @@ const ProtectedLayout = ({ children }: ProtectedLayoutProps) => {
     { path: "/create", label: "Create Post", icon: Plus, description: "AI-powered content" },
     { path: "/posts", label: "My Posts", icon: FileText, description: "Manage content" },
     { path: "/analytics", label: "Analytics", icon: BarChart3, description: "Performance insights" },
-    { path: "/settings", label: "Settings", icon: Settings, description: "Account & preferences" },
   ];
 
   const isActive = (path: string) => location.pathname === path;

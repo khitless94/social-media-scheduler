@@ -25,7 +25,7 @@ export const PlatformCard = ({
   const Icon = platform.icon;
 
   return (
-    <div className="group flex items-center justify-between p-6 rounded-xl border-2 bg-white/80 backdrop-blur-sm hover:bg-white/90 transition-all duration-300 hover:border-purple-200 hover:shadow-lg">
+    <div className="group flex items-center justify-between p-6 rounded-xl border-2 bg-white/80 backdrop-blur-sm hover:bg-white/90 transition-all duration-300 hover:border-purple-200 hover:shadow-lg cursor-default">
       <div className="flex items-center space-x-4 flex-1 min-w-0">
         <div className={`p-3 rounded-xl bg-gradient-to-br from-gray-50 to-white border-2 group-hover:scale-105 transition-transform duration-200 flex-shrink-0`}>
           <Icon className={`h-7 w-7 ${platform.color}`} />
@@ -51,7 +51,7 @@ export const PlatformCard = ({
             size="sm"
             onClick={() => onDisconnect(platform.key)}
             disabled={isLoading}
-            className="border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 font-medium px-4 py-2 text-sm"
+            className="border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 font-medium px-4 py-2 text-sm cursor-pointer"
           >
             Disconnect
           </Button>
@@ -59,7 +59,7 @@ export const PlatformCard = ({
           <Button
             onClick={() => onConnect(platform.key)}
             disabled={isLoading}
-            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold px-6 py-2 min-w-[120px] shadow-lg hover:shadow-xl transition-all duration-200 text-sm"
+            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold px-6 py-2 min-w-[120px] shadow-lg hover:shadow-xl transition-all duration-200 text-sm cursor-pointer"
           >
             {isLoading ? (
               <>

@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase Connection Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .test { margin: 15px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        .warning { background: #fff3cd; border-color: #ffeaa7; }
+        .info { background: #d1ecf1; border-color: #bee5eb; }
+        button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        .log { background: #f8f9fa; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 12px; max-height: 300px; overflow-y: auto; }
+        pre { white-space: pre-wrap; word-wrap: break-word; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Supabase Connection Diagnostic</h1>
+        <p>This tool tests the connection to your Supabase instance to identify network issues.</p>
+
+        <div class="test info">
+            <h3>📋 Configuration</h3>
+            <p><strong>Supabase URL:</strong> https://eqiuukwwpdiyncahrdny.supabase.co</p>
+            <p><strong>Project ID:</strong> eqiuukwwpdiyncahrdny</p>
+        </div>
+
+        <div class="test">
+            <h3>🌐 Test 1: Basic Connectivity</h3>
+            <button onclick="testBasicConnectivity()">Test Basic Connection</button>
+            <div id="basicResult"></div>
+        </div>
+
+        <div class="test">
+            <h3>🔐 Test 2: Auth Endpoint</h3>
+            <button onclick="testAuthEndpoint()">Test Auth Endpoint</button>
+            <div id="authResult"></div>
+        </div>
+
+        <div class="test">
+            <h3>🗄️ Test 3: Database Connection</h3>
+            <button onclick="testDatabaseConnection()">Test Database</button>
+            <div id="dbResult"></div>
+        </div>
+
+        <div class="test">
+            <h3>⚡ Test 4: Edge Functions</h3>
+            <button onclick="testEdgeFunctions()">Test Edge Functions</button>
+            <div id="edgeResult"></div>
+        </div>
+
+        <div class="test">
+            <h3>🔄 Test 5: Alternative Connection Methods</h3>
+            <button onclick="testAlternativeConnections()">Test Alternatives</button>
+            <div id="altResult"></div>
+        </div>
+
+        <div class="test">
+            <h3>📝 Debug Logs</h3>
+            <div id="debugLogs" class="log">Ready to start testing...</div>
+            <button onclick="clearLogs()">Clear Logs</button>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://eqiuukwwpdiyncahrdny.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaXV1a3d3cGRpeW5jYWhyZG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxOTA5MzcsImV4cCI6MjA2NDc2NjkzN30.sgwl7oP2fJD7rh64w59XWdfMCS0XQcNjD4Qr_WGILGs";
+
+        function log(message, type = 'info') {
+            const logs = document.getElementById('debugLogs');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${type.toUpperCase()}: ${message}\n`;
+            logs.textContent += logEntry;
+            logs.scrollTop = logs.scrollHeight;
+            console.log(logEntry);
+        }
+
+        function clearLogs() {
+            document.getElementById('debugLogs').textContent = 'Logs cleared...\n';
+        }
+
+        async function testBasicConnectivity() {
+            log('Testing basic connectivity to Supabase...');
+            const resultDiv = document.getElementById('basicResult');
+            
+            try {
+                // Test basic HTTP connectivity
+                const response = await fetch(SUPABASE_URL, { 
+                    method: 'HEAD',
+                    mode: 'cors'
+                });
+                
+                log(`Basic connectivity test: ${response.status}`);
+                
+                if (response.ok || response.status === 404) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            ✅ Basic connectivity: OK (Status: ${response.status})
+                        </div>
+                        <p>Supabase server is reachable.</p>
+                    `;
+                    log('Basic connectivity: SUCCESS');
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="warning">
+                            ⚠️ Unexpected status: ${response.status}
+                        </div>
+                        <p>Server responded but with unexpected status.</p>
+                    `;
+                    log(`Basic connectivity: Unexpected status ${response.status}`, 'warning');
+                }
+                
+            } catch (error) {
+                log(`Basic connectivity error: ${error.message}`, 'error');
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ Connection failed: ${error.message}
+                    </div>
+                    <p>Cannot reach Supabase server. Check network connection.</p>
+                `;
+            }
+        }
+
+        async function testAuthEndpoint() {
+            log('Testing auth endpoint...');
+            const resultDiv = document.getElementById('authResult');
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/auth/v1/settings`, {
+                    method: 'GET',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                log(`Auth endpoint test: ${response.status}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            ✅ Auth endpoint: OK
+                        </div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                    log('Auth endpoint: SUCCESS');
+                } else {
+                    const errorText = await response.text();
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            ❌ Auth endpoint failed: ${response.status}
+                        </div>
+                        <pre>${errorText}</pre>
+                    `;
+                    log(`Auth endpoint error: ${response.status} - ${errorText}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`Auth endpoint error: ${error.message}`, 'error');
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ Auth endpoint error: ${error.message}
+                    </div>
+                    <p>This might be a CORS or network issue.</p>
+                `;
+            }
+        }
+
+        async function testDatabaseConnection() {
+            log('Testing database connection...');
+            const resultDiv = document.getElementById('dbResult');
+            
+            try {
+                // Test a simple query to a table that should exist
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/oauth_credentials?select=count`, {
+                    method: 'GET',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'count=exact'
+                    }
+                });
+                
+                log(`Database test: ${response.status}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            ✅ Database connection: OK
+                        </div>
+                        <p>Successfully connected to oauth_credentials table.</p>
+                        <pre>Response: ${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                    log('Database connection: SUCCESS');
+                } else {
+                    const errorText = await response.text();
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            ❌ Database connection failed: ${response.status}
+                        </div>
+                        <pre>${errorText}</pre>
+                    `;
+                    log(`Database error: ${response.status} - ${errorText}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`Database connection error: ${error.message}`, 'error');
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ Database connection error: ${error.message}
+                    </div>
+                    <p>This indicates a serious connectivity issue.</p>
+                `;
+            }
+        }
+
+        async function testEdgeFunctions() {
+            log('Testing edge functions...');
+            const resultDiv = document.getElementById('edgeResult');
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/oauth-callback`, {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Origin': window.location.origin
+                    }
+                });
+                
+                log(`Edge function test: ${response.status}`);
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            ✅ Edge functions: OK (Status: ${response.status})
+                        </div>
+                        <p>OAuth callback function is accessible.</p>
+                    `;
+                    log('Edge functions: SUCCESS');
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="warning">
+                            ⚠️ Edge function status: ${response.status}
+                        </div>
+                        <p>Edge function might not be deployed or accessible.</p>
+                    `;
+                    log(`Edge function warning: ${response.status}`, 'warning');
+                }
+                
+            } catch (error) {
+                log(`Edge function error: ${error.message}`, 'error');
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ Edge function error: ${error.message}
+                    </div>
+                    <p>Cannot reach edge functions.</p>
+                `;
+            }
+        }
+
+        async function testAlternativeConnections() {
+            log('Testing alternative connection methods...');
+            const resultDiv = document.getElementById('altResult');
+            
+            const tests = [];
+            
+            // Test 1: HTTP/1.1 instead of HTTP/2
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/oauth_credentials?select=count&limit=1`, {
+                    method: 'GET',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json',
+                        'Connection': 'close'  // Force HTTP/1.1
+                    }
+                });
+                
+                tests.push({
+                    name: 'HTTP/1.1 Connection',
+                    status: response.ok ? 'SUCCESS' : `FAILED (${response.status})`,
+                    success: response.ok
+                });
+                
+            } catch (error) {
+                tests.push({
+                    name: 'HTTP/1.1 Connection',
+                    status: `ERROR: ${error.message}`,
+                    success: false
+                });
+            }
+            
+            // Test 2: Different endpoint
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/`, {
+                    method: 'GET',
+                    headers: {
+                        'apikey': SUPABASE_KEY
+                    }
+                });
+                
+                tests.push({
+                    name: 'REST API Root',
+                    status: response.ok ? 'SUCCESS' : `FAILED (${response.status})`,
+                    success: response.ok
+                });
+                
+            } catch (error) {
+                tests.push({
+                    name: 'REST API Root',
+                    status: `ERROR: ${error.message}`,
+                    success: false
+                });
+            }
+            
+            let html = '<h4>Alternative Connection Tests:</h4>';
+            tests.forEach(test => {
+                const className = test.success ? 'success' : 'error';
+                const icon = test.success ? '✅' : '❌';
+                html += `<div class="${className}">${icon} ${test.name}: ${test.status}</div>`;
+                log(`${test.name}: ${test.status}`, test.success ? 'info' : 'error');
+            });
+            
+            resultDiv.innerHTML = html;
+        }
+
+        // Auto-run basic connectivity test on page load
+        window.onload = function() {
+            log('Supabase Connection Diagnostic Tool loaded');
+            log('Ready to test connection...');
+        };
+    </script>
+</body>
+</html>

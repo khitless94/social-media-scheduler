@@ -537,16 +537,19 @@ export const useSocialMediaConnection = (
         params.append('code_challenge', codeChallenge!);
         params.append('code_challenge_method', 'S256');
 
-        authorizationUrl = `https://twitter.com/i/oauth2/authorize?${params.toString()}`;
+        authorizationUrl = `https://x.com/i/oauth2/authorize?${params.toString()}`;
 
         console.log(`[OAuth] Twitter authorization URL: ${authorizationUrl}`);
         console.log(`[OAuth] Twitter PKCE challenge: ${codeChallenge}`);
         console.log(`[OAuth] Twitter state: ${encodedState}`);
       } else if (platform === 'reddit') {
         const params = new URLSearchParams({
-          response_type: 'code', client_id: clientId, redirect_uri: redirectUri,
-          scope: 'identity edit flair history modconfig modflair modlog modposts modwiki mysubreddits privatemessages read report save submit subscribe vote wikiedit wikiread',
-          state: encodedState, duration: 'permanent',
+          response_type: 'code',
+          client_id: clientId,
+          redirect_uri: redirectUri,
+          scope: 'identity submit read',
+          state: encodedState,
+          duration: 'permanent',
         });
         authorizationUrl = `https://www.reddit.com/api/v1/authorize?${params.toString()}`;
       } else if (platform === 'linkedin') {

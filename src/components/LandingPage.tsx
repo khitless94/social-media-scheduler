@@ -1221,8 +1221,8 @@ const LandingPage: React.FC = () => {
 
                   {/* Calendar grid - larger */}
                   <div className="grid grid-cols-7 gap-2 mb-4">
-                    {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day) => (
-                      <div key={day} className="text-sm font-bold text-gray-600 text-center py-3 bg-gray-50 rounded">
+                    {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+                      <div key={`day-${index}`} className="text-sm font-bold text-gray-600 text-center py-3 bg-gray-50 rounded">
                         {day}
                       </div>
                     ))}

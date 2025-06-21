@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth Comprehensive Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .platform { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        .test-button { background-color: #007bff; color: white; border: none; border-radius: 3px; }
+        .connect-button { background-color: #28a745; color: white; border: none; border-radius: 3px; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .status { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>OAuth Comprehensive Test</h1>
+    <p>This page tests the OAuth configuration for Twitter/X, Reddit, and LinkedIn.</p>
+    
+    <div id="twitter" class="platform">
+        <h2>Twitter/X OAuth Test</h2>
+        <div class="status" id="twitter-status">Testing...</div>
+        <button class="test-button" onclick="testTwitterConfig()">Test Configuration</button>
+        <button class="connect-button" onclick="connectTwitter()">Connect Twitter</button>
+        <pre id="twitter-details"></pre>
+    </div>
+
+    <div id="reddit" class="platform">
+        <h2>Reddit OAuth Test</h2>
+        <div class="status" id="reddit-status">Testing...</div>
+        <button class="test-button" onclick="testRedditConfig()">Test Configuration</button>
+        <button class="connect-button" onclick="connectReddit()">Connect Reddit</button>
+        <pre id="reddit-details"></pre>
+    </div>
+
+    <div id="linkedin" class="platform">
+        <h2>LinkedIn OAuth Test</h2>
+        <div class="status" id="linkedin-status">Testing...</div>
+        <button class="test-button" onclick="testLinkedInConfig()">Test Configuration</button>
+        <button class="connect-button" onclick="connectLinkedIn()">Connect LinkedIn</button>
+        <pre id="linkedin-details"></pre>
+    </div>
+
+    <div id="overall" class="platform">
+        <h2>Overall Test Results</h2>
+        <button class="test-button" onclick="runAllTests()">Run All Tests</button>
+        <pre id="overall-results"></pre>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'http://127.0.0.1:54321';
+        const CLIENT_IDS = {
+            twitter: 'ZHRveEJIcVduLVdkdGJJUWYwZFc6MTpjaQ',
+            reddit: 'kBrkkv-sRC-3jE9RIUt6-g',
+            linkedin: '78yhh9neso7awt'
+        };
+
+        function updateStatus(platform, status, className) {
+            const statusEl = document.getElementById(`${platform}-status`);
+            const platformEl = document.getElementById(platform);
+            statusEl.textContent = status;
+            platformEl.className = `platform ${className}`;
+        }
+
+        function updateDetails(platform, details) {
+            document.getElementById(`${platform}-details`).textContent = details;
+        }
+
+        async function testTwitterConfig() {
+            updateStatus('twitter', 'Testing Twitter configuration...', 'warning');
+            
+            try {
+                // Test auth-redirect endpoint
+                const testUserId = 'd33d28ea-cc43-4dd0-b971-e896acf853e3'; // Test UUID
+                const authUrl = `${SUPABASE_URL}/functions/v1/auth-redirect?platform=twitter&user_id=${testUserId}`;
+                
+                const response = await fetch(authUrl, { method: 'GET', redirect: 'manual' });
+                
+                if (response.status === 302) {
+                    const location = response.headers.get('Location');
+                    if (location && location.includes('x.com/i/oauth2/authorize')) {
+                        updateStatus('twitter', '✅ Twitter OAuth configuration is working!', 'success');
+                        updateDetails('twitter', `Auth URL generated successfully:\n${location.substring(0, 200)}...`);
+                    } else {
+                        updateStatus('twitter', '❌ Twitter OAuth redirect URL is incorrect', 'error');
+                        updateDetails('twitter', `Expected x.com URL, got: ${location}`);
+                    }
+                } else {
+                    updateStatus('twitter', '❌ Twitter OAuth configuration failed', 'error');
+                    updateDetails('twitter', `HTTP ${response.status}: ${await response.text()}`);
+                }
+            } catch (error) {
+                updateStatus('twitter', '❌ Twitter OAuth test failed', 'error');
+                updateDetails('twitter', `Error: ${error.message}`);
+            }
+        }
+
+        async function testRedditConfig() {
+            updateStatus('reddit', 'Testing Reddit configuration...', 'warning');
+            
+            try {
+                const testUserId = 'd33d28ea-cc43-4dd0-b971-e896acf853e3';
+                const authUrl = `${SUPABASE_URL}/functions/v1/auth-redirect?platform=reddit&user_id=${testUserId}`;
+                
+                const response = await fetch(authUrl, { method: 'GET', redirect: 'manual' });
+                
+                if (response.status === 302) {
+                    const location = response.headers.get('Location');
+                    if (location && location.includes('reddit.com/api/v1/authorize')) {
+                        updateStatus('reddit', '✅ Reddit OAuth configuration is working!', 'success');
+                        updateDetails('reddit', `Auth URL generated successfully:\n${location.substring(0, 200)}...`);
+                    } else {
+                        updateStatus('reddit', '❌ Reddit OAuth redirect URL is incorrect', 'error');
+                        updateDetails('reddit', `Expected reddit.com URL, got: ${location}`);
+                    }
+                } else {
+                    updateStatus('reddit', '❌ Reddit OAuth configuration failed', 'error');
+                    updateDetails('reddit', `HTTP ${response.status}: ${await response.text()}`);
+                }
+            } catch (error) {
+                updateStatus('reddit', '❌ Reddit OAuth test failed', 'error');
+                updateDetails('reddit', `Error: ${error.message}`);
+            }
+        }
+
+        async function testLinkedInConfig() {
+            updateStatus('linkedin', 'Testing LinkedIn configuration...', 'warning');
+            
+            try {
+                const testUserId = 'd33d28ea-cc43-4dd0-b971-e896acf853e3';
+                const authUrl = `${SUPABASE_URL}/functions/v1/auth-redirect?platform=linkedin&user_id=${testUserId}`;
+                
+                const response = await fetch(authUrl, { method: 'GET', redirect: 'manual' });
+                
+                if (response.status === 302) {
+                    const location = response.headers.get('Location');
+                    if (location && location.includes('linkedin.com/oauth/v2/authorization')) {
+                        updateStatus('linkedin', '✅ LinkedIn OAuth configuration is working!', 'success');
+                        updateDetails('linkedin', `Auth URL generated successfully:\n${location.substring(0, 200)}...`);
+                    } else {
+                        updateStatus('linkedin', '❌ LinkedIn OAuth redirect URL is incorrect', 'error');
+                        updateDetails('linkedin', `Expected linkedin.com URL, got: ${location}`);
+                    }
+                } else {
+                    updateStatus('linkedin', '❌ LinkedIn OAuth configuration failed', 'error');
+                    updateDetails('linkedin', `HTTP ${response.status}: ${await response.text()}`);
+                }
+            } catch (error) {
+                updateStatus('linkedin', '❌ LinkedIn OAuth test failed', 'error');
+                updateDetails('linkedin', `Error: ${error.message}`);
+            }
+        }
+
+        function connectTwitter() {
+            const authUrl = `https://x.com/i/oauth2/authorize?response_type=code&client_id=${CLIENT_IDS.twitter}&redirect_uri=${encodeURIComponent(SUPABASE_URL + '/functions/v1/oauth-callback')}&scope=tweet.read%20tweet.write%20users.read%20offline.access&state=test_state_twitter&code_challenge=test_challenge&code_challenge_method=S256`;
+            window.open(authUrl, 'twitter-oauth', 'width=600,height=700');
+        }
+
+        function connectReddit() {
+            const authUrl = `https://www.reddit.com/api/v1/authorize?response_type=code&client_id=${CLIENT_IDS.reddit}&redirect_uri=${encodeURIComponent(SUPABASE_URL + '/functions/v1/oauth-callback')}&scope=identity%20submit%20read&state=test_state_reddit&duration=permanent`;
+            window.open(authUrl, 'reddit-oauth', 'width=600,height=700');
+        }
+
+        function connectLinkedIn() {
+            const authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${CLIENT_IDS.linkedin}&redirect_uri=${encodeURIComponent(SUPABASE_URL + '/functions/v1/oauth-callback')}&scope=openid%20profile%20email%20w_member_social&state=test_state_linkedin`;
+            window.open(authUrl, 'linkedin-oauth', 'width=600,height=700');
+        }
+
+        async function runAllTests() {
+            document.getElementById('overall-results').textContent = 'Running all tests...';
+            
+            await Promise.all([
+                testTwitterConfig(),
+                testRedditConfig(),
+                testLinkedInConfig()
+            ]);
+            
+            // Collect results
+            const results = [];
+            ['twitter', 'reddit', 'linkedin'].forEach(platform => {
+                const status = document.getElementById(`${platform}-status`).textContent;
+                results.push(`${platform.toUpperCase()}: ${status}`);
+            });
+            
+            document.getElementById('overall-results').textContent = results.join('\n');
+        }
+
+        // Run tests on page load
+        window.onload = runAllTests;
+    </script>
+</body>
+</html>

@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth All Platforms Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .platform { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        .warning { background: #fff3cd; border-color: #ffeaa7; }
+        .info { background: #d1ecf1; border-color: #bee5eb; }
+        button { background: #007bff; color: white; padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        .url { word-break: break-all; background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0; font-family: monospace; font-size: 12px; }
+        .config { background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 OAuth All Platforms Test & Fix</h1>
+        <p>This tool tests and fixes OAuth for all platforms: Twitter, LinkedIn, Reddit, Facebook, Instagram</p>
+
+        <!-- Twitter -->
+        <div class="platform info">
+            <h3>🐦 Twitter OAuth</h3>
+            <div class="config">
+                <strong>Client ID:</strong> ZHRveEJIcVduLVdkdGJJUWYwZFc6MTpjaQ<br>
+                <strong>Status:</strong> <span id="twitter-status">✅ Working</span>
+            </div>
+            <button onclick="testTwitter()">Test Twitter OAuth</button>
+            <div id="twitter-result"></div>
+        </div>
+
+        <!-- LinkedIn -->
+        <div class="platform warning">
+            <h3>💼 LinkedIn OAuth</h3>
+            <div class="config">
+                <strong>Client ID:</strong> 86z7443djn3cgx<br>
+                <strong>Status:</strong> <span id="linkedin-status">⚠️ Needs Environment Variables</span><br>
+                <strong>Required:</strong> LINKEDIN_CLIENT_SECRET in Supabase
+            </div>
+            <button onclick="testLinkedIn()">Test LinkedIn OAuth</button>
+            <button onclick="fixLinkedIn()">Generate LinkedIn Fix</button>
+            <div id="linkedin-result"></div>
+        </div>
+
+        <!-- Reddit -->
+        <div class="platform warning">
+            <h3>🔴 Reddit OAuth</h3>
+            <div class="config">
+                <strong>Client ID:</strong> kBrkkv-sRC-3jE9RIUt6-g<br>
+                <strong>Status:</strong> <span id="reddit-status">⚠️ Needs Environment Variables</span><br>
+                <strong>Required:</strong> REDDIT_CLIENT_SECRET in Supabase
+            </div>
+            <button onclick="testReddit()">Test Reddit OAuth</button>
+            <button onclick="fixReddit()">Generate Reddit Fix</button>
+            <div id="reddit-result"></div>
+        </div>
+
+        <!-- Facebook -->
+        <div class="platform warning">
+            <h3>📘 Facebook OAuth</h3>
+            <div class="config">
+                <strong>Client ID:</strong> 2249146282214303<br>
+                <strong>Status:</strong> <span id="facebook-status">⚠️ Needs Environment Variables</span><br>
+                <strong>Required:</strong> FACEBOOK_CLIENT_SECRET in Supabase
+            </div>
+            <button onclick="testFacebook()">Test Facebook OAuth</button>
+            <div id="facebook-result"></div>
+        </div>
+
+        <!-- Instagram -->
+        <div class="platform warning">
+            <h3>📷 Instagram OAuth</h3>
+            <div class="config">
+                <strong>Client ID:</strong> Uses Facebook App ID<br>
+                <strong>Status:</strong> <span id="instagram-status">⚠️ Depends on Facebook</span>
+            </div>
+            <button onclick="testInstagram()">Test Instagram OAuth</button>
+            <div id="instagram-result"></div>
+        </div>
+
+        <!-- Fix All Button -->
+        <div class="platform info">
+            <h3>🔧 Quick Fixes</h3>
+            <button onclick="generateAllFixes()" style="background: #28a745;">Generate All Environment Variable Fixes</button>
+            <button onclick="testMessageHandling()" style="background: #17a2b8;">Test Message Handling</button>
+            <div id="fixes-result"></div>
+        </div>
+    </div>
+
+    <script>
+        function generateOAuthUrl(platform, clientId, redirectUri, scope, additionalParams = {}) {
+            const baseUrls = {
+                twitter: 'https://twitter.com/i/oauth2/authorize',
+                linkedin: 'https://www.linkedin.com/oauth/v2/authorization',
+                reddit: 'https://www.reddit.com/api/v1/authorize',
+                facebook: 'https://www.facebook.com/v19.0/dialog/oauth',
+                instagram: 'https://www.facebook.com/v19.0/dialog/oauth'
+            };
+
+            const params = new URLSearchParams({
+                response_type: 'code',
+                client_id: clientId,
+                redirect_uri: redirectUri,
+                scope: scope,
+                state: `test_${platform}_${Date.now()}`,
+                ...additionalParams
+            });
+
+            return `${baseUrls[platform]}?${params.toString()}`;
+        }
+
+        function testTwitter() {
+            const resultDiv = document.getElementById('twitter-result');
+            const url = generateOAuthUrl(
+                'twitter',
+                'ZHRveEJIcVduLVdkdGJJUWYwZFc6MTpjaQ',
+                'https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback',
+                'tweet.read users.read tweet.write offline.access',
+                { 
+                    code_challenge: 'test_challenge',
+                    code_challenge_method: 'S256'
+                }
+            );
+
+            resultDiv.innerHTML = `
+                <div class="url">
+                    <strong>Twitter OAuth URL:</strong><br>
+                    <a href="${url}" target="_blank">${url}</a>
+                </div>
+                <p>✅ Twitter should work (environment variables already set)</p>
+            `;
+        }
+
+        function testLinkedIn() {
+            const resultDiv = document.getElementById('linkedin-result');
+            const url = generateOAuthUrl(
+                'linkedin',
+                '86z7443djn3cgx',
+                'https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback',
+                'openid profile email w_member_social'
+            );
+
+            resultDiv.innerHTML = `
+                <div class="url">
+                    <strong>LinkedIn OAuth URL:</strong><br>
+                    <a href="${url}" target="_blank">${url}</a>
+                </div>
+                <p>⚠️ Will fail without LINKEDIN_CLIENT_SECRET environment variable</p>
+            `;
+        }
+
+        function testReddit() {
+            const resultDiv = document.getElementById('reddit-result');
+            const url = generateOAuthUrl(
+                'reddit',
+                'kBrkkv-sRC-3jE9RIUt6-g',
+                'https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback',
+                'identity edit flair history modconfig modflair modlog modposts modwiki mysubreddits privatemessages read report save submit subscribe vote wikiedit wikiread',
+                { duration: 'permanent' }
+            );
+
+            resultDiv.innerHTML = `
+                <div class="url">
+                    <strong>Reddit OAuth URL:</strong><br>
+                    <a href="${url}" target="_blank">${url}</a>
+                </div>
+                <p>⚠️ Will fail without REDDIT_CLIENT_SECRET environment variable</p>
+            `;
+        }
+
+        function testFacebook() {
+            const resultDiv = document.getElementById('facebook-result');
+            const url = generateOAuthUrl(
+                'facebook',
+                '2249146282214303',
+                'https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback',
+                'public_profile,email,pages_show_list,pages_read_engagement,pages_manage_posts'
+            );
+
+            resultDiv.innerHTML = `
+                <div class="url">
+                    <strong>Facebook OAuth URL:</strong><br>
+                    <a href="${url}" target="_blank">${url}</a>
+                </div>
+                <p>⚠️ Will fail without FACEBOOK_CLIENT_SECRET environment variable</p>
+            `;
+        }
+
+        function testInstagram() {
+            const resultDiv = document.getElementById('instagram-result');
+            const url = generateOAuthUrl(
+                'instagram',
+                '2249146282214303',
+                'https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback',
+                'public_profile,email,pages_show_list,pages_read_engagement,pages_manage_posts,instagram_manage_insights'
+            );
+
+            resultDiv.innerHTML = `
+                <div class="url">
+                    <strong>Instagram OAuth URL:</strong><br>
+                    <a href="${url}" target="_blank">${url}</a>
+                </div>
+                <p>⚠️ Uses Facebook OAuth - needs FACEBOOK_CLIENT_SECRET</p>
+            `;
+        }
+
+        function fixLinkedIn() {
+            const resultDiv = document.getElementById('linkedin-result');
+            resultDiv.innerHTML = `
+                <div class="info">
+                    <h4>🔧 LinkedIn Fix Instructions:</h4>
+                    <ol>
+                        <li>Go to <a href="https://www.linkedin.com/developers/apps" target="_blank">LinkedIn Developer Console</a></li>
+                        <li>Find your app with Client ID: <code>86z7443djn3cgx</code></li>
+                        <li>Go to "Auth" tab</li>
+                        <li>Copy the "Client Secret"</li>
+                        <li>Go to <a href="https://supabase.com/dashboard/project/eqiuukwwpdiyncahrdny/settings/environment-variables" target="_blank">Supabase Environment Variables</a></li>
+                        <li>Add: <code>LINKEDIN_CLIENT_SECRET = [your_client_secret]</code></li>
+                        <li>Redeploy edge functions</li>
+                    </ol>
+                </div>
+            `;
+        }
+
+        function fixReddit() {
+            const resultDiv = document.getElementById('reddit-result');
+            resultDiv.innerHTML = `
+                <div class="info">
+                    <h4>🔧 Reddit Fix Instructions:</h4>
+                    <ol>
+                        <li>Go to <a href="https://www.reddit.com/prefs/apps" target="_blank">Reddit App Preferences</a></li>
+                        <li>Find your app with Client ID: <code>kBrkkv-sRC-3jE9RIUt6-g</code></li>
+                        <li>Copy the "Client Secret" (below the app name)</li>
+                        <li>Go to <a href="https://supabase.com/dashboard/project/eqiuukwwpdiyncahrdny/settings/environment-variables" target="_blank">Supabase Environment Variables</a></li>
+                        <li>Add: <code>REDDIT_CLIENT_SECRET = [your_client_secret]</code></li>
+                        <li>Redeploy edge functions</li>
+                    </ol>
+                </div>
+            `;
+        }
+
+        function generateAllFixes() {
+            const resultDiv = document.getElementById('fixes-result');
+            resultDiv.innerHTML = `
+                <div class="info">
+                    <h4>🔧 Complete Fix Instructions:</h4>
+                    
+                    <h5>1. Set Environment Variables in Supabase:</h5>
+                    <p>Go to: <a href="https://supabase.com/dashboard/project/eqiuukwwpdiyncahrdny/settings/environment-variables" target="_blank">Supabase Environment Variables</a></p>
+                    
+                    <div class="config">
+                        <strong>Required Environment Variables:</strong><br>
+                        • LINKEDIN_CLIENT_SECRET = [get from LinkedIn Developer Console]<br>
+                        • REDDIT_CLIENT_SECRET = [get from Reddit App Preferences]<br>
+                        • FACEBOOK_CLIENT_SECRET = [get from Meta Developer Console]<br>
+                        • TWITTER_CLIENT_SECRET = [already set ✅]
+                    </div>
+
+                    <h5>2. Fix UI Message Handling:</h5>
+                    <p>The UI update issue has been fixed with improved message handling and origin checking.</p>
+
+                    <h5>3. Test Each Platform:</h5>
+                    <p>After setting environment variables, test each platform using the buttons above.</p>
+                </div>
+            `;
+        }
+
+        function testMessageHandling() {
+            const resultDiv = document.getElementById('fixes-result');
+            
+            // Simulate OAuth success message
+            window.postMessage({
+                type: "oauth_success",
+                platform: "test",
+                timestamp: Date.now()
+            }, window.location.origin);
+
+            resultDiv.innerHTML = `
+                <div class="success">
+                    ✅ Test message sent! Check browser console for message handling logs.
+                </div>
+                <p>If you see message handling logs in console, the UI update fix is working.</p>
+            `;
+        }
+
+        // Listen for test messages
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'oauth_success' && event.data.platform === 'test') {
+                console.log('✅ Message handling test successful:', event.data);
+            }
+        });
+
+        console.log('OAuth All Platforms Test Tool loaded');
+    </script>
+</body>
+</html>

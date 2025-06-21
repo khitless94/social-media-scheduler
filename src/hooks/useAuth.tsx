@@ -18,24 +18,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
+
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         console.log('Auth state changed:', event, session);
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
+
+        if (!mounted) return;
+
+        // Handle different auth events
+        if (event === 'SIGNED_OUT') {
+          setSession(null);
+          setUser(null);
+          setLoading(false);
+        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          setSession(session);
+          setUser(session?.user ?? null);
+          setLoading(false);
+        } else if (event === 'INITIAL_SESSION') {
+          setSession(session);
+          setUser(session?.user ?? null);
+          setLoading(false);
+        }
       }
     );
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    // Get initial session with retry logic
+    const getInitialSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
 
-    return () => subscription.unsubscribe();
+        if (error) {
+          console.warn('Session error, attempting refresh:', error);
+          // Try to refresh the session
+          const { data: refreshData } = await supabase.auth.refreshSession();
+          if (refreshData.session && mounted) {
+            setSession(refreshData.session);
+            setUser(refreshData.session.user);
+          }
+        } else if (session && mounted) {
+          setSession(session);
+          setUser(session.user);
+        }
+      } catch (error) {
+        console.error('Failed to get initial session:', error);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    getInitialSession();
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twitter OAuth Debug Tool</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .step { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        .warning { background: #fff3cd; border-color: #ffeaa7; }
+        .info { background: #d1ecf1; border-color: #bee5eb; }
+        button { background: #1da1f2; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0d8bd9; }
+        .log { background: #f8f9fa; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto; }
+        .url-test { word-break: break-all; background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐦 Twitter OAuth Debug Tool</h1>
+        <p>This tool helps debug Twitter OAuth issues step by step.</p>
+
+        <div class="step info">
+            <h3>📋 Configuration Check</h3>
+            <p><strong>Client ID:</strong> ZHRveEJIcVduLVdkdGJJUWYwZFc6MTpjaQ</p>
+            <p><strong>Redirect URI:</strong> https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback</p>
+            <p><strong>Environment Variables:</strong> ✅ All set in Supabase</p>
+        </div>
+
+        <div class="step">
+            <h3>🧪 Step 1: Test Twitter Authorization URL</h3>
+            <p>This tests if Twitter accepts our OAuth request parameters.</p>
+            <button onclick="testTwitterAuthUrl()">Test Twitter Auth URL</button>
+            <div id="authUrlResult"></div>
+        </div>
+
+        <div class="step">
+            <h3>🔗 Step 2: Test Direct OAuth Flow</h3>
+            <p>This simulates the exact OAuth flow your app uses.</p>
+            <button onclick="testDirectOAuth()">Start OAuth Test</button>
+            <div id="oauthResult"></div>
+        </div>
+
+        <div class="step">
+            <h3>📡 Step 3: Test Edge Function</h3>
+            <p>This tests if the Supabase edge function is working correctly.</p>
+            <button onclick="testEdgeFunction()">Test Edge Function</button>
+            <div id="edgeFunctionResult"></div>
+        </div>
+
+        <div class="step">
+            <h3>📝 Debug Logs</h3>
+            <div id="debugLogs" class="log">Ready to start debugging...</div>
+            <button onclick="clearLogs()">Clear Logs</button>
+        </div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logs = document.getElementById('debugLogs');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${type.toUpperCase()}: ${message}\n`;
+            logs.textContent += logEntry;
+            logs.scrollTop = logs.scrollHeight;
+            console.log(logEntry);
+        }
+
+        function clearLogs() {
+            document.getElementById('debugLogs').textContent = 'Logs cleared...\n';
+        }
+
+        function generateCodeVerifier() {
+            const array = new Uint8Array(128);
+            window.crypto.getRandomValues(array);
+            return btoa(String.fromCharCode.apply(null, [...array]))
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '')
+                .slice(0, 128);
+        }
+
+        async function generateCodeChallenge(verifier) {
+            const data = new TextEncoder().encode(verifier);
+            const digest = await window.crypto.subtle.digest('SHA-256', data);
+            return btoa(String.fromCharCode.apply(null, [...new Uint8Array(digest)]))
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
+        }
+
+        async function testTwitterAuthUrl() {
+            log('Testing Twitter authorization URL...');
+            const resultDiv = document.getElementById('authUrlResult');
+            
+            try {
+                const codeVerifier = generateCodeVerifier();
+                const codeChallenge = await generateCodeChallenge(codeVerifier);
+                const state = 'test_' + Math.random().toString(36).substring(2);
+                
+                const params = new URLSearchParams({
+                    response_type: 'code',
+                    client_id: 'ZHRveEJIcVduLVdkdGJJUWYwZFc6MTpjaQ',
+                    redirect_uri: 'https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback',
+                    scope: 'tweet.read users.read tweet.write offline.access',
+                    state: state,
+                    code_challenge: codeChallenge,
+                    code_challenge_method: 'S256'
+                });
+                
+                const authUrl = `https://twitter.com/i/oauth2/authorize?${params.toString()}`;
+                
+                log(`Generated PKCE verifier: ${codeVerifier.substring(0, 20)}...`);
+                log(`Generated PKCE challenge: ${codeChallenge.substring(0, 20)}...`);
+                log(`Generated state: ${state}`);
+                
+                resultDiv.innerHTML = `
+                    <div class="url-test">
+                        <strong>Twitter Authorization URL:</strong><br>
+                        <a href="${authUrl}" target="_blank">${authUrl}</a>
+                    </div>
+                    <p><strong>✅ Test this URL:</strong></p>
+                    <ol>
+                        <li>Click the link above</li>
+                        <li>Should show Twitter authorization page (NOT "Something went wrong")</li>
+                        <li>If it shows "Something went wrong", there's a configuration issue</li>
+                    </ol>
+                `;
+                
+                log('Twitter auth URL generated successfully');
+                
+            } catch (error) {
+                log(`Error generating auth URL: ${error.message}`, 'error');
+                resultDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function testDirectOAuth() {
+            log('Starting direct OAuth test...');
+            const resultDiv = document.getElementById('oauthResult');
+            
+            try {
+                // Simulate the exact flow from your app
+                const codeVerifier = generateCodeVerifier();
+                const codeChallenge = await generateCodeChallenge(codeVerifier);
+                const state = 'test_oauth_' + Math.random().toString(36).substring(2);
+                
+                // Create session data like your app does
+                const sessionData = {
+                    platform: 'twitter',
+                    user_id: 'test-user-id',
+                    code_verifier: codeVerifier,
+                    timestamp: Date.now()
+                };
+                
+                const encodedSessionData = btoa(JSON.stringify(sessionData));
+                const stateWithSession = `${state}|${encodedSessionData}`;
+                
+                const params = new URLSearchParams({
+                    response_type: 'code',
+                    client_id: 'ZHRveEJIcVduLVdkdGJJUWYwZFc6MTpjaQ',
+                    redirect_uri: 'https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback',
+                    scope: 'tweet.read users.read tweet.write offline.access',
+                    state: stateWithSession,
+                    code_challenge: codeChallenge,
+                    code_challenge_method: 'S256'
+                });
+                
+                const authUrl = `https://twitter.com/i/oauth2/authorize?${params.toString()}`;
+                
+                log(`Session data encoded in state parameter`);
+                log(`State with session: ${stateWithSession.substring(0, 50)}...`);
+                
+                resultDiv.innerHTML = `
+                    <div class="url-test">
+                        <strong>OAuth Test URL (with session data):</strong><br>
+                        <a href="${authUrl}" target="_blank">Click to test OAuth flow</a>
+                    </div>
+                    <p><strong>This simulates your app's exact OAuth flow.</strong></p>
+                    <p>After clicking, you should be redirected back with either success or a specific error message.</p>
+                `;
+                
+                log('Direct OAuth test URL generated');
+                
+            } catch (error) {
+                log(`Error in direct OAuth test: ${error.message}`, 'error');
+                resultDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function testEdgeFunction() {
+            log('Testing Supabase edge function...');
+            const resultDiv = document.getElementById('edgeFunctionResult');
+            
+            try {
+                // Test if the edge function is accessible
+                const response = await fetch('https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback', {
+                    method: 'OPTIONS'
+                });
+                
+                log(`Edge function OPTIONS response: ${response.status}`);
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            ✅ Edge function is accessible (Status: ${response.status})
+                        </div>
+                        <p>The Supabase edge function is responding correctly.</p>
+                    `;
+                    log('Edge function test passed');
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            ❌ Edge function returned status: ${response.status}
+                        </div>
+                        <p>There might be an issue with the edge function deployment.</p>
+                    `;
+                    log(`Edge function test failed: ${response.status}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`Edge function test error: ${error.message}`, 'error');
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ Cannot reach edge function: ${error.message}
+                    </div>
+                    <p>Check if the edge function is deployed correctly.</p>
+                `;
+            }
+        }
+
+        // Auto-run basic checks on page load
+        window.onload = function() {
+            log('Twitter OAuth Debug Tool loaded');
+            log('Configuration: Client ID set, Redirect URI configured');
+            log('Ready to start debugging...');
+        };
+    </script>
+</body>
+</html>

@@ -12,16 +12,18 @@ const tokenConfigs = {
     tokenUrl: 'https://www.linkedin.com/oauth/v2/accessToken',
     clientId: Deno.env.get('LINKEDIN_CLIENT_ID') || '78yhh9neso7awt',
     clientSecret: Deno.env.get('LINKEDIN_CLIENT_SECRET'),
-    grantType: 'authorization_code'
+    grantType: 'authorization_code',
+    requiresFormEncoding: true
   },
   reddit: {
     tokenUrl: 'https://www.reddit.com/api/v1/access_token',
     clientId: Deno.env.get('REDDIT_CLIENT_ID') || 'kBrkkv-sRC-3jE9RIUt6-g',
     clientSecret: Deno.env.get('REDDIT_CLIENT_SECRET'),
-    grantType: 'authorization_code'
+    grantType: 'authorization_code',
+    requiresBasicAuth: true
   },
   twitter: {
-    tokenUrl: 'https://api.twitter.com/2/oauth2/token',
+    tokenUrl: 'https://api.x.com/2/oauth2/token',
     clientId: Deno.env.get('TWITTER_CLIENT_ID') || 'ZHRveEJIcVduLVdkdGJJUWYwZFc6MTpjaQ',
     clientSecret: Deno.env.get('TWITTER_CLIENT_SECRET'),
     grantType: 'authorization_code',
@@ -158,8 +160,8 @@ Your Twitter Client ID: ${config.clientId}`);
 1. Go to https://developer.twitter.com/en/portal/dashboard
 2. Find your app with Client ID: ${config.clientId}
 3. Copy the Client Secret from "Keys and tokens" tab
-4. Set TWITTER_CLIENT_SECRET in Supabase: https://supabase.com/dashboard/project/eqiuukwwpdiyncahrdny/settings/environment-variables
-5. Ensure redirect URI is: https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback
+4. Set TWITTER_CLIENT_SECRET in Supabase environment variables
+5. Ensure redirect URI is: http://127.0.0.1:54321/functions/v1/oauth-callback
 6. Ensure app type is "Confidential client" (not Public client)
 
 Original error: ${responseText}`);
@@ -172,7 +174,7 @@ Original error: ${responseText}`);
 Please verify:
 - Your ${platform.toUpperCase()}_CLIENT_SECRET is correctly set in Supabase environment variables
 - Your client ID (${config.clientId}) matches your app in ${platform}'s developer portal
-- Your app has the correct redirect URI: https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback
+- Your app has the correct redirect URI: http://127.0.0.1:54321/functions/v1/oauth-callback
 
 Original error: ${responseText}`);
     }
@@ -200,7 +202,7 @@ Original error: ${responseText}`);
     // LinkedIn-specific error handling
     if (platform === 'linkedin') {
       if (responseText.includes('invalid_redirect_uri')) {
-        throw new Error(`LinkedIn OAuth Error: Invalid redirect URI. Please ensure your LinkedIn app has this exact redirect URI configured: https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback
+        throw new Error(`LinkedIn OAuth Error: Invalid redirect URI. Please ensure your LinkedIn app has this exact redirect URI configured: http://127.0.0.1:54321/functions/v1/oauth-callback
 
 Go to https://www.linkedin.com/developers/apps → Your App → Auth tab → Authorized redirect URLs
 
