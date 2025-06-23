@@ -10,6 +10,7 @@ import AuthGuard from '@/components/AuthGuard';
 
 import LandingPage from '@/components/LandingPage';
 import UnifiedDashboard from '@/components/UnifiedDashboard';
+import CreatePost from '@/components/CreatePost';
 import OAuthCallback from '@/components/OAuthCallback';
 
 
@@ -44,12 +45,12 @@ function App() {
           </ProtectedRoute>
         }
       />
-      {/* Legacy routes redirect to unified dashboard */}
+      {/* Dedicated Create Page */}
       <Route
         path="/create"
         element={
           <ProtectedRoute>
-            <UnifiedDashboard />
+            <CreatePost />
           </ProtectedRoute>
         }
       />

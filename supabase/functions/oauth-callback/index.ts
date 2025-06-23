@@ -404,28 +404,32 @@ serve(async (req) => {
     // Final platform validation and fallback detection
     if (!platform) {
       // Try to detect platform from the authorization code or other clues
-      if (code && code.length > 50) {
+      const referer = req.headers.get('referer') || '';
+      console.log(`[OAuth Callback] Attempting platform detection. Referer: ${referer}`);
+
+      if (referer.includes('linkedin.com')) {
+        platform = 'linkedin';
+        console.log(`[OAuth Callback] Detected platform as LinkedIn based on referrer`);
+      } else if (referer.includes('reddit.com')) {
+        platform = 'reddit';
+        console.log(`[OAuth Callback] Detected platform as Reddit based on referrer`);
+      } else if (referer.includes('twitter.com') || referer.includes('x.com')) {
+        platform = 'twitter';
+        console.log(`[OAuth Callback] Detected platform as Twitter based on referrer`);
+      } else if (referer.includes('facebook.com')) {
+        platform = 'facebook';
+        console.log(`[OAuth Callback] Detected platform as Facebook based on referrer`);
+      } else if (code && code.length > 50) {
         // Twitter codes are typically longer
         platform = 'twitter';
         console.log(`[OAuth Callback] Detected platform as Twitter based on code length`);
       } else if (code && code.length < 50) {
-        // Reddit codes are typically shorter
-        platform = 'reddit';
-        console.log(`[OAuth Callback] Detected platform as Reddit based on code length`);
+        // LinkedIn codes are typically shorter than Twitter but longer than Reddit
+        platform = 'linkedin';
+        console.log(`[OAuth Callback] Detected platform as LinkedIn based on code length`);
       } else {
-        // If we still can't detect, check the referrer or other clues
-        const referer = req.headers.get('referer') || '';
-        if (referer.includes('reddit.com')) {
-          platform = 'reddit';
-          console.log(`[OAuth Callback] Detected platform as Reddit based on referrer`);
-        } else if (referer.includes('twitter.com') || referer.includes('x.com')) {
-          platform = 'twitter';
-          console.log(`[OAuth Callback] Detected platform as Twitter based on referrer`);
-        } else {
-          // Default to reddit if we can't determine (since that's what we're testing)
-          platform = 'reddit';
-          console.log(`[OAuth Callback] Defaulting to Reddit platform`);
-        }
+        // If we still can't detect, this is an error
+        throw new Error('No platform specified in OAuth callback. Please ensure the OAuth flow includes platform information.');
       }
     }
 

@@ -27,10 +27,10 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.generate-content]
-verify_jwt = true
+verify_jwt = false
 
 [functions.generate-with-gemini]
-verify_jwt = true
+verify_jwt = false
 
 [functions.post-to-social]
 verify_jwt = false

@@ -130,26 +130,52 @@ export const useSocialMediaConnection = (
   const loadConnectionStatusFromDB = async () => {
     if (!user) return;
 
-    console.log('🔄 BYPASSING DATABASE - Using localStorage only due to persistent auth issues');
+    console.log('🔄 LOADING CONNECTION STATUS - Using localStorage as primary source');
 
-    // COMPLETE BYPASS: Use localStorage as the ONLY source
+    // Use localStorage as the primary source and force UI update
     const localStatus = loadFromLocalStorage();
     if (localStatus) {
-      console.log('✅ Using localStorage (database bypassed):', localStatus);
+      console.log('✅ Using localStorage:', localStatus);
+
+      // Force update even if status seems the same
       currentConnectionStatus.current = localStatus;
       onConnectionStatusChange(localStatus);
+
+      // Force re-render to ensure UI updates
+      forceRender();
     } else {
-      console.log('📭 No localStorage data found, setting empty status');
-      // Set empty status if no localStorage data
-      const emptyStatus: ConnectionStatus = {
+      console.log('📭 No localStorage data found, checking individual platform keys');
+
+      // Check individual platform connection keys directly
+      const platforms: Platform[] = ['twitter', 'linkedin', 'reddit', 'facebook', 'instagram'];
+      const directStatus: ConnectionStatus = {
         twitter: false, linkedin: false, instagram: false, facebook: false, reddit: false,
       };
-      currentConnectionStatus.current = emptyStatus;
-      onConnectionStatusChange(emptyStatus);
+
+      let hasAnyConnection = false;
+      platforms.forEach(platform => {
+        const connectionKey = `connected_${platform}_${user.id}`;
+        const isConnected = localStorage.getItem(connectionKey) === 'true';
+        directStatus[platform] = isConnected;
+        if (isConnected) {
+          hasAnyConnection = true;
+          console.log(`✅ Direct check: ${platform} is connected`);
+        }
+      });
+
+      if (hasAnyConnection) {
+        console.log('✅ Found connections via direct check:', directStatus);
+        currentConnectionStatus.current = directStatus;
+        onConnectionStatusChange(directStatus);
+        forceRender();
+      } else {
+        console.log('📭 No connections found, setting empty status');
+        currentConnectionStatus.current = directStatus;
+        onConnectionStatusChange(directStatus);
+      }
     }
 
-    // DO NOT ATTEMPT DATABASE QUERIES - they consistently fail with auth errors
-    console.log('🚫 Database queries disabled due to persistent 401/auth errors');
+    console.log('✅ Connection status loading complete');
   };
 
   // Load from localStorage
@@ -266,13 +292,39 @@ export const useSocialMediaConnection = (
           }
         }
 
-        // Also check individual platform flags
+        // Also check individual platform flags AND direct connection status
         const platforms: Platform[] = ['twitter', 'linkedin', 'reddit', 'facebook', 'instagram'];
         platforms.forEach(platform => {
           const successKey = `oauth_success_${platform}`;
           const completeKey = `oauth_complete_${platform}`;
+          const connectionKey = `connected_${platform}_${user?.id}`;
           const successValue = localStorage.getItem(successKey);
           const completeValue = localStorage.getItem(completeKey);
+          const isConnectedInStorage = localStorage.getItem(connectionKey) === 'true';
+          const isConnectedInState = currentConnectionStatus.current[platform];
+
+          // Check if there's a mismatch between localStorage and state
+          if (isConnectedInStorage && !isConnectedInState) {
+            console.log(`🎯 DIRECT STATUS MISMATCH: ${platform} connected in localStorage but not in state!`);
+
+            // Update UI immediately
+            const newStatus = {
+              ...currentConnectionStatus.current,
+              [platform]: true
+            };
+
+            currentConnectionStatus.current = newStatus;
+            onConnectionStatusChange(newStatus);
+            forceRender();
+            setIsConnecting(prev => ({ ...prev, [platform]: false }));
+
+            toast({
+              title: "Connected successfully!",
+              description: `Your ${platform} account is linked.`
+            });
+
+            console.log(`✅ DIRECT STATUS FIX: ${platform} UI updated from localStorage`);
+          }
 
           if (successValue || completeValue) {
             const timestamp = successValue ? parseInt(successValue) : Date.now();
@@ -353,7 +405,7 @@ export const useSocialMediaConnection = (
             debouncedLoadConnectionStatus();
           }, 100);
         }
-      }, 500); // Poll every 500ms for faster detection
+      }, 250); // Poll every 250ms for even faster detection
 
       return interval;
     };
@@ -635,10 +687,23 @@ export const useSocialMediaConnection = (
   };
 
   const refreshConnectionStatus = async () => {
-    console.log('Manual refresh triggered');
+    console.log('🔄 Manual refresh triggered - FORCE UPDATE');
+
     // Force refresh by resetting debounce timer
     lastLoadTime.current = 0;
-    await debouncedLoadConnectionStatus();
+
+    // Immediate direct check without debounce
+    await loadConnectionStatusFromDB();
+
+    // Also trigger the debounced version for good measure
+    setTimeout(() => {
+      debouncedLoadConnectionStatus();
+    }, 100);
+
+    // Force re-render
+    forceRender();
+
+    console.log('✅ Manual refresh complete');
   };
 
 

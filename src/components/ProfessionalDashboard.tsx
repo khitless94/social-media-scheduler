@@ -213,7 +213,7 @@ const ProfessionalDashboard = () => {
       title: "Workspace",
       items: [
         { id: "overview", label: "Overview", icon: Home, shortcut: "⌘1" },
-        { id: "create", label: "Create", icon: Wand2, shortcut: "⌘N", action: () => setShowCreateModal(true) },
+        { id: "create", label: "Create", icon: Wand2, shortcut: "⌘N", action: () => navigate('/create') },
         { id: "posts", label: "Posts", icon: FileText, shortcut: "⌘2", badge: "24" },
         { id: "calendar", label: "Calendar", icon: Calendar, shortcut: "⌘3" },
         { id: "analytics", label: "Analytics", icon: BarChart3, shortcut: "⌘4" }
@@ -293,7 +293,7 @@ const ProfessionalDashboard = () => {
       description: "AI-powered content generation",
       icon: Wand2,
       color: "from-violet-500 to-purple-600",
-      action: () => setShowCreateModal(true),
+      action: () => navigate('/create'),
       shortcut: "⌘N"
     },
     {
@@ -317,7 +317,7 @@ const ProfessionalDashboard = () => {
       description: "Add images and videos",
       icon: Upload,
       color: "from-orange-500 to-red-600",
-      action: () => setShowCreateModal(true),
+      action: () => navigate('/create'),
       shortcut: "⌘U"
     }
   ];
@@ -768,7 +768,7 @@ const ProfessionalDashboard = () => {
                 </p>
                 <div className="flex items-center justify-center space-x-3">
                   <Button
-                    onClick={() => setShowCreateModal(true)}
+                    onClick={() => navigate('/create')}
                     className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white"
                   >
                     <Plus className="w-4 h-4 mr-2" />
@@ -793,7 +793,7 @@ const ProfessionalDashboard = () => {
                 </p>
                 <div className="flex items-center justify-center space-x-3">
                   <Button
-                    onClick={() => setShowCreateModal(true)}
+                    onClick={() => navigate('/create')}
                     className="bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white"
                   >
                     <CalendarIcon className="w-4 h-4 mr-2" />
@@ -846,7 +846,7 @@ const ProfessionalDashboard = () => {
                 </p>
                 <div className="flex items-center justify-center space-x-3">
                   <Button
-                    onClick={() => setShowCreateModal(true)}
+                    onClick={() => navigate('/create')}
                     className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white"
                   >
                     <Upload className="w-4 h-4 mr-2" />
@@ -871,7 +871,7 @@ const ProfessionalDashboard = () => {
                 </p>
                 <div className="flex items-center justify-center space-x-3">
                   <Button
-                    onClick={() => setShowCreateModal(true)}
+                    onClick={() => navigate('/create')}
                     className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white"
                   >
                     <Plus className="w-4 h-4 mr-2" />
@@ -897,7 +897,7 @@ const ProfessionalDashboard = () => {
                 </p>
                 <div className="flex items-center justify-center space-x-3">
                   <Button
-                    onClick={() => setShowCreateModal(true)}
+                    onClick={() => navigate('/create')}
                     className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white"
                   >
                     <Wand2 className="w-4 h-4 mr-2" />
@@ -923,7 +923,7 @@ const ProfessionalDashboard = () => {
                 </p>
                 <div className="flex items-center justify-center space-x-3">
                   <Button
-                    onClick={() => setShowCreateModal(true)}
+                    onClick={() => navigate('/create')}
                     className="bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white"
                   >
                     <MessageCircle className="w-4 h-4 mr-2" />
@@ -1037,7 +1037,7 @@ const ProfessionalDashboard = () => {
                                   <span className="font-medium text-gray-900">{platform.posts}</span>
                                 </div>
                                 <Button
-                                  onClick={() => setShowCreateModal(true)}
+                                  onClick={() => navigate('/create')}
                                   size="sm"
                                   className={`w-full bg-gradient-to-r ${platform.color} hover:opacity-90 text-white`}
                                 >
@@ -1084,7 +1084,7 @@ const ProfessionalDashboard = () => {
                         Create and publish content to all connected platforms simultaneously.
                       </p>
                       <Button
-                        onClick={() => setShowCreateModal(true)}
+                        onClick={() => navigate('/create')}
                         className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white"
                       >
                         <Wand2 className="w-4 h-4 mr-2" />
@@ -1601,7 +1601,7 @@ const ProfessionalDashboard = () => {
                         </p>
                         <div className="flex flex-col sm:flex-row gap-4 justify-center">
                           <Button
-                            onClick={() => setShowCreateModal(true)}
+                            onClick={() => navigate('/create')}
                             size="lg"
                             className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-4 text-lg shadow-lg hover:shadow-xl transition-all duration-300"
                           >

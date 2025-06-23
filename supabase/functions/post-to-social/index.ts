@@ -254,19 +254,57 @@ async function postToLinkedIn(content: string, image?: string, credentials?: any
       throw new Error('No LinkedIn access token found');
     }
 
-    // Get user profile first to get the person URN
-    const profileResponse = await fetch('https://api.linkedin.com/v2/userinfo', {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-      }
-    });
+    console.log('[LinkedIn] Starting post with access token');
 
-    if (!profileResponse.ok) {
-      throw new Error(`Failed to get LinkedIn profile: ${profileResponse.status}`);
+    // Try to get user profile using the correct endpoint for available scopes
+    let personUrn = null;
+
+    // First try the OpenID Connect userinfo endpoint (if using openid scope)
+    try {
+      const profileResponse = await fetch('https://api.linkedin.com/v2/userinfo', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        }
+      });
+
+      if (profileResponse.ok) {
+        const profile = await profileResponse.json();
+        personUrn = `urn:li:person:${profile.sub}`;
+        console.log('[LinkedIn] Got profile from userinfo endpoint:', personUrn);
+      } else {
+        console.log('[LinkedIn] userinfo endpoint failed, trying lite profile');
+        throw new Error('userinfo failed');
+      }
+    } catch (userinfoError) {
+      // Fallback to lite profile endpoint (for r_liteprofile scope)
+      try {
+        const profileResponse = await fetch('https://api.linkedin.com/v2/people/~', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          }
+        });
+
+        if (profileResponse.ok) {
+          const profile = await profileResponse.json();
+          // Ensure the URN format is correct for lite profile
+          personUrn = profile.id.startsWith('urn:li:person:') ? profile.id : `urn:li:person:${profile.id}`;
+          console.log('[LinkedIn] Got profile from lite profile endpoint:', personUrn);
+        } else {
+          const errorText = await profileResponse.text();
+          console.error('[LinkedIn] Lite profile error:', errorText);
+          throw new Error(`Failed to get LinkedIn profile: ${profileResponse.status} - ${errorText}`);
+        }
+      } catch (liteProfileError) {
+        console.error('[LinkedIn] Both profile endpoints failed:', liteProfileError);
+        throw new Error('Unable to get LinkedIn profile. Please check your LinkedIn app permissions and scopes.');
+      }
     }
 
-    const profile = await profileResponse.json();
-    const personUrn = `urn:li:person:${profile.sub}`;
+    if (!personUrn) {
+      throw new Error('Could not determine LinkedIn person URN');
+    }
+
+    console.log('[LinkedIn] Person URN:', personUrn);
 
     let mediaUrn = null;
 
@@ -325,7 +363,8 @@ async function postToLinkedIn(content: string, image?: string, credentials?: any
       }
     }
 
-    // Create the post
+    // Create the post using LinkedIn's current API format
+    // Try the newer Posts API format first, then fall back to UGC if needed
     const postData: any = {
       author: personUrn,
       lifecycleState: 'PUBLISHED',
@@ -342,6 +381,7 @@ async function postToLinkedIn(content: string, image?: string, credentials?: any
       }
     };
 
+    // Add media if present
     if (mediaUrn) {
       postData.specificContent['com.linkedin.ugc.ShareContent'].media = [{
         status: 'READY',
@@ -355,19 +395,78 @@ async function postToLinkedIn(content: string, image?: string, credentials?: any
       }];
     }
 
-    const response = await fetch('https://api.linkedin.com/v2/ugcPosts', {
+    console.log('[LinkedIn] Posting data:', JSON.stringify(postData, null, 2));
+
+    // Try the UGC Posts API first
+    let response = await fetch('https://api.linkedin.com/v2/ugcPosts', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
+        'X-Restli-Protocol-Version': '2.0.0'
       },
       body: JSON.stringify(postData)
     });
 
+    // If UGC API fails with 422, try the newer Posts API format
+    if (!response.ok && response.status === 422) {
+      console.log('[LinkedIn] UGC API failed, trying newer Posts API format');
+
+      const newPostData = {
+        author: personUrn,
+        commentary: content,
+        visibility: 'PUBLIC',
+        lifecycleState: 'PUBLISHED'
+      };
+
+      if (mediaUrn) {
+        newPostData.content = {
+          media: {
+            title: 'Image',
+            id: mediaUrn
+          }
+        };
+      }
+
+      console.log('[LinkedIn] Trying newer Posts API with data:', JSON.stringify(newPostData, null, 2));
+
+      response = await fetch('https://api.linkedin.com/v2/posts', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'LinkedIn-Version': '202304'
+        },
+        body: JSON.stringify(newPostData)
+      });
+    }
+
+    console.log('[LinkedIn] Response status:', response.status);
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[LinkedIn] API Error:', errorText);
-      throw new Error(`LinkedIn API error: ${response.status} - ${errorText}`);
+      console.error('[LinkedIn] API Error Response:', errorText);
+      console.error('[LinkedIn] Request Data was:', JSON.stringify(postData, null, 2));
+
+      // Try to parse error details
+      let errorDetails = '';
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorDetails = JSON.stringify(errorJson, null, 2);
+      } catch (e) {
+        errorDetails = errorText;
+      }
+
+      // Check for specific LinkedIn errors
+      if (response.status === 403) {
+        throw new Error(`LinkedIn API error: Insufficient permissions. Please ensure your LinkedIn app has the 'w_member_social' scope and 'Share on LinkedIn' product enabled. Status: ${response.status}. Details: ${errorDetails}`);
+      } else if (response.status === 401) {
+        throw new Error(`LinkedIn API error: Invalid or expired access token. Please reconnect your LinkedIn account. Status: ${response.status}. Details: ${errorDetails}`);
+      } else if (response.status === 422) {
+        throw new Error(`LinkedIn API error: Invalid post data format. This usually means the post structure doesn't match LinkedIn's requirements. Status: ${response.status}. Details: ${errorDetails}`);
+      } else {
+        throw new Error(`LinkedIn API error: ${response.status} - ${errorDetails}`);
+      }
     }
 
     const result = await response.json();

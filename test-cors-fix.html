@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test CORS Fix</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        .test-result {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        .success { background: rgba(34, 197, 94, 0.2); border: 2px solid #22c55e; }
+        .error { background: rgba(239, 68, 68, 0.2); border: 2px solid #ef4444; }
+        .warning { background: rgba(245, 158, 11, 0.2); border: 2px solid #f59e0b; }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        pre {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 CORS & Edge Function Test</h1>
+        <p>Testing the generate-content Edge Function with CORS headers</p>
+        
+        <button onclick="testCORS()">Test CORS Headers</button>
+        <button onclick="testGeneration()">Test Content Generation</button>
+        <button onclick="clearResults()">Clear Results</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://eqiuukwwpdiyncahrdny.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaXV1a3d3cGRpeW5jYWhyZG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ5NzI4NzQsImV4cCI6MjA1MDU0ODg3NH0.YBJJqJhGJJJqJhGJJJqJhGJJJqJhGJJJqJhGJJJqJhG';
+
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'warning' ? 'warning' : 'success';
+            
+            results.innerHTML += `
+                <div class="test-result ${className}">
+                    <strong>[${timestamp}]</strong> ${message}
+                </div>
+            `;
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        async function testCORS() {
+            log('🔍 Testing CORS headers...', 'info');
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-content`, {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Origin': window.location.origin,
+                        'Access-Control-Request-Method': 'POST',
+                        'Access-Control-Request-Headers': 'content-type,authorization,cache-control'
+                    }
+                });
+
+                log(`✅ CORS preflight status: ${response.status}`, 'success');
+                
+                const headers = {};
+                response.headers.forEach((value, key) => {
+                    headers[key] = value;
+                });
+                
+                log(`📋 Response headers: <pre>${JSON.stringify(headers, null, 2)}</pre>`, 'info');
+                
+                if (response.status === 200) {
+                    log('🎉 CORS test passed!', 'success');
+                } else {
+                    log(`❌ CORS test failed with status: ${response.status}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ CORS test error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testGeneration() {
+            log('🤖 Testing content generation...', 'info');
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-content`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Cache-Control': 'no-cache'
+                    },
+                    body: JSON.stringify({
+                        prompt: 'Write a short motivational post about productivity',
+                        type: 'text',
+                        platform: 'linkedin',
+                        tone: 'professional'
+                    })
+                });
+
+                log(`📡 Generation response status: ${response.status}`, response.ok ? 'success' : 'error');
+                
+                const data = await response.json();
+                log(`📄 Response data: <pre>${JSON.stringify(data, null, 2)}</pre>`, 'info');
+                
+                if (response.ok && data.generatedText) {
+                    log('🎉 Content generation successful!', 'success');
+                    log(`✨ Generated content: "${data.generatedText}"`, 'success');
+                } else {
+                    log(`❌ Content generation failed: ${data.error || 'Unknown error'}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Generation test error: ${error.message}`, 'error');
+            }
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        // Auto-run CORS test on page load
+        window.onload = () => {
+            log('🚀 Page loaded, running initial CORS test...', 'info');
+            testCORS();
+        };
+    </script>
+</body>
+</html>

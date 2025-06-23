@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Environment Variables</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        .test-result {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        .success { background: rgba(34, 197, 94, 0.2); border: 2px solid #22c55e; }
+        .error { background: rgba(239, 68, 68, 0.2); border: 2px solid #ef4444; }
+        .warning { background: rgba(245, 158, 11, 0.2); border: 2px solid #f59e0b; }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        pre {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Environment Variables Test</h1>
+        <p>Testing Supabase Edge Function environment variables</p>
+        
+        <button onclick="testEnvVars()">Check Environment Variables</button>
+        <button onclick="clearResults()">Clear Results</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://eqiuukwwpdiyncahrdny.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaXV1a3d3cGRpeW5jYWhyZG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ5NzI4NzQsImV4cCI6MjA1MDU0ODg3NH0.YBJJqJhGJJJqJhGJJJqJhGJJJqJhGJJJqJhGJJJqJhG';
+
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'warning' ? 'warning' : 'success';
+            
+            results.innerHTML += `
+                <div class="test-result ${className}">
+                    <strong>[${timestamp}]</strong> ${message}
+                </div>
+            `;
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        async function testEnvVars() {
+            log('🔍 Testing environment variables...', 'info');
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/check-env`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'apikey': SUPABASE_ANON_KEY
+                    }
+                });
+
+                log(`📡 Environment check status: ${response.status}`, response.ok ? 'success' : 'error');
+                
+                const data = await response.json();
+                log(`📄 Environment data: <pre>${JSON.stringify(data, null, 2)}</pre>`, 'info');
+                
+                if (response.ok) {
+                    if (data.missing_variables && data.missing_variables.length > 0) {
+                        log(`⚠️ Missing variables: ${data.missing_variables.join(', ')}`, 'warning');
+                        log('💡 You need to set these in Supabase Dashboard → Project Settings → Edge Functions → Environment Variables', 'warning');
+                    } else {
+                        log('🎉 All environment variables are configured!', 'success');
+                    }
+                } else {
+                    log(`❌ Environment check failed: ${data.error || 'Unknown error'}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Environment test error: ${error.message}`, 'error');
+            }
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        // Auto-run environment test on page load
+        window.onload = () => {
+            log('🚀 Page loaded, checking environment variables...', 'info');
+            testEnvVars();
+        };
+    </script>
+</body>
+</html>

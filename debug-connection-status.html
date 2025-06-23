@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connection Status Debug</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .debug-button {
+            background: #2196f3;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .debug-button:hover {
+            background: #1976d2;
+        }
+        .output {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .status-box {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .connected {
+            color: #4caf50;
+            font-weight: bold;
+        }
+        .disconnected {
+            color: #f44336;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Connection Status Debug Tool</h1>
+        
+        <div class="status-box">
+            <h3>Current Connection Status:</h3>
+            <div id="status-display">Loading...</div>
+        </div>
+
+        <div>
+            <h3>Debug Actions:</h3>
+            <button class="debug-button" onclick="checkLocalStorage()">Check localStorage</button>
+            <button class="debug-button" onclick="simulateLinkedInSuccess()">Simulate LinkedIn Success</button>
+            <button class="debug-button" onclick="clearAllFlags()">Clear All Flags</button>
+            <button class="debug-button" onclick="triggerGlobalFunction()">Trigger Global Function</button>
+            <button class="debug-button" onclick="checkWindowFunctions()">Check Window Functions</button>
+        </div>
+
+        <div class="output" id="debug-output">Debug output will appear here...</div>
+    </div>
+
+    <script>
+        const userId = 'd33d28ea-cc43-4dd0-b971-e896acf853e3'; // Your user ID
+        const platforms = ['linkedin', 'twitter', 'reddit', 'facebook', 'instagram'];
+
+        function log(message) {
+            const output = document.getElementById('debug-output');
+            const timestamp = new Date().toLocaleTimeString();
+            output.textContent += `[${timestamp}] ${message}\n`;
+            output.scrollTop = output.scrollHeight;
+            console.log(message);
+        }
+
+        function updateStatusDisplay() {
+            const statusDiv = document.getElementById('status-display');
+            let html = '';
+            
+            platforms.forEach(platform => {
+                const connectionKey = `connected_${platform}_${userId}`;
+                const isConnected = localStorage.getItem(connectionKey) === 'true';
+                const statusClass = isConnected ? 'connected' : 'disconnected';
+                const statusText = isConnected ? 'CONNECTED' : 'NOT CONNECTED';
+                
+                html += `<div>${platform}: <span class="${statusClass}">${statusText}</span></div>`;
+            });
+            
+            statusDiv.innerHTML = html;
+        }
+
+        function checkLocalStorage() {
+            log('=== LOCALSTORAGE CHECK ===');
+            
+            platforms.forEach(platform => {
+                const connectionKey = `connected_${platform}_${userId}`;
+                const successKey = `oauth_success_${platform}`;
+                const completeKey = `oauth_complete_${platform}`;
+                const attemptKey = `oauth_attempt_${platform}`;
+                
+                log(`${platform}:`);
+                log(`  Connection: ${localStorage.getItem(connectionKey) || 'null'}`);
+                log(`  Success Flag: ${localStorage.getItem(successKey) || 'null'}`);
+                log(`  Complete Flag: ${localStorage.getItem(completeKey) || 'null'}`);
+                log(`  Attempt: ${localStorage.getItem(attemptKey) || 'null'}`);
+            });
+            
+            // Check global flags
+            log('Global Flags:');
+            log(`  oauth_success_flag: ${localStorage.getItem('oauth_success_flag') || 'null'}`);
+            log(`  last_oauth_success: ${localStorage.getItem('last_oauth_success') || 'null'}`);
+            log(`  force_connection_refresh: ${localStorage.getItem('force_connection_refresh') || 'null'}`);
+            
+            updateStatusDisplay();
+        }
+
+        function simulateLinkedInSuccess() {
+            log('=== SIMULATING LINKEDIN SUCCESS ===');
+            
+            const platform = 'linkedin';
+            const timestamp = Date.now();
+            
+            // Set all the flags that OAuth callback sets
+            const connectionKey = `connected_${platform}_${userId}`;
+            localStorage.setItem(connectionKey, 'true');
+            log(`Set ${connectionKey} = true`);
+            
+            localStorage.setItem(`oauth_success_${platform}`, timestamp.toString());
+            log(`Set oauth_success_${platform} = ${timestamp}`);
+            
+            localStorage.setItem(`oauth_complete_${platform}`, 'true');
+            log(`Set oauth_complete_${platform} = true`);
+            
+            localStorage.setItem('last_oauth_success', JSON.stringify({
+                platform: platform,
+                timestamp: timestamp,
+                userId: userId
+            }));
+            log(`Set last_oauth_success with platform=${platform}`);
+            
+            localStorage.setItem('oauth_success_flag', JSON.stringify({
+                platform: platform,
+                timestamp: timestamp,
+                userId: userId
+            }));
+            log(`Set oauth_success_flag with platform=${platform}`);
+            
+            localStorage.setItem('force_connection_refresh', 'true');
+            log(`Set force_connection_refresh = true`);
+            
+            // Try to trigger global function if available
+            if (window.handleOAuthSuccess) {
+                log('Calling window.handleOAuthSuccess()');
+                window.handleOAuthSuccess(platform);
+            } else {
+                log('window.handleOAuthSuccess not available');
+            }
+            
+            // Send message to parent window (if in iframe/popup)
+            try {
+                window.postMessage({
+                    type: "oauth_success",
+                    platform: platform,
+                    timestamp: timestamp,
+                    guaranteed: true
+                }, window.location.origin);
+                log('Posted message to window');
+            } catch (e) {
+                log('Failed to post message: ' + e.message);
+            }
+            
+            updateStatusDisplay();
+            log('LinkedIn success simulation complete!');
+        }
+
+        function clearAllFlags() {
+            log('=== CLEARING ALL FLAGS ===');
+            
+            platforms.forEach(platform => {
+                const keys = [
+                    `connected_${platform}_${userId}`,
+                    `oauth_success_${platform}`,
+                    `oauth_complete_${platform}`,
+                    `oauth_attempt_${platform}`
+                ];
+                
+                keys.forEach(key => {
+                    if (localStorage.getItem(key)) {
+                        localStorage.removeItem(key);
+                        log(`Removed ${key}`);
+                    }
+                });
+            });
+            
+            // Clear global flags
+            const globalKeys = ['oauth_success_flag', 'last_oauth_success', 'force_connection_refresh'];
+            globalKeys.forEach(key => {
+                if (localStorage.getItem(key)) {
+                    localStorage.removeItem(key);
+                    log(`Removed ${key}`);
+                }
+            });
+            
+            updateStatusDisplay();
+            log('All flags cleared!');
+        }
+
+        function triggerGlobalFunction() {
+            log('=== CHECKING GLOBAL FUNCTIONS ===');
+            
+            if (window.handleOAuthSuccess) {
+                log('window.handleOAuthSuccess is available');
+                log('Calling handleOAuthSuccess("linkedin")');
+                window.handleOAuthSuccess('linkedin');
+            } else {
+                log('window.handleOAuthSuccess is NOT available');
+            }
+            
+            if (window.forceUpdateConnection) {
+                log('window.forceUpdateConnection is available');
+                log('Calling forceUpdateConnection("linkedin")');
+                window.forceUpdateConnection('linkedin');
+            } else {
+                log('window.forceUpdateConnection is NOT available');
+            }
+        }
+
+        function checkWindowFunctions() {
+            log('=== WINDOW FUNCTIONS CHECK ===');
+            log(`window.handleOAuthSuccess: ${typeof window.handleOAuthSuccess}`);
+            log(`window.forceUpdateConnection: ${typeof window.forceUpdateConnection}`);
+            
+            // List all window properties that might be related
+            const windowProps = Object.getOwnPropertyNames(window).filter(prop => 
+                prop.toLowerCase().includes('oauth') || 
+                prop.toLowerCase().includes('connection') ||
+                prop.toLowerCase().includes('social')
+            );
+            
+            log('OAuth/Connection related window properties:');
+            windowProps.forEach(prop => {
+                log(`  ${prop}: ${typeof window[prop]}`);
+            });
+        }
+
+        // Auto-refresh status every 2 seconds
+        setInterval(updateStatusDisplay, 2000);
+
+        // Initial check
+        log('Connection Status Debug Tool Loaded');
+        checkLocalStorage();
+        
+        // Listen for storage events
+        window.addEventListener('storage', (event) => {
+            log(`Storage event: ${event.key} = ${event.newValue}`);
+            updateStatusDisplay();
+        });
+
+        // Listen for messages
+        window.addEventListener('message', (event) => {
+            log(`Message received: ${JSON.stringify(event.data)}`);
+        });
+    </script>
+</body>
+</html>
