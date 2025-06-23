@@ -10,13 +10,13 @@ const OAuthCallback = () => {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
-  const [message, setMessage] = useState('Processing OAuth callback...');
+  const [message, setMessage] = useState('Connecting your account...');
 
   useEffect(() => {
-    // Add some delay to ensure all URL params are loaded
+    // Add some delay to ensure all URL params are loaded and provide smoother UX
     const timer = setTimeout(() => {
       handleCallback();
-    }, 100);
+    }, 500); // Increased delay to prevent flashing error states
 
     return () => clearTimeout(timer);
   }, [platform, navigate, toast, searchParams]);
@@ -50,11 +50,13 @@ const OAuthCallback = () => {
         console.log('OAuth callback received:', {
           platform,
           platformFromParams,
+          platformFromState,
           activePlatform,
           success,
           errorMessageFromEdge,
           code: code ? 'present' : 'missing',
-          state: state ? 'present' : 'missing'
+          state: state ? 'present' : 'missing',
+          fullUrl: window.location.href
         });
 
         // If no platform is specified, show error
@@ -293,10 +295,32 @@ Please check your Twitter app configuration and try again.`;
                   const storageKey = `connected_${activePlatform}_${userId}`;
                   localStorage.setItem(storageKey, 'true');
                   localStorage.setItem(`oauth_success_${activePlatform}`, Date.now().toString());
+
+                  // Additional success flags for immediate detection
+                  localStorage.setItem(`oauth_complete_${activePlatform}`, 'true');
+                  localStorage.setItem('last_oauth_success', JSON.stringify({
+                    platform: activePlatform,
+                    timestamp: Date.now(),
+                    userId: userId
+                  }));
+
                   console.log('✅ GUARANTEED: Stored in localStorage:', storageKey);
+                  console.log('✅ GUARANTEED: Set multiple success flags for detection');
 
                   // Method 2: Multiple message attempts with different origins
-                  const targetOrigins = ['*', window.location.origin, 'http://localhost:8081', 'http://localhost:8080'];
+                  // Dynamic origin detection for local development
+                  const currentPort = window.location.port;
+                  const baseOrigin = `${window.location.protocol}//${window.location.hostname}`;
+                  const targetOrigins = [
+                    '*',
+                    window.location.origin,
+                    `${baseOrigin}:8080`,
+                    `${baseOrigin}:8081`,
+                    `${baseOrigin}:8082`,
+                    `${baseOrigin}:8083`,
+                    `${baseOrigin}:8084`,
+                    'https://social-media-scheduler-khitless94s-projects.vercel.app'
+                  ];
                   const message = {
                     type: "oauth_success",
                     platform: activePlatform,
@@ -305,17 +329,19 @@ Please check your Twitter app configuration and try again.`;
                   };
 
                   // Send message multiple times to ensure delivery
-                  for (let i = 0; i < 5; i++) {
+                  for (let i = 0; i < 10; i++) {
                     setTimeout(() => {
                       targetOrigins.forEach(origin => {
                         try {
-                          window.opener.postMessage(message, origin);
-                          console.log(`✅ Message attempt ${i + 1} sent to origin: ${origin}`);
+                          if (window.opener && !window.opener.closed) {
+                            window.opener.postMessage(message, origin);
+                            console.log(`✅ Message attempt ${i + 1} sent to origin: ${origin}`);
+                          }
                         } catch (e) {
                           console.warn(`❌ Message attempt ${i + 1} failed for origin ${origin}:`, e);
                         }
                       });
-                    }, i * 100); // Send every 100ms
+                    }, i * 50); // Send every 50ms, more frequently
                   }
 
                   // Method 3: Try to directly call parent window function if available
@@ -331,12 +357,22 @@ Please check your Twitter app configuration and try again.`;
                     console.log('Direct function call not available:', e);
                   }
 
-                  // Method 4: Set a flag that parent can poll
+                  // Method 4: Set multiple flags that parent can poll
                   localStorage.setItem('oauth_success_flag', JSON.stringify({
                     platform: activePlatform,
                     timestamp: Date.now(),
                     userId: userId
                   }));
+
+                  // Additional flags for better detection
+                  localStorage.setItem(`oauth_success_${activePlatform}`, Date.now().toString());
+                  localStorage.setItem(`connected_${activePlatform}_${userId}`, 'true');
+                  localStorage.setItem('force_connection_refresh', 'true');
+
+                  // CRITICAL: Set the main connection flag that the app checks
+                  localStorage.setItem(`connected_${activePlatform}_${userId}`, 'true');
+
+                  console.log(`🎯 CRITICAL FLAGS SET: connected_${activePlatform}_${userId} = true`);
 
                   console.log('🎯 ALL METHODS EXECUTED - SUCCESS GUARANTEED');
 
@@ -354,6 +390,9 @@ Please check your Twitter app configuration and try again.`;
               } else {
                 setTimeout(() => navigate("/settings"), 1500);
               }
+
+              // IMPORTANT: Return here to prevent further processing
+              // The OAuth flow is complete and successful
               return;
             } else {
               const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
@@ -395,8 +434,10 @@ Please check your Twitter app configuration and try again.`;
         }
 
         // Handle Supabase Auth callback (if using Supabase OAuth)
-        try {
-          const { data, error } = await supabase.auth.getSession();
+        // Only check this if we haven't already processed a custom OAuth flow
+        if (status !== 'success') {
+          try {
+            const { data, error } = await supabase.auth.getSession();
           
           if (error) {
             console.error('Supabase auth error:', error);
@@ -472,27 +513,30 @@ Please check your Twitter app configuration and try again.`;
           }
           return;
         }
+        } // Close the conditional block for Supabase Auth check
 
-        // If we get here, something unexpected happened
-        setStatus('error');
-        setMessage('OAuth flow incomplete. Please try connecting again.');
-        
-        console.warn("OAuth flow completed but no clear success/error state");
-        toast({
-          title: "OAuth Flow Incomplete",
-          description: "Please try connecting again.",
-          variant: "destructive",
-        });
+        // If we get here, something unexpected happened (only if status is not already success)
+        if (status !== 'success') {
+          setStatus('error');
+          setMessage('OAuth flow incomplete. Please try connecting again.');
 
-        if (window.opener) {
-          window.opener.postMessage({ 
-            type: "oauth_error", 
-            platform: activePlatform, 
-            error: "OAuth flow incomplete" 
-          }, "*");
-          setTimeout(() => window.close(), 3000);
-        } else {
-          setTimeout(() => navigate("/settings"), 3000);
+          console.warn("OAuth flow completed but no clear success/error state");
+          toast({
+            title: "OAuth Flow Incomplete",
+            description: "Please try connecting again.",
+            variant: "destructive",
+          });
+
+          if (window.opener) {
+            window.opener.postMessage({
+              type: "oauth_error",
+              platform: activePlatform,
+              error: "OAuth flow incomplete"
+            }, "*");
+            setTimeout(() => window.close(), 3000);
+          } else {
+            setTimeout(() => navigate("/settings"), 3000);
+          }
         }
 
       } catch (error: any) {

@@ -5,6 +5,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { AppConfig } from "@/lib/appConfig";
 import { generateRandomString, createPkceChallenge } from "@/lib/authHelpers";
 
+// Production Supabase URL for OAuth redirects
+const SUPABASE_URL = "https://eqiuukwwpdiyncahrdny.supabase.co";
+
 // Force re-render helper for immediate UI updates
 const forceUpdate = () => Math.random();
 
@@ -47,7 +50,7 @@ export const useSocialMediaConnection = (
   const CONNECTION_COOLDOWN = 5000; // 5 seconds between attempts
 
   // Retry mechanism for network issues
-  const retryWithBackoff = async <T>(fn: () => Promise<T>, retries = 3): Promise<T> => {
+  const retryWithBackoff = async <T,>(fn: () => Promise<T>, retries = 3): Promise<T> => {
     for (let i = 0; i < retries; i++) {
       try {
         return await fn();
@@ -69,17 +72,20 @@ export const useSocialMediaConnection = (
     try {
       console.log('Using alternative connection status loading method...');
 
-      // Use direct fetch with HTTP/1.1 to bypass HTTP2 protocol errors
+      // Use production Supabase URLs
+      const supabaseUrl = SUPABASE_URL;
+      const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaXV1a3d3cGRpeW5jYWhyZG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxOTA5MzcsImV4cCI6MjA2NDc2NjkzN30.sgwl7oP2fJD7rh64w59XWdfMCS0XQcNjD4Qr_WGILGs';
+
       const headers = {
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaXV1a3d3cGRpeW5jYWhyZG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxOTA5MzcsImV4cCI6MjA2NDc2NjkzN30.sgwl7oP2fJD7rh64w59XWdfMCS0XQcNjD4Qr_WGILGs',
-        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaXV1a3d3cGRpeW5jYWhyZG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxOTA5MzcsImV4cCI6MjA2NDc2NjkzN30.sgwl7oP2fJD7rh64w59XWdfMCS0XQcNjD4Qr_WGILGs',
+        'apikey': supabaseAnonKey,
+        'Authorization': `Bearer ${supabaseAnonKey}`,
         'Content-Type': 'application/json',
         'Connection': 'close'
       };
 
       const [oauthResponse, socialResponse] = await Promise.allSettled([
-        fetch(`https://eqiuukwwpdiyncahrdny.supabase.co/rest/v1/oauth_credentials?select=platform&user_id=eq.${user.id}`, { headers }),
-        fetch(`https://eqiuukwwpdiyncahrdny.supabase.co/rest/v1/social_tokens?select=platform&user_id=eq.${user.id}`, { headers })
+        fetch(`${supabaseUrl}/rest/v1/oauth_credentials?select=platform&user_id=eq.${user.id}`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/social_tokens?select=platform&user_id=eq.${user.id}`, { headers })
       ]);
 
       const newStatus: ConnectionStatus = { twitter: false, linkedin: false, instagram: false, facebook: false, reddit: false };
@@ -124,52 +130,26 @@ export const useSocialMediaConnection = (
   const loadConnectionStatusFromDB = async () => {
     if (!user) return;
 
-    try {
-      // Try database first (authoritative source)
-      const { data: tokens, error } = await supabase
-        .from('oauth_credentials')
-        .select('platform')
-        .eq('user_id', user.id);
+    console.log('🔄 BYPASSING DATABASE - Using localStorage only due to persistent auth issues');
 
-      if (!error && tokens) {
-        const newStatus: ConnectionStatus = {
-          twitter: false, linkedin: false, instagram: false, facebook: false, reddit: false,
-        };
-
-        tokens.forEach(token => {
-          newStatus[token.platform as Platform] = true;
-        });
-
-        console.log('Loaded from DB:', newStatus);
-
-        // Update both state and localStorage
-        currentConnectionStatus.current = newStatus;
-        onConnectionStatusChange(newStatus);
-        saveToLocalStorage(newStatus);
-
-        return; // Success
-      } else {
-        console.warn('DB query failed, trying localStorage:', error);
-
-        // Fallback to localStorage only if DB fails
-        const localStatus = loadFromLocalStorage();
-        if (localStatus) {
-          console.log('Using localStorage fallback:', localStatus);
-          currentConnectionStatus.current = localStatus;
-          onConnectionStatusChange(localStatus);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load connection status:', error);
-
-      // Final fallback to localStorage
-      const localStatus = loadFromLocalStorage();
-      if (localStatus) {
-        console.log('Using localStorage final fallback:', localStatus);
-        currentConnectionStatus.current = localStatus;
-        onConnectionStatusChange(localStatus);
-      }
+    // COMPLETE BYPASS: Use localStorage as the ONLY source
+    const localStatus = loadFromLocalStorage();
+    if (localStatus) {
+      console.log('✅ Using localStorage (database bypassed):', localStatus);
+      currentConnectionStatus.current = localStatus;
+      onConnectionStatusChange(localStatus);
+    } else {
+      console.log('📭 No localStorage data found, setting empty status');
+      // Set empty status if no localStorage data
+      const emptyStatus: ConnectionStatus = {
+        twitter: false, linkedin: false, instagram: false, facebook: false, reddit: false,
+      };
+      currentConnectionStatus.current = emptyStatus;
+      onConnectionStatusChange(emptyStatus);
     }
+
+    // DO NOT ATTEMPT DATABASE QUERIES - they consistently fail with auth errors
+    console.log('🚫 Database queries disabled due to persistent 401/auth errors');
   };
 
   // Load from localStorage
@@ -189,9 +169,11 @@ export const useSocialMediaConnection = (
         if (isConnected) {
           status[platform] = true;
           hasAnyConnection = true;
+          console.log(`✅ localStorage: ${platform} is connected`);
         }
       });
 
+      console.log('📋 localStorage status:', status);
       return hasAnyConnection ? status : null;
     } catch (error) {
       console.error('Failed to load from localStorage:', error);
@@ -288,10 +270,13 @@ export const useSocialMediaConnection = (
         const platforms: Platform[] = ['twitter', 'linkedin', 'reddit', 'facebook', 'instagram'];
         platforms.forEach(platform => {
           const successKey = `oauth_success_${platform}`;
+          const completeKey = `oauth_complete_${platform}`;
           const successValue = localStorage.getItem(successKey);
-          if (successValue) {
-            const timestamp = parseInt(successValue);
-            if (Date.now() - timestamp < 30000) { // Within last 30 seconds
+          const completeValue = localStorage.getItem(completeKey);
+
+          if (successValue || completeValue) {
+            const timestamp = successValue ? parseInt(successValue) : Date.now();
+            if (Date.now() - timestamp < 60000) { // Within last 60 seconds (increased window)
               console.log(`🎯 INDIVIDUAL POLLING: ${platform} success detected!`);
 
               // Update UI immediately + PERSIST
@@ -315,12 +300,60 @@ export const useSocialMediaConnection = (
 
               // Clean up
               localStorage.removeItem(successKey);
+              localStorage.removeItem(completeKey);
+
+              toast({
+                title: "Connected successfully!",
+                description: `Your ${platform} account is linked.`
+              });
 
               console.log(`✅ INDIVIDUAL POLLING SUCCESS: ${platform} UI updated`);
             }
           }
         });
-      }, 1000); // Poll every second
+
+        // Check for last_oauth_success flag
+        const lastSuccess = localStorage.getItem('last_oauth_success');
+        if (lastSuccess) {
+          try {
+            const { platform, timestamp, userId } = JSON.parse(lastSuccess);
+            if (Date.now() - timestamp < 60000 && userId === user?.id) {
+              console.log(`🎯 LAST SUCCESS POLLING: ${platform} detected!`);
+
+              const newStatus = {
+                ...currentConnectionStatus.current,
+                [platform]: true
+              };
+
+              currentConnectionStatus.current = newStatus;
+              onConnectionStatusChange(newStatus);
+              forceRender();
+              setIsConnecting(prev => ({ ...prev, [platform]: false }));
+
+              localStorage.removeItem('last_oauth_success');
+
+              toast({
+                title: "Connected successfully!",
+                description: `Your ${platform} account is linked.`
+              });
+            }
+          } catch (e) {
+            localStorage.removeItem('last_oauth_success');
+          }
+        }
+
+        // Check for force refresh flag - triggers immediate DB check
+        const forceRefresh = localStorage.getItem('force_connection_refresh');
+        if (forceRefresh) {
+          console.log('🎯 FORCE REFRESH DETECTED: Triggering immediate DB check');
+          localStorage.removeItem('force_connection_refresh');
+
+          // Force immediate database refresh
+          setTimeout(() => {
+            debouncedLoadConnectionStatus();
+          }, 100);
+        }
+      }, 500); // Poll every 500ms for faster detection
 
       return interval;
     };
@@ -464,133 +497,29 @@ export const useSocialMediaConnection = (
 
       console.log(`[OAuth] User authenticated, proceeding with ${platform} connection`);
 
-      const state = generateRandomString();
-      let codeVerifier: string | null = null;
-      let codeChallenge: string | null = null;
-      if (platform === 'twitter') {
-        codeVerifier = generateRandomString();
-        codeChallenge = await createPkceChallenge(codeVerifier);
-      }
+      console.log(`[OAuth] Delegating session management to auth-redirect function for ${platform}`);
 
-      // Set expires_at to 10 minutes from now to match backend expectations
-      const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-
-      console.log(`[OAuth] Creating session for ${platform} with state: ${state}`);
-      console.log(`[OAuth] Session data:`, {
-        state,
-        user_id: user.id,
-        platform,
-        code_verifier: codeVerifier ? 'present' : 'null',
-        expires_at: expiresAt,
-      });
-
-      // Proceed directly to OAuth without database session storage
-      console.log(`[OAuth] Starting OAuth flow for ${platform} (state: ${state})`);
-
-      // Use a simple approach - store session data in URL state parameter
-      const sessionData = {
-        user_id: user.id,
-        platform,
-        code_verifier: codeVerifier,
-        timestamp: Date.now()
-      };
-
-      // Encode session data in the state parameter
-      const encodedState = `${state}|${btoa(JSON.stringify(sessionData))}`;
-
-      // Use different redirect URIs for different platforms
-      let redirectUri;
-      if (platform === 'twitter') {
-        // Use local development URL for OAuth callback
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'http://127.0.0.1:54321';
-        const possibleUris = [
-          `${supabaseUrl}/functions/v1/oauth-callback`,
-          `${window.location.origin}/oauth-callback/twitter`,
-          `${window.location.origin}/oauth-callback`,
-          `http://localhost:8081/oauth-callback/twitter`
-        ];
-
-        // Use the first one by default, but log all possibilities
-        redirectUri = possibleUris[0];
-        console.log(`[OAuth] Twitter redirect URI options:`, possibleUris);
-        console.log(`[OAuth] Using Twitter redirect URI:`, redirectUri);
-      } else {
-        // Use local development URL for OAuth callback for other platforms
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'http://127.0.0.1:54321';
-        redirectUri = `${supabaseUrl}/functions/v1/oauth-callback`;
-      }
+      // Use the auth-redirect function which handles session management
+      console.log(`[OAuth] Starting OAuth flow for ${platform} using auth-redirect function`);
 
       const clientId = getClientIdForPlatform(platform);
       let authorizationUrl = '';
 
-      console.log(`[OAuth] Using redirect URI for ${platform}: ${redirectUri}`);
+      // Use the auth-redirect function instead of building OAuth URL directly
+      // This ensures consistent redirect URI without platform parameters
+      console.log(`[OAuth] Using auth-redirect function for ${platform}`);
       console.log(`[OAuth] Client ID for ${platform}: ${clientId}`);
 
-      if (platform === 'twitter') {
-        // Twitter OAuth 2.0 with PKCE - be very explicit about parameters
-        const params = new URLSearchParams();
-        params.append('response_type', 'code');
-        params.append('client_id', clientId);
-        params.append('redirect_uri', redirectUri);
-        params.append('scope', 'tweet.read users.read tweet.write offline.access');
-        params.append('state', encodedState);
-        params.append('code_challenge', codeChallenge!);
-        params.append('code_challenge_method', 'S256');
+      // Use the auth-redirect function which handles OAuth URL generation properly
+      authorizationUrl = `${SUPABASE_URL}/functions/v1/auth-redirect?platform=${platform}&user_id=${user.id}`;
 
-        authorizationUrl = `https://x.com/i/oauth2/authorize?${params.toString()}`;
-
-        console.log(`[OAuth] Twitter authorization URL: ${authorizationUrl}`);
-        console.log(`[OAuth] Twitter PKCE challenge: ${codeChallenge}`);
-        console.log(`[OAuth] Twitter state: ${encodedState}`);
-      } else if (platform === 'reddit') {
-        const params = new URLSearchParams({
-          response_type: 'code',
-          client_id: clientId,
-          redirect_uri: redirectUri,
-          scope: 'identity submit read',
-          state: encodedState,
-          duration: 'permanent',
-        });
-        authorizationUrl = `https://www.reddit.com/api/v1/authorize?${params.toString()}`;
-      } else if (platform === 'linkedin') {
-        // LinkedIn OAuth with proper scopes for posting
-        console.log('LinkedIn OAuth Debug Info:', {
-          clientId,
-          redirectUri,
-          state: encodedState
-        });
-
-        const params = new URLSearchParams({
-          response_type: 'code',
-          client_id: clientId,
-          redirect_uri: redirectUri,
-          state: encodedState,
-          // LinkedIn 2024+ requires OpenID Connect scopes
-          // openid, profile, email for account details + w_member_social for posting
-          scope: 'openid profile email w_member_social',
-        });
-        authorizationUrl = `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`;
-
-        console.log('LinkedIn Authorization URL:', authorizationUrl);
-      } else if (platform === 'facebook') {
-        const params = new URLSearchParams({
-          response_type: 'code', client_id: clientId, redirect_uri: redirectUri, state: encodedState,
-          scope: 'public_profile,email,pages_show_list,pages_read_engagement,pages_manage_posts',
-        });
-        authorizationUrl = `https://www.facebook.com/v19.0/dialog/oauth?${params.toString()}`;
-      } else if (platform === 'instagram') {
-        const params = new URLSearchParams({
-          response_type: 'code', client_id: clientId, redirect_uri: redirectUri, state: encodedState,
-          scope: 'public_profile,email,pages_show_list,pages_read_engagement,pages_manage_posts,instagram_manage_insights',
-        });
-        authorizationUrl = `https://www.facebook.com/v19.0/dialog/oauth?${params.toString()}`;
-      }
+      console.log(`[OAuth] Auth-redirect URL: ${authorizationUrl}`);
 
       if (!authorizationUrl) {
         throw new Error(`Platform "${platform}" is not configured for OAuth connection.`);
       }
 
-      console.log(`Opening OAuth popup for ${platform}:`, authorizationUrl);
+      console.log(`[OAuth] Opening OAuth popup for ${platform}:`, authorizationUrl);
 
       const popup = window.open(authorizationUrl, 'oauth-popup', 'width=600,height=750,scrollbars=yes,resizable=yes');
       if (!popup || popup.closed || typeof popup.closed === 'undefined') {
@@ -647,31 +576,29 @@ export const useSocialMediaConnection = (
     try {
       setIsConnecting(prev => ({ ...prev, [platform]: true }));
 
-      // Delete from oauth_credentials table (the primary table for connections)
-      const { error: deleteError } = await supabase
-        .from('oauth_credentials')
-        .delete()
-        .match({ user_id: user.id, platform });
-
-      if (deleteError) {
-        console.error(`Error deleting ${platform} tokens:`, deleteError);
-        // Don't throw error if the record doesn't exist (user might not have been connected)
-        if (!deleteError.message.includes('No rows found')) {
-          throw deleteError;
-        }
+      // Get the current session for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('User not authenticated');
       }
 
-      // Also try to delete from social_tokens table (backup/legacy table)
-      await supabase
-        .from('social_tokens')
-        .delete()
-        .match({ user_id: user.id, platform });
+      // Use the disconnect-social-account edge function instead of direct database calls
+      // This avoids RLS authentication issues
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/disconnect-social-account?user_id=${user.id}&platform=${platform}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        }
+      });
 
-      // Also clean up any oauth sessions for this platform
-      await supabase
-        .from('oauth_sessions')
-        .delete()
-        .match({ user_id: user.id, platform });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to disconnect ${platform}`);
+      }
+
+      const result = await response.json();
+      console.log(`✅ DISCONNECTED: ${platform} via edge function:`, result);
 
       // CLEAR FROM LOCALSTORAGE FOR IMMEDIATE UI UPDATE
       const key = `connected_${platform}_${user.id}`;

@@ -139,7 +139,8 @@ serve(async (req) => {
       throw new Error("Could not store session");
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "http://127.0.0.1:54321";
+    // Always use production URL for OAuth redirects - Reddit requires exact match
+    const supabaseUrl = "https://eqiuukwwpdiyncahrdny.supabase.co";
     const redirectUri = `${supabaseUrl}/functions/v1/oauth-callback`;
     console.log(`[Auth Redirect] Using redirect URI: ${redirectUri}`);
 

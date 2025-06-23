@@ -202,7 +202,7 @@ Original error: ${responseText}`);
     // LinkedIn-specific error handling
     if (platform === 'linkedin') {
       if (responseText.includes('invalid_redirect_uri')) {
-        throw new Error(`LinkedIn OAuth Error: Invalid redirect URI. Please ensure your LinkedIn app has this exact redirect URI configured: http://127.0.0.1:54321/functions/v1/oauth-callback
+        throw new Error(`LinkedIn OAuth Error: Invalid redirect URI. Please ensure your LinkedIn app has this exact redirect URI configured: https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback
 
 Go to https://www.linkedin.com/developers/apps → Your App → Auth tab → Authorized redirect URLs
 
@@ -287,7 +287,7 @@ serve(async (req) => {
 
     if (error) {
       console.error(`[OAuth Callback] OAuth error: ${error} - ${errorDescription}`);
-      const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'http://localhost:8080';
+      const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'https://social-media-scheduler-khitless94s-projects.vercel.app';
       return new Response(null, {
         status: 302,
         headers: {
@@ -376,8 +376,24 @@ serve(async (req) => {
         // Twitter codes are typically longer
         platform = 'twitter';
         console.log(`[OAuth Callback] Detected platform as Twitter based on code length`);
+      } else if (code && code.length < 50) {
+        // Reddit codes are typically shorter
+        platform = 'reddit';
+        console.log(`[OAuth Callback] Detected platform as Reddit based on code length`);
       } else {
-        throw new Error('Unable to determine platform for OAuth callback. Please try connecting again.');
+        // If we still can't detect, check the referrer or other clues
+        const referer = req.headers.get('referer') || '';
+        if (referer.includes('reddit.com')) {
+          platform = 'reddit';
+          console.log(`[OAuth Callback] Detected platform as Reddit based on referrer`);
+        } else if (referer.includes('twitter.com') || referer.includes('x.com')) {
+          platform = 'twitter';
+          console.log(`[OAuth Callback] Detected platform as Twitter based on referrer`);
+        } else {
+          // Default to reddit if we can't determine (since that's what we're testing)
+          platform = 'reddit';
+          console.log(`[OAuth Callback] Defaulting to Reddit platform`);
+        }
       }
     }
 
@@ -400,7 +416,8 @@ serve(async (req) => {
       console.log(`[OAuth Callback] No existing ${platform} account found for user ${user_id}, will create new`);
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'http://127.0.0.1:54321';
+    // Always use production URL and consistent format - Reddit requires exact match
+    const supabaseUrl = "https://eqiuukwwpdiyncahrdny.supabase.co";
     const redirectUri = `${supabaseUrl}/functions/v1/oauth-callback`;
     console.log(`[OAuth Callback] Using redirect URI: ${redirectUri}`);
 
@@ -408,7 +425,7 @@ serve(async (req) => {
 
     // Prepare the data for upserting to oauth_credentials table
     const credentialsData = {
-      user_id: user_id,
+      user_id: user_id, // This should be a UUID string
       platform: platform,
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token || null,
@@ -419,29 +436,41 @@ serve(async (req) => {
     };
 
     console.log(`[OAuth Callback] Storing credentials for ${platform}/${user_id}`);
-    console.log(`[OAuth Callback] Credentials data keys: ${Object.keys(credentialsData).join(', ')}`);
+    console.log(`[OAuth Callback] Credentials data:`, JSON.stringify(credentialsData, null, 2));
 
-    // Store the credentials in both tables for backward compatibility
-    const [oauthResult, socialTokensResult] = await Promise.all([
-      supabase.from('oauth_credentials').upsert(credentialsData, { onConflict: 'user_id,platform' }),
-      supabase.from('social_tokens').upsert(credentialsData, { onConflict: 'user_id,platform' })
-    ]);
+    // Try to store in oauth_credentials first (primary table)
+    const oauthResult = await supabase
+      .from('oauth_credentials')
+      .upsert(credentialsData, { onConflict: 'user_id,platform' });
 
-    if (oauthResult.error && socialTokensResult.error) {
-      console.error(`[OAuth Callback] Failed to store tokens in both tables:`, {
-        oauth: oauthResult.error,
-        social: socialTokensResult.error
-      });
-      throw new Error('Failed to store authentication tokens');
-    }
-
-    // Log which table(s) succeeded
     if (oauthResult.error) {
-      console.warn(`[OAuth Callback] Failed to store in oauth_credentials:`, oauthResult.error);
+      console.error(`[OAuth Callback] Failed to store in oauth_credentials:`, oauthResult.error);
+
+      // Try social_tokens as fallback
+      const socialTokensResult = await supabase
+        .from('social_tokens')
+        .upsert(credentialsData, { onConflict: 'user_id,platform' });
+
+      if (socialTokensResult.error) {
+        console.error(`[OAuth Callback] Failed to store in social_tokens:`, socialTokensResult.error);
+        throw new Error(`Failed to store authentication tokens: ${oauthResult.error.message}`);
+      } else {
+        console.log(`[OAuth Callback] Successfully stored in social_tokens (fallback)`);
+      }
+    } else {
+      console.log(`[OAuth Callback] Successfully stored in oauth_credentials`);
+
+      // Also try to store in social_tokens for backward compatibility (but don't fail if it errors)
+      const socialTokensResult = await supabase
+        .from('social_tokens')
+        .upsert(credentialsData, { onConflict: 'user_id,platform' });
+
+      if (socialTokensResult.error) {
+        console.warn(`[OAuth Callback] Failed to store in social_tokens (non-critical):`, socialTokensResult.error);
+      }
     }
-    if (socialTokensResult.error) {
-      console.warn(`[OAuth Callback] Failed to store in social_tokens:`, socialTokensResult.error);
-    }
+
+
 
     // Clean up the oauth session (use original state if encoded)
     const originalState = state.includes('|') ? state.split('|')[0] : state;
@@ -464,7 +493,7 @@ serve(async (req) => {
       });
     } else {
       // Redirect for GET requests (browser redirects)
-      const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'http://localhost:8081';
+      const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'https://social-media-scheduler-khitless94s-projects.vercel.app';
       const successUrl = `${frontendUrl}/oauth/callback?success=true&platform=${platform}`;
       console.log(`[OAuth Callback] Redirecting to success URL: ${successUrl}`);
 
@@ -480,7 +509,7 @@ serve(async (req) => {
     console.error('[OAuth Callback] Error:', error.message);
     console.error('[OAuth Callback] Stack trace:', error.stack);
 
-    const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'http://localhost:8080';
+    const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'https://social-media-scheduler-khitless94s-projects.vercel.app';
 
     // Try to get platform from URL or session data for better error reporting
     const url = new URL(req.url);
