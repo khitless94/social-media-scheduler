@@ -31,6 +31,14 @@ const OAuthCallback = () => {
         const oauthError = searchParams.get('oauth_error'); // Renamed to avoid conflict
         const platformFromParams = searchParams.get('platform');
 
+        // IMPROVED PLATFORM DETECTION - Multiple fallback methods
+        console.log('🔍 PLATFORM DETECTION DEBUG:', {
+          platformFromUrl: platform,
+          platformFromParams: platformFromParams,
+          state: state ? state.substring(0, 100) + '...' : null,
+          code: code ? 'present' : 'missing'
+        });
+
         // Try to extract platform from state parameter if encoded
         let platformFromState = '';
         if (state && state.includes('|')) {
@@ -38,14 +46,88 @@ const OAuthCallback = () => {
             const [originalState, encodedData] = state.split('|');
             const sessionData = JSON.parse(atob(encodedData));
             platformFromState = sessionData.platform || '';
-            console.log('Extracted platform from state:', platformFromState);
+            console.log('✅ Extracted platform from state:', platformFromState);
           } catch (e) {
-            console.warn('Failed to decode platform from state:', e);
+            console.warn('❌ Failed to decode platform from state:', e);
+          }
+        }
+
+        // If no platform from state, try to guess from state content
+        if (!platformFromState && state) {
+          if (state.includes('twitter') || state.includes('live_') || state.includes('test_')) {
+            platformFromState = 'twitter';
+            console.log('🔍 Guessed platform as Twitter from state content');
+          } else if (state.includes('reddit')) {
+            platformFromState = 'reddit';
+            console.log('🔍 Guessed platform as Reddit from state content');
+          } else if (state.includes('linkedin')) {
+            platformFromState = 'linkedin';
+            console.log('🔍 Guessed platform as LinkedIn from state content');
+          } else if (state.includes('facebook')) {
+            platformFromState = 'facebook';
+            console.log('🔍 Guessed platform as Facebook from state content');
+          } else if (state.includes('instagram')) {
+            platformFromState = 'instagram';
+            console.log('🔍 Guessed platform as Instagram from state content');
           }
         }
 
         // Use platform from URL params, search params, or decoded from state
-        const activePlatform = platform || platformFromParams || platformFromState;
+        let activePlatform = platform || platformFromParams || platformFromState;
+
+        // Enhanced fallback: try to detect from referrer or current URL
+        if (!activePlatform) {
+          const currentUrl = window.location.href;
+          const referrer = document.referrer;
+
+          console.log('🔍 Trying URL-based detection:', { currentUrl, referrer });
+
+          if (currentUrl.includes('linkedin') || referrer.includes('linkedin')) {
+            activePlatform = 'linkedin';
+            console.log('🔍 Detected LinkedIn from URL/referrer');
+          } else if (currentUrl.includes('twitter') || referrer.includes('twitter') || referrer.includes('x.com')) {
+            activePlatform = 'twitter';
+            console.log('🔍 Detected Twitter from URL/referrer');
+          } else if (currentUrl.includes('reddit') || referrer.includes('reddit')) {
+            activePlatform = 'reddit';
+            console.log('🔍 Detected Reddit from URL/referrer');
+          } else if (currentUrl.includes('facebook') || referrer.includes('facebook')) {
+            activePlatform = 'facebook';
+            console.log('🔍 Detected Facebook from URL/referrer');
+          } else if (currentUrl.includes('instagram') || referrer.includes('instagram')) {
+            activePlatform = 'instagram';
+            console.log('🔍 Detected Instagram from URL/referrer');
+          }
+        }
+
+        // Last resort: if we have a code but no platform, guess based on code characteristics
+        if (!activePlatform && code) {
+          // LinkedIn codes are typically shorter and alphanumeric
+          if (code.length < 30 && /^[A-Za-z0-9_-]+$/.test(code)) {
+            activePlatform = 'linkedin';
+            console.log('🔍 Guessed platform as LinkedIn based on code characteristics');
+          } else if (code.length > 40) {
+            // Twitter codes are typically longer and more complex
+            activePlatform = 'twitter';
+            console.log('🔍 Guessed platform as Twitter based on code characteristics');
+          } else {
+            // Default fallback - check localStorage for recent OAuth attempts
+            const platforms = ['linkedin', 'twitter', 'reddit', 'facebook', 'instagram'];
+            for (const p of platforms) {
+              const recentAttempt = localStorage.getItem(`oauth_attempt_${p}`);
+              if (recentAttempt && Date.now() - parseInt(recentAttempt) < 300000) { // 5 minutes
+                activePlatform = p;
+                console.log(`🔍 Using ${p} based on recent OAuth attempt`);
+                break;
+              }
+            }
+
+            if (!activePlatform) {
+              activePlatform = 'linkedin'; // Final fallback
+              console.log('🔍 Using LinkedIn as final fallback');
+            }
+          }
+        }
 
         console.log('OAuth callback received:', {
           platform,

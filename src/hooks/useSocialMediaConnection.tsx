@@ -521,6 +521,9 @@ export const useSocialMediaConnection = (
 
       console.log(`[OAuth] Opening OAuth popup for ${platform}:`, authorizationUrl);
 
+      // Store OAuth attempt timestamp for fallback detection
+      localStorage.setItem(`oauth_attempt_${platform}`, Date.now().toString());
+
       const popup = window.open(authorizationUrl, 'oauth-popup', 'width=600,height=750,scrollbars=yes,resizable=yes');
       if (!popup || popup.closed || typeof popup.closed === 'undefined') {
         throw new Error("Popup blocked. Please enable popups for this site.");

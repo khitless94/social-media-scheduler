@@ -69,6 +69,8 @@ export const useSocialMedia = () => {
     try {
       if (!user) return [];
 
+      console.log('🔍 [useSocialMedia] Checking connection status for user:', user.id);
+
       // Check both tables for backward compatibility
       const [oauthResult, socialTokensResult] = await Promise.all([
         supabase.from('oauth_credentials').select('platform, expires_at, created_at').eq('user_id', user.id),
@@ -81,22 +83,61 @@ export const useSocialMedia = () => {
         ...(socialTokensResult.data || [])
       ];
 
+      console.log('📊 [useSocialMedia] Database tokens found:', allTokens);
+
+      // Check localStorage for immediate OAuth success flags
+      const localStorageConnections: Record<string, boolean> = {};
+      platforms.forEach(platform => {
+        const key = `connected_${platform.id}_${user.id}`;
+        const isConnectedInStorage = localStorage.getItem(key) === 'true';
+        if (isConnectedInStorage) {
+          localStorageConnections[platform.id] = true;
+          console.log(`✅ [useSocialMedia] localStorage: ${platform.id} is connected`);
+        }
+      });
+
       const connectionStatus = platforms.map(platform => {
         const token = allTokens.find(t => t.platform === platform.id);
         const isExpired = token?.expires_at && new Date(token.expires_at) < new Date();
 
+        // Use database connection if available, otherwise fall back to localStorage
+        const isConnectedInDB = !!token && !isExpired;
+        const isConnectedInStorage = localStorageConnections[platform.id] || false;
+        const isConnected = isConnectedInDB || isConnectedInStorage;
+
+        console.log(`🔗 [useSocialMedia] ${platform.id}: DB=${isConnectedInDB}, Storage=${isConnectedInStorage}, Final=${isConnected}`);
+
         return {
           platform: platform.id,
-          isConnected: !!token && !isExpired,
+          isConnected,
           expiresAt: token?.expires_at,
           needsReconnection: isExpired
         };
       });
 
+      console.log('📋 [useSocialMedia] Final connection status:', connectionStatus);
       setConnections(connectionStatus);
       return connectionStatus;
     } catch (error) {
       console.error('Error checking connection status:', error);
+
+      // Fallback to localStorage only if database fails
+      if (user) {
+        console.log('🔄 [useSocialMedia] Database failed, using localStorage fallback');
+        const fallbackStatus = platforms.map(platform => {
+          const key = `connected_${platform.id}_${user.id}`;
+          const isConnected = localStorage.getItem(key) === 'true';
+          return {
+            platform: platform.id,
+            isConnected,
+            expiresAt: undefined,
+            needsReconnection: false
+          };
+        });
+        setConnections(fallbackStatus);
+        return fallbackStatus;
+      }
+
       return [];
     }
   };
@@ -106,13 +147,26 @@ export const useSocialMedia = () => {
     try {
       setLoading(true);
 
-      console.log(`[useSocialMedia] Posting to ${platform} with OAuth authentication`);
+      console.log(`🚀 [useSocialMedia] Posting to ${platform} with OAuth authentication`);
+      console.log(`📝 [useSocialMedia] Content: "${content.substring(0, 100)}..."`);
+      console.log(`🖼️ [useSocialMedia] Image: ${image ? 'Yes' : 'No'}`);
 
       // Get the current session token
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         throw new Error('No active session. Please sign in.');
       }
+
+      console.log(`🔑 [useSocialMedia] Session token exists: ${!!session.access_token}`);
+
+      const requestBody = {
+        platform,
+        content,
+        subreddit: platform === 'reddit' ? subreddit : undefined,
+        image
+      };
+
+      console.log(`📤 [useSocialMedia] Request body:`, requestBody);
 
       // Call the edge function with authentication
       const response = await fetch('https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/post-to-social', {
@@ -121,17 +175,14 @@ export const useSocialMedia = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({
-          platform,
-          content,
-          subreddit: platform === 'reddit' ? subreddit : undefined,
-          image
-        })
+        body: JSON.stringify(requestBody)
       });
+
+      console.log(`📡 [useSocialMedia] Response status: ${response.status} ${response.statusText}`);
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Edge function error:', errorText);
+        console.error(`❌ [useSocialMedia] Edge function error (${response.status}):`, errorText);
         return {
           success: false,
           error: `HTTP ${response.status}: ${errorText}`,
@@ -141,7 +192,7 @@ export const useSocialMedia = () => {
 
       const data = await response.json();
 
-      console.log(`[useSocialMedia] Edge function response for ${platform}:`, data);
+      console.log(`✅ [useSocialMedia] Edge function response for ${platform}:`, data);
 
       // The edge function returns { success: true, results: [...] }
       if (data.success && data.results && data.results.length > 0) {

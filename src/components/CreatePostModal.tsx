@@ -93,14 +93,45 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
 
   useEffect(() => {
     if (isOpen) {
+      console.log('🔄 [CreatePostModal] Modal opened, checking connection status...');
       checkConnectionStatus();
     }
   }, [isOpen, checkConnectionStatus]);
 
+  // Listen for OAuth success messages to refresh connections
+  useEffect(() => {
+    const handleOAuthSuccess = (event: MessageEvent) => {
+      if (event.data?.type === 'oauth_success') {
+        console.log('🎉 [CreatePostModal] OAuth success detected, refreshing connections...');
+        setTimeout(() => {
+          checkConnectionStatus();
+        }, 1000); // Small delay to ensure localStorage is updated
+      }
+    };
+
+    // Listen for localStorage changes (OAuth success flags)
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key?.startsWith('connected_') || event.key?.startsWith('oauth_success_')) {
+        console.log('📦 [CreatePostModal] Connection storage updated, refreshing...');
+        setTimeout(() => {
+          checkConnectionStatus();
+        }, 500);
+      }
+    };
+
+    window.addEventListener('message', handleOAuthSuccess);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('message', handleOAuthSuccess);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [checkConnectionStatus]);
+
   // Remove the infinite loop debug - only log when modal opens
   useEffect(() => {
     if (isOpen) {
-      console.log('Modal opened - Connection status:', {
+      console.log('📊 [CreatePostModal] Modal opened - Connection status:', {
         connections,
         connectedPlatforms,
         selectedPlatforms

@@ -323,8 +323,22 @@ serve(async (req) => {
       let decodedSessionData = null;
       if (state && state.includes('|')) {
         try {
-          const [originalState, encodedData] = state.split('|');
-          decodedSessionData = JSON.parse(atob(encodedData));
+          // URL decode the state parameter first (LinkedIn might URL-encode it)
+          const decodedState = decodeURIComponent(state);
+          console.log(`[OAuth Callback] Original state: ${state}`);
+          console.log(`[OAuth Callback] URL decoded state: ${decodedState}`);
+
+          const [originalState, encodedData] = decodedState.split('|');
+          console.log(`[OAuth Callback] Attempting to decode state. Original: ${originalState}, Encoded length: ${encodedData?.length}`);
+
+          if (!encodedData) {
+            throw new Error('No encoded data found in state parameter');
+          }
+
+          const decodedString = atob(encodedData);
+          console.log(`[OAuth Callback] Decoded string: ${decodedString}`);
+
+          decodedSessionData = JSON.parse(decodedString);
           console.log(`[OAuth Callback] Decoded session data from state:`, decodedSessionData);
 
           platform = decodedSessionData.platform || platformFromUrl;
@@ -337,7 +351,25 @@ serve(async (req) => {
             throw new Error('OAuth session has expired. Please try connecting again.');
           }
         } catch (e) {
-          console.warn(`[OAuth Callback] Failed to decode session data from state:`, e);
+          console.error(`[OAuth Callback] Failed to decode session data from state:`, e);
+          console.error(`[OAuth Callback] Raw state parameter: ${state}`);
+          console.error(`[OAuth Callback] State parts:`, state.split('|'));
+
+          // Try without URL decoding as fallback
+          try {
+            const [originalState, encodedData] = state.split('|');
+            if (encodedData) {
+              const decodedString = atob(encodedData);
+              decodedSessionData = JSON.parse(decodedString);
+              console.log(`[OAuth Callback] Fallback decoding successful:`, decodedSessionData);
+
+              platform = decodedSessionData.platform || platformFromUrl;
+              user_id = decodedSessionData.user_id;
+              code_verifier = decodedSessionData.code_verifier;
+            }
+          } catch (fallbackError) {
+            console.error(`[OAuth Callback] Fallback decoding also failed:`, fallbackError);
+          }
         }
       }
 

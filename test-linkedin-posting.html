@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkedIn Posting Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        textarea, input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        button {
+            background: #0077b5;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #005885;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .loading {
+            color: #666;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔗 LinkedIn Posting Test</h1>
+        <p>Test LinkedIn posting functionality with detailed debugging.</p>
+        
+        <div class="form-group">
+            <label for="content">Post Content:</label>
+            <textarea id="content" placeholder="Enter your LinkedIn post content here...">🚀 Testing LinkedIn posting from our social media scheduler! This is a test post to verify our OAuth integration is working correctly. #test #socialmedia #automation</textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="image">Image URL (optional):</label>
+            <input type="url" id="image" placeholder="https://example.com/image.jpg">
+        </div>
+        
+        <button onclick="testLinkedInPosting()" id="postBtn">📤 Test LinkedIn Post</button>
+        <button onclick="checkConnection()" id="checkBtn">🔍 Check Connection</button>
+        <button onclick="clearResults()" id="clearBtn">🗑️ Clear Results</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://eqiuukwwpdiyncahrdny.supabase.co';
+        
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const timestamp = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.textContent = `[${timestamp}] ${message}`;
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        async function getSupabaseSession() {
+            try {
+                // Try to get session from localStorage (if user is logged in)
+                const session = localStorage.getItem('sb-eqiuukwwpdiyncahrdny-auth-token');
+                if (session) {
+                    const parsed = JSON.parse(session);
+                    if (parsed.access_token) {
+                        log('✅ Found Supabase session in localStorage', 'success');
+                        return parsed.access_token;
+                    }
+                }
+                
+                log('❌ No Supabase session found. Please log in to the main app first.', 'error');
+                return null;
+            } catch (error) {
+                log(`❌ Error getting session: ${error.message}`, 'error');
+                return null;
+            }
+        }
+        
+        async function checkConnection() {
+            log('🔍 Checking LinkedIn connection status...', 'info');
+            
+            const token = await getSupabaseSession();
+            if (!token) return;
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/oauth_credentials?select=platform,expires_at,created_at&platform=eq.linkedin`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaXV1a3d3cGRpeW5jYWhyZG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ5NzI4NzQsImV4cCI6MjA1MDU0ODg3NH0.YEBsk5wYNOQJhd8zOQKJOLJOQJOQJOQJOQJOQJOQJOQ'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.length > 0) {
+                        const cred = data[0];
+                        const isExpired = cred.expires_at && new Date(cred.expires_at) < new Date();
+                        log(`✅ LinkedIn connection found!`, 'success');
+                        log(`   Created: ${cred.created_at}`, 'info');
+                        log(`   Expires: ${cred.expires_at || 'Never'}`, 'info');
+                        log(`   Status: ${isExpired ? '❌ EXPIRED' : '✅ ACTIVE'}`, isExpired ? 'error' : 'success');
+                    } else {
+                        log('❌ No LinkedIn connection found in database', 'error');
+                    }
+                } else {
+                    log(`❌ Failed to check connection: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Error checking connection: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testLinkedInPosting() {
+            const content = document.getElementById('content').value.trim();
+            const image = document.getElementById('image').value.trim() || undefined;
+            
+            if (!content) {
+                log('❌ Please enter some content to post', 'error');
+                return;
+            }
+            
+            log('🚀 Starting LinkedIn posting test...', 'info');
+            log(`📝 Content: "${content.substring(0, 100)}${content.length > 100 ? '...' : ''}"`, 'info');
+            log(`🖼️ Image: ${image ? 'Yes' : 'No'}`, 'info');
+            
+            const token = await getSupabaseSession();
+            if (!token) return;
+            
+            const postBtn = document.getElementById('postBtn');
+            postBtn.disabled = true;
+            postBtn.textContent = '⏳ Posting...';
+            
+            try {
+                const requestBody = {
+                    platform: 'linkedin',
+                    content: content,
+                    image: image
+                };
+                
+                log('📤 Sending request to edge function...', 'info');
+                log(`Request body: ${JSON.stringify(requestBody, null, 2)}`, 'info');
+                
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/post-to-social`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                log(`📡 Response status: ${response.status} ${response.statusText}`, 'info');
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    log(`❌ Edge function error (${response.status}): ${errorText}`, 'error');
+                    return;
+                }
+                
+                const data = await response.json();
+                log(`✅ Edge function response: ${JSON.stringify(data, null, 2)}`, 'success');
+                
+                if (data.success && data.results && data.results.length > 0) {
+                    const result = data.results[0];
+                    if (result.success) {
+                        log(`🎉 LinkedIn post successful!`, 'success');
+                        log(`   Post ID: ${result.postId}`, 'success');
+                        log(`   URL: ${result.url}`, 'success');
+                        log(`   Message: ${result.message}`, 'success');
+                    } else {
+                        log(`❌ LinkedIn post failed: ${result.error}`, 'error');
+                    }
+                } else {
+                    log(`❌ Unexpected response format: ${JSON.stringify(data)}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Error during posting: ${error.message}`, 'error');
+                console.error('Full error:', error);
+            } finally {
+                postBtn.disabled = false;
+                postBtn.textContent = '📤 Test LinkedIn Post';
+            }
+        }
+        
+        // Auto-check connection on page load
+        window.addEventListener('load', () => {
+            log('🔧 LinkedIn Posting Test Tool Loaded', 'info');
+            log('ℹ️ Make sure you are logged in to the main app first!', 'info');
+            setTimeout(checkConnection, 1000);
+        });
+    </script>
+</body>
+</html>
