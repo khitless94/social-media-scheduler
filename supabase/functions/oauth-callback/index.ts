@@ -24,7 +24,7 @@ const tokenConfigs = {
   },
   twitter: {
     tokenUrl: 'https://api.x.com/2/oauth2/token',
-    clientId: Deno.env.get('TWITTER_CLIENT_ID') || 'ZHRveEJIcVduLVdkdGJJUWYwZFc6MTpjaQ',
+    clientId: Deno.env.get('TWITTER_CLIENT_ID') || 'cElLTnFibUhINUJpblBRTTA2aFA6MTpjaQ',
     clientSecret: Deno.env.get('TWITTER_CLIENT_SECRET'),
     grantType: 'authorization_code',
     requiresPKCE: true

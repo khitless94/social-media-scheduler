@@ -11,7 +11,7 @@ const supabase = createClient(
 const oauthConfigs = {
   twitter: {
     authUrl: "https://x.com/i/oauth2/authorize",
-    clientId: Deno.env.get("TWITTER_CLIENT_ID") || "ZHRveEJIcVduLVdkdGJJUWYwZFc6MTpjaQ",
+    clientId: Deno.env.get("TWITTER_CLIENT_ID") || "cElLTnFibUhINUJpblBRTTA2aFA6MTpjaQ",
     scope: "tweet.read tweet.write users.read offline.access",
     responseType: "code",
     requiresPKCE: true,

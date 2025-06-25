@@ -159,12 +159,21 @@ export const useSocialMedia = () => {
 
       console.log(`🔑 [useSocialMedia] Session token exists: ${!!session.access_token}`);
 
-      const requestBody = {
+      // Clean request body format - only include relevant fields for each platform
+      const requestBody: any = {
         platform,
-        content,
-        subreddit: platform === 'reddit' ? subreddit : undefined,
-        image
+        content
       };
+
+      // Only include image if provided
+      if (image) {
+        requestBody.image = image;
+      }
+
+      // Only include subreddit for Reddit posts
+      if (platform === 'reddit' && subreddit) {
+        requestBody.subreddit = subreddit;
+      }
 
       console.log(`📤 [useSocialMedia] Request body:`, requestBody);
 
@@ -267,7 +276,7 @@ export const useSocialMedia = () => {
         body: JSON.stringify({
           content,
           platforms: platforms.map(p => p.platform),
-          image
+          ...(image && { image })
         })
       });
 

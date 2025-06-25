@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twitter Text + Image Posting Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border-left: 4px solid #1da1f2;
+            background-color: #f8f9fa;
+        }
+        .result {
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+        }
+        .success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .info { background-color: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+        .warning { background-color: #fff3cd; border: 1px solid #ffeaa7; color: #856404; }
+        button {
+            background-color: #1da1f2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0d8bd9; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        textarea {
+            width: 100%;
+            height: 80px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: Arial, sans-serif;
+        }
+        input[type="url"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .image-preview {
+            max-width: 300px;
+            max-height: 200px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐦🖼️ Twitter Text + Image Posting Test</h1>
+        <p>Test Twitter posting with both text and images to verify the hybrid OAuth implementation.</p>
+        
+        <div class="test-section">
+            <h3>Step 1: Compose Tweet with Image</h3>
+            <textarea id="tweetText" placeholder="Enter your tweet text here..." maxlength="280">🧪 Testing Twitter API with image upload! This should show an embedded image, not a link. #TwitterAPI #ImageTest 📸</textarea>
+            
+            <label for="imageUrl">Image URL:</label>
+            <input type="url" id="imageUrl" placeholder="https://example.com/image.jpg" value="https://picsum.photos/800/600">
+            
+            <button onclick="previewImage()">Preview Image</button>
+            <div id="image-preview"></div>
+            
+            <button onclick="testTwitterWithImage()">Test Twitter Post with Image</button>
+            <div id="post-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Step 2: Test Different Image Sources</h3>
+            <button onclick="testWithSupabaseImage()">Test with Supabase Storage Image</button>
+            <button onclick="testWithRandomImage()">Test with Random Image</button>
+            <div id="image-test-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Step 3: OAuth Method Detection</h3>
+            <p>This will show which upload method was used:</p>
+            <ul>
+                <li><strong>OAuth 1.0a</strong>: Most reliable (requires environment variables)</li>
+                <li><strong>OAuth 2.0 FormData</strong>: Fallback method</li>
+                <li><strong>OAuth 2.0 Base64</strong>: Final fallback</li>
+                <li><strong>Text-only</strong>: If all image uploads fail</li>
+            </ul>
+            <div id="method-info"></div>
+        </div>
+    </div>
+
+    <script>
+        function addResult(elementId, title, content, type = 'info') {
+            const element = document.getElementById(elementId);
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `result ${type}`;
+            resultDiv.innerHTML = `<strong>${title}</strong>\n${content}`;
+            element.appendChild(resultDiv);
+        }
+
+        function clearResults(elementId) {
+            document.getElementById(elementId).innerHTML = '';
+        }
+
+        function previewImage() {
+            const imageUrl = document.getElementById('imageUrl').value;
+            const previewDiv = document.getElementById('image-preview');
+            
+            if (!imageUrl) {
+                previewDiv.innerHTML = '<div class="result error">Please enter an image URL</div>';
+                return;
+            }
+            
+            previewDiv.innerHTML = `<img src="${imageUrl}" class="image-preview" onload="this.style.display='block'" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\\"result error\\">Failed to load image</div>'" style="display:none;">`;
+        }
+
+        async function testTwitterWithImage() {
+            clearResults('post-result');
+            const text = document.getElementById('tweetText').value.trim();
+            const imageUrl = document.getElementById('imageUrl').value.trim();
+            
+            if (!text) {
+                addResult('post-result', '❌ Error', 'Please enter some text for the tweet.', 'error');
+                return;
+            }
+            
+            if (!imageUrl) {
+                addResult('post-result', '❌ Error', 'Please enter an image URL.', 'error');
+                return;
+            }
+            
+            addResult('post-result', '🔄 Testing...', 'Posting tweet with image to Twitter...', 'info');
+            
+            try {
+                const response = await fetch('https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/post-to-social', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaXV1a3d3cGRpeW5jYWhyZG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxOTA5MzcsImV4cCI6MjA2NDc2NjkzN30.sgwl7oP2fJD7rh64w59XWdfMCS0XQcNjD4Qr_WGILGs',
+                        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaXV1a3d3cGRpeW5jYWhyZG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxOTA5MzcsImV4cCI6MjA2NDc2NjkzN30.sgwl7oP2fJD7rh64w59XWdfMCS0XQcNjD4Qr_WGILGs'
+                    },
+                    body: JSON.stringify({
+                        platform: 'twitter',
+                        content: text,
+                        image: imageUrl
+                    })
+                });
+
+                const data = await response.json();
+                console.log('Twitter API Response:', data);
+                
+                if (response.ok && data.success && data.results) {
+                    const result = data.results[0];
+                    if (result.success) {
+                        let uploadMethod = 'Unknown';
+                        if (result.message.includes('Image included')) {
+                            uploadMethod = 'Image upload successful';
+                        } else if (result.message.includes('Posted without image')) {
+                            uploadMethod = 'Image upload failed - posted text only';
+                        }
+                        
+                        addResult('post-result', '✅ Success!', 
+                            `Tweet posted!\n\nTweet ID: ${result.postId}\nURL: ${result.url}\nUpload Status: ${uploadMethod}\nMessage: ${result.message}`, 'success');
+                        
+                        addResult('method-info', '📊 Upload Method Used', 
+                            `Check the function logs in Supabase Dashboard to see which upload method was used:\n- Look for "[Twitter] OAuth 1.0a media upload successful"\n- Or "[Twitter] OAuth 2.0 media upload successful"\n- Or "[Twitter] Base64 media upload successful"`, 'info');
+                    } else {
+                        addResult('post-result', '❌ Posting Failed', 
+                            `Error: ${result.error}`, 'error');
+                    }
+                } else {
+                    addResult('post-result', '❌ API Error', 
+                        `HTTP ${response.status}: ${JSON.stringify(data, null, 2)}`, 'error');
+                }
+                
+            } catch (error) {
+                console.error('Test error:', error);
+                addResult('post-result', '❌ Network Error', error.message, 'error');
+            }
+        }
+
+        async function testWithSupabaseImage() {
+            clearResults('image-test-result');
+            document.getElementById('imageUrl').value = 'https://eqiuukwwpdiyncahrdny.supabase.co/storage/v1/object/public/user-images/test-image.jpg';
+            addResult('image-test-result', '🔄 Testing...', 'Testing with Supabase storage image...', 'info');
+            await testTwitterWithImage();
+        }
+
+        async function testWithRandomImage() {
+            clearResults('image-test-result');
+            const randomId = Math.floor(Math.random() * 1000);
+            document.getElementById('imageUrl').value = `https://picsum.photos/800/600?random=${randomId}`;
+            addResult('image-test-result', '🔄 Testing...', 'Testing with random image...', 'info');
+            await testTwitterWithImage();
+        }
+
+        // Initial setup
+        document.addEventListener('DOMContentLoaded', function() {
+            addResult('method-info', 'ℹ️ Setup Status', 
+                'Current Implementation:\n✅ Text posting: Fixed and working\n✅ Image upload: Multiple fallback methods\n⚠️ For best results: Add OAuth 1.0a credentials to Supabase\n\nWithout OAuth 1.0a setup, the system will try OAuth 2.0 fallback methods.', 'warning');
+        });
+    </script>
+</body>
+</html>

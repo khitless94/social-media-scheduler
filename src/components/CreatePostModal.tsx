@@ -644,6 +644,14 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
       const platformsData = selectedPlatforms.map(platform => ({ platform }));
       const finalImage = selectedPost.image || generatedImage || uploadedImage || (imageUrl.trim() ? imageUrl.trim() : null);
 
+      console.log('🖼️ [CreatePostModal] Image debug info:');
+      console.log('🖼️ selectedPost.image:', selectedPost.image);
+      console.log('🖼️ generatedImage:', generatedImage);
+      console.log('🖼️ uploadedImage:', uploadedImage);
+      console.log('🖼️ imageUrl:', imageUrl);
+      console.log('🖼️ imageSource:', imageSource);
+      console.log('🖼️ finalImage:', finalImage);
+
       // Check content length and truncate if needed
       const maxLength = platformsData.some(p => p.platform === 'twitter') ? 280 : 3000;
       let contentToPost = selectedPost.content;

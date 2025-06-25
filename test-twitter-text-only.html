@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twitter Text-Only Posting Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border-left: 4px solid #1da1f2;
+            background-color: #f8f9fa;
+        }
+        .result {
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+        }
+        .success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .info { background-color: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+        button {
+            background-color: #1da1f2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0d8bd9; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        textarea {
+            width: 100%;
+            height: 100px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: Arial, sans-serif;
+        }
+        .char-count {
+            text-align: right;
+            font-size: 12px;
+            color: #666;
+            margin-top: -10px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐦 Twitter Text-Only Posting Test</h1>
+        <p>This tool tests Twitter text-only posting to identify and fix API issues.</p>
+        
+        <div class="test-section">
+            <h3>Step 1: Compose Tweet</h3>
+            <textarea id="tweetText" placeholder="Enter your tweet text here..." maxlength="280">🧪 Testing Twitter API v2 text-only posting! This should work without any images. #TwitterAPI #Test</textarea>
+            <div class="char-count">
+                <span id="charCount">0</span>/280 characters
+            </div>
+            <button onclick="testTwitterPost()">Test Twitter Post</button>
+            <div id="post-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Step 2: API Connection Test</h3>
+            <button onclick="testTwitterConnection()">Test Twitter API Connection</button>
+            <div id="connection-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Step 3: Token Validation</h3>
+            <button onclick="validateTwitterToken()">Validate Twitter Token</button>
+            <div id="token-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Debug Information</h3>
+            <div id="debug-info"></div>
+        </div>
+    </div>
+
+    <script>
+        // Update character count
+        const tweetText = document.getElementById('tweetText');
+        const charCount = document.getElementById('charCount');
+        
+        tweetText.addEventListener('input', function() {
+            const count = this.value.length;
+            charCount.textContent = count;
+            charCount.style.color = count > 280 ? 'red' : count > 260 ? 'orange' : '#666';
+        });
+        
+        // Initial count
+        charCount.textContent = tweetText.value.length;
+
+        function addResult(elementId, title, content, type = 'info') {
+            const element = document.getElementById(elementId);
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `result ${type}`;
+            resultDiv.innerHTML = `<strong>${title}</strong>\n${content}`;
+            element.appendChild(resultDiv);
+        }
+
+        function clearResults(elementId) {
+            document.getElementById(elementId).innerHTML = '';
+        }
+
+        async function testTwitterPost() {
+            clearResults('post-result');
+            const text = tweetText.value.trim();
+            
+            if (!text) {
+                addResult('post-result', '❌ Error', 'Please enter some text for the tweet.', 'error');
+                return;
+            }
+            
+            if (text.length > 280) {
+                addResult('post-result', '❌ Error', 'Tweet text exceeds 280 characters.', 'error');
+                return;
+            }
+            
+            addResult('post-result', '🔄 Testing...', 'Posting text-only tweet to Twitter...', 'info');
+            
+            try {
+                const response = await fetch('https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/post-to-social', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaXV1a3d3cGRpeW5jYWhyZG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxOTA5MzcsImV4cCI6MjA2NDc2NjkzN30.sgwl7oP2fJD7rh64w59XWdfMCS0XQcNjD4Qr_WGILGs',
+                        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaXV1a3d3cGRpeW5jYWhyZG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxOTA5MzcsImV4cCI6MjA2NDc2NjkzN30.sgwl7oP2fJD7rh64w59XWdfMCS0XQcNjD4Qr_WGILGs'
+                    },
+                    body: JSON.stringify({
+                        platform: 'twitter',
+                        content: text
+                        // No image parameter for text-only test
+                    })
+                });
+
+                const data = await response.json();
+                console.log('Twitter API Response:', data);
+                
+                if (response.ok && data.success && data.results) {
+                    const result = data.results[0];
+                    if (result.success) {
+                        addResult('post-result', '✅ Success!', 
+                            `Tweet posted successfully!\n\nTweet ID: ${result.postId}\nURL: ${result.url}\nMessage: ${result.message}`, 'success');
+                    } else {
+                        addResult('post-result', '❌ Posting Failed', 
+                            `Error: ${result.error}`, 'error');
+                    }
+                } else {
+                    addResult('post-result', '❌ API Error', 
+                        `HTTP ${response.status}: ${JSON.stringify(data, null, 2)}`, 'error');
+                }
+                
+            } catch (error) {
+                console.error('Test error:', error);
+                addResult('post-result', '❌ Network Error', error.message, 'error');
+            }
+        }
+
+        async function testTwitterConnection() {
+            clearResults('connection-result');
+            addResult('connection-result', '🔄 Testing...', 'Testing Twitter API connection...', 'info');
+            
+            try {
+                // Test with minimal request
+                const response = await fetch('https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/post-to-social', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaXV1a3d3cGRpeW5jYWhyZG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxOTA5MzcsImV4cCI6MjA2NDc2NjkzN30.sgwl7oP2fJD7rh64w59XWdfMCS0XQcNjD4Qr_WGILGs',
+                        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaXV1a3d3cGRpeW5jYWhyZG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxOTA5MzcsImV4cCI6MjA2NDc2NjkzN30.sgwl7oP2fJD7rh64w59XWdfMCS0XQcNjD4Qr_WGILGs'
+                    },
+                    body: JSON.stringify({
+                        platform: 'twitter',
+                        content: '🔍 Connection test'
+                    })
+                });
+
+                const responseText = await response.text();
+                console.log('Connection test response:', responseText);
+                
+                if (response.ok) {
+                    addResult('connection-result', '✅ Connection OK', 
+                        `API endpoint is reachable.\nStatus: ${response.status}\nResponse: ${responseText.substring(0, 200)}...`, 'success');
+                } else {
+                    addResult('connection-result', '⚠️ Connection Issues', 
+                        `Status: ${response.status}\nResponse: ${responseText}`, 'error');
+                }
+                
+            } catch (error) {
+                addResult('connection-result', '❌ Connection Failed', error.message, 'error');
+            }
+        }
+
+        async function validateTwitterToken() {
+            clearResults('token-result');
+            addResult('token-result', '🔄 Validating...', 'Checking Twitter token validity...', 'info');
+            
+            // This would need to be implemented in the backend
+            addResult('token-result', 'ℹ️ Token Validation', 
+                'Token validation needs to be implemented in the backend.\nCheck the function logs for token-related errors.', 'info');
+        }
+
+        // Add debug information
+        document.getElementById('debug-info').innerHTML = `
+            <div class="result info">
+                <strong>Debug Information</strong>
+                User Agent: ${navigator.userAgent}
+                Timestamp: ${new Date().toISOString()}
+                API Endpoint: https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/post-to-social
+                
+                Expected Twitter API v2 Request Format:
+                {
+                  "text": "Your tweet content here"
+                }
+                
+                Expected Response Format:
+                {
+                  "data": {
+                    "id": "1234567890123456789",
+                    "text": "Your tweet content here"
+                  }
+                }
+            </div>
+        `;
+    </script>
+</body>
+</html>

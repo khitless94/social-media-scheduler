@@ -6,8 +6,8 @@
 
 export const AppConfig = {
   twitter: {
-    // This is your real, correct Client ID for X/Twitter.
-    clientId: "ZHRveEJIcVduLVdkdGJJUWYwZFc6MTpjaQ"
+    // Updated Twitter OAuth 2.0 Client ID
+    clientId: "cElLTnFibUhINUJpblBRTTA2aFA6MTpjaQ"
   },
   reddit: {
     // This is your real, correct Client ID for Reddit.
