@@ -36,6 +36,18 @@ npm i
 npm run dev
 ```
 
+## Supabase Setup for Image Functionality
+
+To enable image upload functionality, you need to create a storage bucket in your Supabase project:
+
+1. Go to your Supabase Dashboard
+2. Navigate to Storage
+3. Create a new bucket named `user-images`
+4. Set the bucket to be public or configure appropriate RLS policies
+5. The application will automatically use this bucket for image uploads
+
+Without this bucket, image upload will fail with a "Bucket not found" error.
+
 **Edit a file directly in GitHub**
 
 - Navigate to the desired file(s).

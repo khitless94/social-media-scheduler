@@ -21,7 +21,8 @@ import {
   Loader2,
   CalendarIcon,
   Send,
-  CalendarDays
+  CalendarDays,
+  ExternalLink
 } from 'lucide-react';
 import { FaLinkedin, FaTwitter, FaInstagram, FaFacebook, FaReddit } from 'react-icons/fa';
 import { format } from 'date-fns';
@@ -42,6 +43,13 @@ const CreatePost: React.FC = () => {
   const [scheduleDate, setScheduleDate] = useState<Date>();
   const [scheduleTime, setScheduleTime] = useState('');
   const [isPosting, setIsPosting] = useState(false);
+
+  // Image management
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [generatingImage, setGeneratingImage] = useState(false);
+  const [imageSource, setImageSource] = useState<'none' | 'upload' | 'generate'>('none');
 
   // Real-time connection status
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>({
@@ -198,6 +206,126 @@ Create the post now:`;
     if (length > limit) return 'error';
     if (length > limit * 0.9) return 'warning'; // 90% of limit
     return 'normal';
+  };
+
+  // Image upload function
+  const uploadImageFile = async (file: File) => {
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload an image file (JPG, PNG, GIF, etc.)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please upload an image smaller than 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      // Upload to Supabase Storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+
+      const { data, error } = await supabase.storage
+        .from('user-images')
+        .upload(fileName, file);
+
+      if (error) {
+        if (error.message.includes('Bucket not found')) {
+          throw new Error('Please create the "user-images" storage bucket in your Supabase dashboard first');
+        }
+        throw error;
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('user-images')
+        .getPublicUrl(fileName);
+
+      setUploadedImage(publicUrl);
+      setImageSource('upload');
+      toast({
+        title: "Image uploaded!",
+        description: "Your image is ready to use in your posts.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error uploading image",
+        description: error.message || "Failed to upload image",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  // AI image generation function
+  const generateImageForPost = async () => {
+    if (!prompt.trim()) {
+      toast({
+        title: "Please enter a prompt",
+        description: "Describe what you want to create an image for",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setGeneratingImage(true);
+    try {
+      const imagePrompt = `Create a professional social media image for: ${prompt}. Make it visually appealing, modern, and suitable for social media platforms.`;
+
+      const { data, error } = await supabase.functions.invoke('generate-content', {
+        body: { prompt: imagePrompt, type: 'image' }
+      });
+
+      if (error) throw error;
+
+      if (data.imageUrl) {
+        setGeneratedImage(data.imageUrl);
+        setImageSource('generate');
+        toast({
+          title: "Image generated!",
+          description: "Your AI-generated image is ready to use.",
+        });
+      } else if (data.imageDescription) {
+        toast({
+          title: "Image description generated",
+          description: "Use this description to create your image: " + data.imageDescription,
+        });
+      } else {
+        throw new Error("No image generated");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error generating image",
+        description: error.message || "Failed to generate image",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingImage(false);
+    }
+  };
+
+  // Get current image URL
+  const getCurrentImage = (): string | undefined => {
+    if (imageSource === 'upload' && uploadedImage) return uploadedImage;
+    if (imageSource === 'generate' && generatedImage) return generatedImage;
+    return undefined;
   };
 
   const generateTwitterHashtags = (content: string, tone: string): string => {
@@ -482,7 +610,7 @@ Create the post now:`;
         content: generatedText,
         platform: platform as Platform,
         subreddit: platform === 'reddit' ? 'test' : undefined,
-        image: undefined
+        image: getCurrentImage()
       });
 
       if (result.success) {
@@ -494,6 +622,9 @@ Create the post now:`;
         setPrompt('');
         setPlatform('');
         setTone('');
+        setUploadedImage(null);
+        setGeneratedImage(null);
+        setImageSource('none');
       } else {
         throw new Error(result.error || 'Unknown error occurred');
       }
@@ -525,7 +656,7 @@ Create the post now:`;
         content: generatedText,
         platform: platform as Platform,
         subreddit: platform === 'reddit' ? 'test' : undefined,
-        image: undefined
+        image: getCurrentImage()
       });
 
       if (result.success) {
@@ -539,6 +670,9 @@ Create the post now:`;
         setTone('');
         setScheduleDate(undefined);
         setScheduleTime('');
+        setUploadedImage(null);
+        setGeneratedImage(null);
+        setImageSource('none');
       } else {
         throw new Error(result.error || 'Unknown error occurred');
       }
@@ -754,6 +888,152 @@ Create the post now:`;
                       </div>
                     </div>
 
+                    {/* Image Upload Section */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-medium text-gray-900">Add Image (Optional)</h3>
+                        <div className="flex space-x-2">
+                          <Button
+                            type="button"
+                            variant={imageSource === 'none' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => {
+                              setImageSource('none');
+                              setUploadedImage(null);
+                              setGeneratedImage(null);
+                            }}
+                            className="text-xs"
+                          >
+                            None
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={imageSource === 'upload' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setImageSource('upload')}
+                            className="text-xs"
+                          >
+                            Upload
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={imageSource === 'generate' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setImageSource('generate')}
+                            className="text-xs"
+                          >
+                            Generate
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Upload Image */}
+                      {imageSource === 'upload' && (
+                        <div className="space-y-4">
+                          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) uploadImageFile(file);
+                              }}
+                              className="hidden"
+                              id="image-upload"
+                            />
+                            <label htmlFor="image-upload" className="cursor-pointer">
+                              <div className="flex flex-col items-center space-y-2">
+                                <div className="w-8 h-8 text-gray-400">📷</div>
+                                <div className="text-sm text-gray-600">
+                                  <span className="font-medium text-blue-600">Click to upload</span> or drag and drop
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  PNG, JPG, GIF up to 5MB
+                                </div>
+                              </div>
+                            </label>
+                          </div>
+
+                          {uploadingImage && (
+                            <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                              <span>Uploading image...</span>
+                            </div>
+                          )}
+
+                          {uploadedImage && (
+                            <div className="space-y-3">
+                              <div className="relative">
+                                <img
+                                  src={uploadedImage}
+                                  alt="Uploaded image"
+                                  className="w-full h-48 object-cover rounded-lg border"
+                                />
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  className="absolute top-2 right-2"
+                                  onClick={() => window.open(uploadedImage, '_blank')}
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                </Button>
+                              </div>
+                              <p className="text-xs text-gray-500 text-center">
+                                ✓ Image uploaded successfully
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Generate Image */}
+                      {imageSource === 'generate' && (
+                        <div className="space-y-4">
+                          <Button
+                            type="button"
+                            onClick={generateImageForPost}
+                            disabled={generatingImage || !prompt.trim()}
+                            className="w-full"
+                          >
+                            {generatingImage ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                Generating Image...
+                              </>
+                            ) : (
+                              <>
+                                <span className="mr-2">✨</span>
+                                Generate AI Image
+                              </>
+                            )}
+                          </Button>
+
+                          {generatedImage && (
+                            <div className="space-y-3">
+                              <div className="relative">
+                                <img
+                                  src={generatedImage}
+                                  alt="Generated image"
+                                  className="w-full h-48 object-cover rounded-lg border"
+                                />
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  className="absolute top-2 right-2"
+                                  onClick={() => window.open(generatedImage, '_blank')}
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                </Button>
+                              </div>
+                              <p className="text-xs text-gray-500 text-center">
+                                ✓ AI image generated successfully
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
                     {/* Tone Selection */}
                     <div className="mt-6">
                       <Label className="text-sm font-medium text-gray-900 mb-3 block">Tone</Label>
@@ -863,6 +1143,17 @@ Create the post now:`;
                             </div>
                           </div>
 
+                          {/* LinkedIn Image */}
+                          {getCurrentImage() && (
+                            <div className="px-4 pb-3">
+                              <img
+                                src={getCurrentImage()}
+                                alt="Post image"
+                                className="w-full h-64 object-cover rounded-lg border"
+                              />
+                            </div>
+                          )}
+
                           {/* LinkedIn Engagement Stats */}
                           <div className="px-4 py-2 border-t border-gray-100">
                             <div className="flex items-center justify-between text-xs text-gray-500">
@@ -948,6 +1239,17 @@ Create the post now:`;
                                   </div>
                                 </div>
 
+                                {/* Twitter Image */}
+                                {getCurrentImage() && (
+                                  <div className="mt-3">
+                                    <img
+                                      src={getCurrentImage()}
+                                      alt="Tweet image"
+                                      className="w-full h-64 object-cover rounded-2xl border"
+                                    />
+                                  </div>
+                                )}
+
                                 {/* Character count for Twitter */}
                                 <div className="mt-2 text-right">
                                   <span className={`text-xs ${getCharacterStatus(generatedText, 'twitter') === 'error' ? 'text-red-500' : getCharacterStatus(generatedText, 'twitter') === 'warning' ? 'text-yellow-500' : 'text-gray-400'}`}>
@@ -1020,6 +1322,17 @@ Create the post now:`;
                                 {generatedText || "Your content will appear here..."}
                               </div>
                             </div>
+
+                            {/* Facebook Image */}
+                            {getCurrentImage() && (
+                              <div className="mt-3">
+                                <img
+                                  src={getCurrentImage()}
+                                  alt="Facebook post image"
+                                  className="w-full h-64 object-cover rounded-lg"
+                                />
+                              </div>
+                            )}
                           </div>
 
                           {/* Facebook Actions */}
@@ -1067,9 +1380,17 @@ Create the post now:`;
                             </div>
                           </div>
 
-                          {/* Instagram Image Placeholder */}
+                          {/* Instagram Image */}
                           <div className="bg-gray-100 aspect-square flex items-center justify-center">
-                            <span className="text-gray-400 text-sm">📷 Image</span>
+                            {getCurrentImage() ? (
+                              <img
+                                src={getCurrentImage()}
+                                alt="Post image"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-gray-400 text-sm">📷 Add Image</span>
+                            )}
                           </div>
 
                           {/* Instagram Actions */}
@@ -1120,6 +1441,17 @@ Create the post now:`;
                             <div className="w-full text-sm leading-relaxed whitespace-pre-wrap">
                               {generatedText || "Your content will appear here..."}
                             </div>
+
+                            {/* Reddit Image */}
+                            {getCurrentImage() && (
+                              <div className="mt-3">
+                                <img
+                                  src={getCurrentImage()}
+                                  alt="Reddit post image"
+                                  className="w-full h-64 object-cover rounded-lg"
+                                />
+                              </div>
+                            )}
                           </div>
 
                           {/* Reddit Actions */}
