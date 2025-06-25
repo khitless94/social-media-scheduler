@@ -49,7 +49,8 @@ const CreatePost: React.FC = () => {
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [generatingImage, setGeneratingImage] = useState(false);
-  const [imageSource, setImageSource] = useState<'none' | 'upload' | 'generate'>('none');
+  const [imageSource, setImageSource] = useState<'none' | 'upload' | 'generate' | 'url'>('none');
+  const [imageUrl, setImageUrl] = useState<string>('');
 
   // Real-time connection status
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>({
@@ -234,22 +235,48 @@ Create the post now:`;
 
     setUploadingImage(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
+      // Check authentication first
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      console.log('Auth check:', { user: user?.id, authError });
+
+      if (authError) {
+        throw new Error(`Authentication error: ${authError.message}`);
+      }
+
+      if (!user) {
+        throw new Error("User not authenticated. Please log in first.");
+      }
 
       // Upload to Supabase Storage
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
 
+      console.log('Uploading file:', { fileName, fileSize: file.size, fileType: file.type });
+
       const { data, error } = await supabase.storage
         .from('user-images')
         .upload(fileName, file);
 
+      console.log('Upload result:', { data, error });
+
       if (error) {
+        console.error('Storage upload error details:', error);
+
         if (error.message.includes('Bucket not found')) {
-          throw new Error('Please create the "user-images" storage bucket in your Supabase dashboard first');
+          throw new Error('Storage bucket "user-images" not found. Please create it in your Supabase dashboard.');
         }
-        throw error;
+        if (error.message.includes('authorization') || error.message.includes('JWT')) {
+          throw new Error('Authentication failed. Please log out and log back in.');
+        }
+        if (error.message.includes('policy')) {
+          throw new Error('Storage access denied. Please check your storage policies in Supabase.');
+        }
+        if (error.message.includes('size')) {
+          throw new Error('File too large. Please use an image smaller than 5MB.');
+        }
+
+        // Generic error with more details
+        throw new Error(`Upload failed: ${error.message}. Please try again or contact support.`);
       }
 
       // Get public URL
@@ -325,6 +352,7 @@ Create the post now:`;
   const getCurrentImage = (): string | undefined => {
     if (imageSource === 'upload' && uploadedImage) return uploadedImage;
     if (imageSource === 'generate' && generatedImage) return generatedImage;
+    if (imageSource === 'url' && imageUrl.trim()) return imageUrl.trim();
     return undefined;
   };
 
@@ -625,6 +653,7 @@ Create the post now:`;
         setUploadedImage(null);
         setGeneratedImage(null);
         setImageSource('none');
+        setImageUrl('');
       } else {
         throw new Error(result.error || 'Unknown error occurred');
       }
@@ -673,6 +702,7 @@ Create the post now:`;
         setUploadedImage(null);
         setGeneratedImage(null);
         setImageSource('none');
+        setImageUrl('');
       } else {
         throw new Error(result.error || 'Unknown error occurred');
       }
@@ -901,6 +931,7 @@ Create the post now:`;
                               setImageSource('none');
                               setUploadedImage(null);
                               setGeneratedImage(null);
+                              setImageUrl('');
                             }}
                             className="text-xs"
                           >
@@ -923,6 +954,15 @@ Create the post now:`;
                             className="text-xs"
                           >
                             Generate
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={imageSource === 'url' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setImageSource('url')}
+                            className="text-xs"
+                          >
+                            URL
                           </Button>
                         </div>
                       </div>
@@ -1027,6 +1067,59 @@ Create the post now:`;
                               </div>
                               <p className="text-xs text-gray-500 text-center">
                                 ✓ AI image generated successfully
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Image URL Input */}
+                      {imageSource === 'url' && (
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="image-url">Image URL</Label>
+                            <Input
+                              id="image-url"
+                              type="url"
+                              placeholder="https://example.com/image.jpg"
+                              value={imageUrl}
+                              onChange={(e) => setImageUrl(e.target.value)}
+                              className="w-full"
+                            />
+                            <p className="text-xs text-gray-500">
+                              Enter a direct link to an image (JPG, PNG, GIF)
+                            </p>
+                          </div>
+
+                          {imageUrl.trim() && (
+                            <div className="space-y-3">
+                              <div className="relative">
+                                <img
+                                  src={imageUrl}
+                                  alt="Image from URL"
+                                  className="w-full h-48 object-cover rounded-lg border"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    e.currentTarget.nextElementSibling!.style.display = 'block';
+                                  }}
+                                />
+                                <div
+                                  className="w-full h-48 bg-gray-100 rounded-lg border flex items-center justify-center text-gray-500 text-sm"
+                                  style={{ display: 'none' }}
+                                >
+                                  ❌ Failed to load image
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  className="absolute top-2 right-2"
+                                  onClick={() => window.open(imageUrl, '_blank')}
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                </Button>
+                              </div>
+                              <p className="text-xs text-gray-500 text-center">
+                                ✓ Image URL ready to use
                               </p>
                             </div>
                           )}

@@ -165,6 +165,8 @@ async function postToTwitter(content: string, image?: string, credentials?: any)
     // Upload image if provided
     if (image) {
       try {
+        console.log('[Twitter] Starting image upload process...');
+
         // Download image
         const imageResponse = await fetch(image);
         if (!imageResponse.ok) {
@@ -172,27 +174,16 @@ async function postToTwitter(content: string, image?: string, credentials?: any)
         }
 
         const imageBuffer = await imageResponse.arrayBuffer();
-        const imageBlob = new Blob([imageBuffer]);
+        console.log('[Twitter] Image downloaded, size:', imageBuffer.byteLength);
 
-        // Upload to Twitter media endpoint using OAuth 1.0a
-        const formData = new FormData();
-        formData.append('media', imageBlob);
+        // For now, skip media upload and post without image
+        // TODO: Implement OAuth 1.0a for media upload
+        console.log('[Twitter] Media upload requires OAuth 1.0a - posting without image for now');
 
-        const mediaResponse = await fetch('https://upload.twitter.com/1.1/media/upload.json', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-          },
-          body: formData
-        });
+        // Note: Twitter media upload requires OAuth 1.0a authentication
+        // The current OAuth 2.0 Bearer token won't work for media uploads
+        // This needs to be implemented with proper OAuth 1.0a flow
 
-        if (mediaResponse.ok) {
-          const mediaData = await mediaResponse.json();
-          mediaId = mediaData.media_id_string;
-          console.log('[Twitter] Image uploaded successfully:', mediaId);
-        } else {
-          console.error('[Twitter] Image upload failed:', await mediaResponse.text());
-        }
       } catch (imageError) {
         console.error('[Twitter] Image upload error:', imageError);
         // Continue without image
@@ -233,7 +224,7 @@ async function postToTwitter(content: string, image?: string, credentials?: any)
       success: true,
       postId: result.data.id,
       url: `https://twitter.com/user/status/${result.data.id}`,
-      message: `✅ Successfully posted to Twitter! ${mediaId ? 'Image included.' : ''}`
+      message: `✅ Successfully posted to Twitter! ${mediaId ? 'Image included.' : image ? '⚠️ Posted without image (Twitter media upload requires additional OAuth setup)' : ''}`
     };
 
   } catch (error) {

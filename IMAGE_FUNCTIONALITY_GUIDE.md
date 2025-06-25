@@ -8,16 +8,17 @@ This document outlines the comprehensive image functionality that has been imple
 ### 1. Image Upload & Management
 - **File Upload**: Users can upload images (JPG, PNG, GIF) up to 5MB
 - **AI Image Generation**: Integration with DALL-E 3 for AI-generated images
-- **Image Preview**: Real-time preview of uploaded/generated images
-- **Image Storage**: Secure storage using Supabase Storage
+- **Image URL Input**: Direct image URL input as fallback option
+- **Image Preview**: Real-time preview of uploaded/generated/URL images
+- **Image Storage**: Secure storage using Supabase Storage (requires setup)
 
 ### 2. Platform-Specific Image Support
 
 #### Twitter/X
-- ✅ Image upload via Twitter Media API
+- ⚠️ Image upload requires OAuth 1.0a (currently disabled)
 - ✅ Image preview in tweet mockup
-- ✅ Automatic image attachment to tweets
-- ✅ Proper OAuth 1.0a authentication
+- ✅ Text posting works without images
+- ❌ Media upload needs additional OAuth 1.0a implementation
 
 #### LinkedIn
 - ✅ Image upload via LinkedIn Assets API
@@ -204,9 +205,49 @@ const publishResponse = await fetch(`https://graph.facebook.com/v18.0/${instagra
 3. **Error Handling**: Always provide fallback for failed image uploads
 4. **Testing**: Test with various image formats and sizes
 
+## Troubleshooting
+
+### Common Issues
+
+#### "Error uploading image - headers must have required property 'authorization'"
+**Solution**:
+1. Run the `setup-storage.sql` script in your Supabase SQL Editor
+2. Ensure you're logged in to the application
+3. Check that the `user-images` bucket exists in Supabase Storage
+
+#### "Storage bucket 'user-images' not found"
+**Solution**:
+1. Go to Supabase Dashboard → Storage
+2. Create a new bucket named `user-images`
+3. Set it to public or configure RLS policies
+4. Run the `setup-storage.sql` script for proper policies
+
+#### "Twitter posts without images"
+**Current Status**: Twitter media upload requires OAuth 1.0a authentication which is not yet implemented. Text-only posts work fine.
+
+#### "Authentication failed. Please log out and log back in"
+**Solution**:
+1. Log out of the application
+2. Clear browser cache/cookies
+3. Log back in
+4. Try uploading again
+
+### Workarounds
+
+#### For Image Upload Issues
+Use the "URL" option instead of "Upload":
+1. Upload your image to any image hosting service (Imgur, etc.)
+2. Copy the direct image URL
+3. Use the "URL" tab in the image section
+4. Paste the URL
+
+#### For Twitter Images
+Currently, use other platforms for image posting or wait for OAuth 1.0a implementation.
+
 ## Future Enhancements
 - Multiple image support for platforms that allow it
 - Image editing capabilities (crop, resize, filters)
 - Image templates and branding overlays
 - Bulk image upload and management
 - Advanced AI image generation with style controls
+- Complete Twitter OAuth 1.0a implementation for media uploads
