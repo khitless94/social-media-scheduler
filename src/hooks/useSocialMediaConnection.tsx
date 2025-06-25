@@ -366,15 +366,11 @@ export const useSocialMediaConnection = (
               // Clean up flag
               localStorage.removeItem('oauth_success_flag');
 
-              // Clear any previous toast state and show success toast
+              // Clear any previous toast state
               toastManager.clearPlatform(platform);
               console.log('🎯 TOAST DEBUG: platform =', platform, 'type =', typeof platform);
               const platformName = formatPlatformName(platform);
               console.log('🎯 TOAST DEBUG: platformName =', platformName);
-              toast({
-                title: "Connected successfully!",
-                description: `Your ${platformName} account is linked.`
-              });
 
               // Trigger manual refresh to ensure UI updates (force load)
               setTimeout(() => {
@@ -416,10 +412,6 @@ export const useSocialMediaConnection = (
             setIsConnecting(prev => ({ ...prev, [platform]: false }));
 
             const platformName = formatPlatformName(platform);
-            toast({
-              title: "Connected successfully!",
-              description: `Your ${platformName} account is linked.`
-            });
 
             console.log(`✅ DIRECT STATUS FIX: ${platform} UI updated from localStorage`);
           }
@@ -453,10 +445,6 @@ export const useSocialMediaConnection = (
               localStorage.removeItem(completeKey);
 
               const platformName = formatPlatformName(platform);
-              toast({
-                title: "Connected successfully!",
-                description: `Your ${platformName} account is linked.`
-              });
 
               console.log(`✅ INDIVIDUAL POLLING SUCCESS: ${platform} UI updated`);
             }
@@ -483,13 +471,9 @@ export const useSocialMediaConnection = (
 
               localStorage.removeItem('last_oauth_success');
 
-              // Clear any previous toast state and show success toast
+              // Clear any previous toast state
               toastManager.clearPlatform(platform);
               const platformName = formatPlatformName(platform);
-              toast({
-                title: "Connected successfully!",
-                description: `Your ${platformName} account is linked.`
-              });
 
               // Trigger manual refresh to ensure UI updates (force load)
               setTimeout(() => {
@@ -568,13 +552,9 @@ export const useSocialMediaConnection = (
       // 5. Stop loading state
       setIsConnecting(prev => ({ ...prev, [platform]: false }));
 
-      // 6. Clear any previous toast state and show success toast
+      // 6. Clear any previous toast state
       toastManager.clearPlatform(platform);
       const platformName = formatPlatformName(platform);
-      toast({
-        title: "Connected successfully!",
-        description: `Your ${platformName} account is linked.`
-      });
 
       // 7. IMMEDIATE UI UPDATE - Force update without waiting for database
       const immediateUpdate = () => {

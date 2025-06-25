@@ -47,7 +47,7 @@ supabase functions deploy oauth-callback
 
 ### Step 4: Test the Authentication
 
-1. Go to your app: http://localhost:8082/debug-auth
+1. Go to your app: https://scribe-schedule-labs.vercel.app/debug-auth
 2. Click "Check Environment Variables" to verify setup
 3. Use the "Test [Platform]" buttons to test each connection
 4. If still failing, go to Settings and try connecting each social media account

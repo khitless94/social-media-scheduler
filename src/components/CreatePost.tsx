@@ -27,6 +27,7 @@ import {
 import { FaLinkedin, FaTwitter, FaInstagram, FaFacebook, FaReddit } from 'react-icons/fa';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { ensureAuthenticated, authenticatedStorageOperation } from '@/utils/authenticatedRequest';
 
 const CreatePost: React.FC = () => {
   const navigate = useNavigate();
@@ -86,14 +87,41 @@ const CreatePost: React.FC = () => {
     connectToSocialPlatform(platformValue as Platform);
   };
 
+  // Helper function to extract word count requirements from user prompt
+  const extractWordCount = (prompt: string): { cleanPrompt: string; wordCount: number | null } => {
+    // Look for patterns like "in 100 words", "100 words", "in X words", etc.
+    const wordCountPatterns = [
+      /\bin\s+(\d+)\s+words?\b/i,
+      /(\d+)\s+words?\b/i,
+      /write\s+(\d+)\s+words?\b/i,
+      /around\s+(\d+)\s+words?\b/i,
+      /about\s+(\d+)\s+words?\b/i,
+      /approximately\s+(\d+)\s+words?\b/i
+    ];
+
+    for (const pattern of wordCountPatterns) {
+      const match = prompt.match(pattern);
+      if (match) {
+        const wordCount = parseInt(match[1]);
+        const cleanPrompt = prompt.replace(pattern, '').trim();
+        return { cleanPrompt, wordCount };
+      }
+    }
+
+    return { cleanPrompt: prompt, wordCount: null };
+  };
+
   // Helper function to create expert-level AI prompts
   const createExpertPrompt = (userPrompt: string, selectedTone: string, selectedPlatform: string): string => {
+    // Extract word count requirement if present
+    const { cleanPrompt, wordCount } = extractWordCount(userPrompt);
+
     const platformGuidelines = {
       linkedin: {
         style: "professional networking platform",
         format: "thought leadership content with industry insights",
         engagement: "professional discussion and networking",
-        length: "1-3 paragraphs with strategic line breaks",
+        length: wordCount ? `exactly ${wordCount} words` : "1-3 paragraphs with strategic line breaks",
         hashtags: "3-5 relevant industry hashtags",
         cta: "professional call-to-action encouraging meaningful discussion"
       },
@@ -101,7 +129,7 @@ const CreatePost: React.FC = () => {
         style: "concise and impactful microblogging platform",
         format: "punchy, quotable content under 280 characters",
         engagement: "retweets, replies, and viral potential",
-        length: "1-2 sentences maximum",
+        length: wordCount ? `exactly ${wordCount} words (but keep under 280 characters)` : "1-2 sentences maximum",
         hashtags: "ALWAYS include 2-3 relevant hashtags at the end for maximum reach",
         cta: "engaging question or statement that encourages interaction"
       },
@@ -109,7 +137,7 @@ const CreatePost: React.FC = () => {
         style: "community-focused social platform",
         format: "storytelling with personal connection",
         engagement: "likes, comments, and shares from friends/followers",
-        length: "2-4 sentences with emotional appeal",
+        length: wordCount ? `exactly ${wordCount} words` : "2-4 sentences with emotional appeal",
         hashtags: "2-3 broad appeal hashtags",
         cta: "community-building question or relatable statement"
       },
@@ -117,7 +145,7 @@ const CreatePost: React.FC = () => {
         style: "visual-first lifestyle platform",
         format: "aesthetic and aspirational content",
         engagement: "likes, comments, and story shares",
-        length: "caption that complements visual content",
+        length: wordCount ? `exactly ${wordCount} words` : "caption that complements visual content",
         hashtags: "5-10 mix of popular and niche hashtags",
         cta: "lifestyle-focused engagement encouraging saves and shares"
       },
@@ -125,7 +153,7 @@ const CreatePost: React.FC = () => {
         style: "discussion-focused community platform",
         format: "informative and authentic content",
         engagement: "upvotes, detailed comments, and community discussion",
-        length: "detailed explanation with context and value",
+        length: wordCount ? `exactly ${wordCount} words` : "detailed explanation with context and value",
         hashtags: "minimal to no hashtags",
         cta: "thought-provoking question encouraging detailed responses"
       }
@@ -145,7 +173,7 @@ const CreatePost: React.FC = () => {
 
     return `You are an expert social media manager and content strategist with 10+ years of experience creating viral, engaging content across all major platforms. You specialize in ${platform.style} and have a proven track record of driving high engagement rates.
 
-Your task: Create a single, high-performing social media post about "${userPrompt}" for ${selectedPlatform.toUpperCase()}.
+Your task: Create a single, high-performing social media post about "${cleanPrompt}" for ${selectedPlatform.toUpperCase()}.${wordCount ? `\n\n🎯 CRITICAL WORD COUNT REQUIREMENT: The post must be EXACTLY ${wordCount} words. Count every single word carefully and ensure you hit exactly ${wordCount} words - no more, no less.` : ''}
 
 PLATFORM REQUIREMENTS:
 - Style: ${platform.style}
@@ -169,7 +197,7 @@ CONTENT STRATEGY:
 
 STRICT REQUIREMENTS:
 - Return ONLY the final post content
-- No explanations, alternatives, or meta-commentary
+- No explanations, alternatives, or meta-commentary${wordCount ? `\n- 🎯 MUST be EXACTLY ${wordCount} words - count carefully!` : ''}
 - Include appropriate emojis for the platform and tone
 - Add relevant hashtags following platform conventions
 - Ensure content is ready to publish immediately
@@ -209,7 +237,7 @@ Create the post now:`;
     return 'normal';
   };
 
-  // Image upload function
+  // Image upload function with comprehensive error handling
   const uploadImageFile = async (file: File) => {
     if (!file) return;
 
@@ -235,48 +263,33 @@ Create the post now:`;
 
     setUploadingImage(true);
     try {
-      // Check authentication first
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      console.log('Auth check:', { user: user?.id, authError });
+      // Check if user is authenticated first
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-      if (authError) {
-        throw new Error(`Authentication error: ${authError.message}`);
+      if (!session?.user) {
+        throw new Error('You must be logged in to upload images.');
       }
 
-      if (!user) {
-        throw new Error("User not authenticated. Please log in first.");
-      }
+      // Create a unique filename
+      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 15);
+      const fileName = `${timestamp}-${randomId}.${fileExt}`;
 
-      // Upload to Supabase Storage
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      console.log('Uploading file:', fileName, 'Size:', file.size, 'Type:', file.type);
 
-      console.log('Uploading file:', { fileName, fileSize: file.size, fileType: file.type });
-
+      // Upload to user-images bucket with minimal options to avoid RLS issues
       const { data, error } = await supabase.storage
         .from('user-images')
         .upload(fileName, file);
 
-      console.log('Upload result:', { data, error });
-
       if (error) {
-        console.error('Storage upload error details:', error);
+        console.error('Upload error details:', error);
+        throw new Error(`Upload failed: ${error.message}`);
+      }
 
-        if (error.message.includes('Bucket not found')) {
-          throw new Error('Storage bucket "user-images" not found. Please create it in your Supabase dashboard.');
-        }
-        if (error.message.includes('authorization') || error.message.includes('JWT')) {
-          throw new Error('Authentication failed. Please log out and log back in.');
-        }
-        if (error.message.includes('policy')) {
-          throw new Error('Storage access denied. Please check your storage policies in Supabase.');
-        }
-        if (error.message.includes('size')) {
-          throw new Error('File too large. Please use an image smaller than 5MB.');
-        }
-
-        // Generic error with more details
-        throw new Error(`Upload failed: ${error.message}. Please try again or contact support.`);
+      if (!data) {
+        throw new Error('Upload failed: No data returned');
       }
 
       // Get public URL
@@ -284,13 +297,22 @@ Create the post now:`;
         .from('user-images')
         .getPublicUrl(fileName);
 
+      if (!publicUrl) {
+        throw new Error('Failed to get public URL for uploaded image');
+      }
+
+      console.log('Upload successful! Public URL:', publicUrl);
+
+      // Success! Set the uploaded image
       setUploadedImage(publicUrl);
       setImageSource('upload');
       toast({
         title: "Image uploaded!",
         description: "Your image is ready to use in your posts.",
       });
+
     } catch (error: any) {
+      console.error('Image upload error:', error);
       toast({
         title: "Error uploading image",
         description: error.message || "Failed to upload image",
@@ -511,6 +533,7 @@ Create the post now:`;
 
       console.log('🚀 Starting content generation...');
       console.log('Platform:', platform, 'Tone:', tone, 'Prompt:', prompt);
+      console.log('Expert prompt:', expertPrompt);
 
       // First try the Supabase function with expert prompting
       const { data, error } = await supabase.functions.invoke('generate-content', {
@@ -525,11 +548,29 @@ Create the post now:`;
         }
       });
 
-      console.log('Supabase function response:', { data, error });
+      console.log('🔍 Detailed Supabase function response:', {
+        data,
+        error,
+        hasData: !!data,
+        dataKeys: data ? Object.keys(data) : [],
+        dataContent: data?.content,
+        dataGeneratedText: data?.generatedText,
+        dataType: typeof data
+      });
 
-      if (!error && data && (data.content || data.generatedText)) {
+      // Check for AI-generated content in the response
+      let aiGeneratedContent = null;
+      if (data) {
+        // Try different possible response fields
+        aiGeneratedContent = data.generatedText || data.content || data.message || data.text;
+        console.log('🤖 AI Generated Content found:', aiGeneratedContent);
+      }
+
+      if (aiGeneratedContent && aiGeneratedContent.trim().length > 0) {
+        console.log('✅ Using AI-generated content');
+
         // Clean up any potential AI artifacts
-        let cleanContent = (data.content || data.generatedText).trim();
+        let cleanContent = aiGeneratedContent.trim();
 
         // Remove common AI artifacts
         cleanContent = cleanContent.replace(/^(Here's|Here is|Post:|Content:)/i, '');
@@ -561,8 +602,9 @@ Create the post now:`;
       }
 
       // If Supabase function fails or returns no content, use enhanced fallback
-      console.log('Supabase function failed or returned no content, using enhanced fallback');
+      console.log('❌ Supabase function failed or returned no content, using enhanced fallback');
       console.log('Error details:', error);
+      console.log('Data received:', data);
 
       let fallbackContent = createFallbackContent(prompt, tone, platform);
 
@@ -1078,51 +1120,119 @@ Create the post now:`;
                         <div className="space-y-4">
                           <div className="space-y-2">
                             <Label htmlFor="image-url">Image URL</Label>
-                            <Input
-                              id="image-url"
-                              type="url"
-                              placeholder="https://example.com/image.jpg"
-                              value={imageUrl}
-                              onChange={(e) => setImageUrl(e.target.value)}
-                              className="w-full"
-                            />
+                            <div className="flex space-x-2">
+                              <Input
+                                id="image-url"
+                                type="url"
+                                placeholder="https://example.com/image.jpg"
+                                value={imageUrl}
+                                onChange={(e) => setImageUrl(e.target.value)}
+                                className="flex-1"
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    // Trigger image validation
+                                    const url = imageUrl.trim();
+                                    if (url) {
+                                      // Test if URL is valid
+                                      try {
+                                        new URL(url);
+                                        // Force re-render to show image
+                                        setImageUrl(url);
+                                      } catch {
+                                        toast({
+                                          title: "Invalid URL",
+                                          description: "Please enter a valid image URL",
+                                          variant: "destructive",
+                                        });
+                                      }
+                                    }
+                                  }
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const url = imageUrl.trim();
+                                  if (url) {
+                                    try {
+                                      new URL(url);
+                                      toast({
+                                        title: "URL validated!",
+                                        description: "Image URL is ready to use",
+                                      });
+                                    } catch {
+                                      toast({
+                                        title: "Invalid URL",
+                                        description: "Please enter a valid image URL",
+                                        variant: "destructive",
+                                      });
+                                    }
+                                  }
+                                }}
+                              >
+                                Validate
+                              </Button>
+                            </div>
                             <p className="text-xs text-gray-500">
-                              Enter a direct link to an image (JPG, PNG, GIF)
+                              Enter a direct link to an image (JPG, PNG, GIF, WebP)
                             </p>
                           </div>
 
-                          {imageUrl.trim() && (
-                            <div className="space-y-3">
-                              <div className="relative">
-                                <img
-                                  src={imageUrl}
-                                  alt="Image from URL"
-                                  className="w-full h-48 object-cover rounded-lg border"
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                    e.currentTarget.nextElementSibling!.style.display = 'block';
-                                  }}
-                                />
-                                <div
-                                  className="w-full h-48 bg-gray-100 rounded-lg border flex items-center justify-center text-gray-500 text-sm"
-                                  style={{ display: 'none' }}
-                                >
-                                  ❌ Failed to load image
+                          {imageUrl.trim() && (() => {
+                            try {
+                              new URL(imageUrl.trim());
+                              return (
+                                <div className="space-y-3">
+                                  <div className="relative">
+                                    <img
+                                      src={imageUrl.trim()}
+                                      alt="Image from URL"
+                                      className="w-full h-48 object-cover rounded-lg border"
+                                      onLoad={(e) => {
+                                        e.currentTarget.style.display = 'block';
+                                        const errorDiv = e.currentTarget.nextElementSibling as HTMLElement;
+                                        if (errorDiv) errorDiv.style.display = 'none';
+                                      }}
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                        const errorDiv = e.currentTarget.nextElementSibling as HTMLElement;
+                                        if (errorDiv) errorDiv.style.display = 'flex';
+                                      }}
+                                    />
+                                    <div
+                                      className="w-full h-48 bg-gray-100 rounded-lg border flex items-center justify-center text-gray-500 text-sm"
+                                      style={{ display: 'none' }}
+                                    >
+                                      ❌ Failed to load image from URL
+                                    </div>
+                                    <Button
+                                      size="sm"
+                                      variant="secondary"
+                                      className="absolute top-2 right-2"
+                                      onClick={() => window.open(imageUrl.trim(), '_blank')}
+                                    >
+                                      <ExternalLink className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                  <div className="flex items-center justify-center space-x-2 text-xs text-green-600">
+                                    <span>✓</span>
+                                    <span>Image URL ready to use</span>
+                                  </div>
                                 </div>
-                                <Button
-                                  size="sm"
-                                  variant="secondary"
-                                  className="absolute top-2 right-2"
-                                  onClick={() => window.open(imageUrl, '_blank')}
-                                >
-                                  <ExternalLink className="w-4 h-4" />
-                                </Button>
-                              </div>
-                              <p className="text-xs text-gray-500 text-center">
-                                ✓ Image URL ready to use
-                              </p>
-                            </div>
-                          )}
+                              );
+                            } catch {
+                              return (
+                                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                  <p className="text-sm text-yellow-800">
+                                    ⚠️ Please enter a valid URL starting with http:// or https://
+                                  </p>
+                                </div>
+                              );
+                            }
+                          })()}
                         </div>
                       )}
                     </div>

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Instagram OAuth</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; border: 1px solid #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; }
+        pre { background: #f8f9fa; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug Instagram OAuth Configuration</h1>
+    
+    <div>
+        <h2>Step 1: Test Auth Redirect Endpoint</h2>
+        <button onclick="testAuthRedirect()">Test Auth Redirect</button>
+        <div id="auth-result" class="result"></div>
+    </div>
+    
+    <div>
+        <h2>Step 2: Check Environment Variables</h2>
+        <button onclick="checkEnvVars()">Check Environment Variables</button>
+        <div id="env-result" class="result"></div>
+    </div>
+    
+    <div>
+        <h2>Step 3: Manual OAuth URL</h2>
+        <button onclick="buildManualOAuthURL()">Build Manual OAuth URL</button>
+        <div id="manual-result" class="result"></div>
+    </div>
+
+    <script>
+        function addResult(elementId, title, content, type = 'info') {
+            const resultDiv = document.getElementById(elementId);
+            resultDiv.className = `result ${type}`;
+            resultDiv.innerHTML = `<strong>${title}</strong><br><pre>${content}</pre>`;
+        }
+
+        async function testAuthRedirect() {
+            addResult('auth-result', '🔍 Testing Auth Redirect...', 'Checking auth-redirect endpoint...');
+            
+            try {
+                const testUrl = 'https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/auth-redirect?platform=instagram&user_id=test-user';
+                
+                console.log('Testing URL:', testUrl);
+                
+                const response = await fetch(testUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                console.log('Response status:', response.status);
+                console.log('Response headers:', [...response.headers.entries()]);
+                
+                if (response.status === 302 || response.status === 301) {
+                    const location = response.headers.get('location');
+                    addResult('auth-result', '✅ Auth Redirect Working!', 
+                        `Status: ${response.status}\nRedirect URL: ${location}\n\nThis means the auth endpoint is working correctly.`, 'success');
+                } else {
+                    const responseText = await response.text();
+                    addResult('auth-result', `⚠️ Unexpected Response (${response.status})`, 
+                        `Status: ${response.status}\nResponse: ${responseText}`, 'info');
+                }
+                
+            } catch (error) {
+                console.error('Auth redirect test error:', error);
+                addResult('auth-result', '❌ Auth Redirect Test Failed', 
+                    `Error: ${error.message}\n\nThis indicates a network or configuration issue.`, 'error');
+            }
+        }
+
+        async function checkEnvVars() {
+            addResult('env-result', '🔍 Checking Environment Variables...', 'Testing if environment variables are accessible...');
+            
+            try {
+                // We can't directly access env vars from frontend, but we can test if the auth endpoint uses them correctly
+                const testUrl = 'https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/auth-redirect?platform=instagram&user_id=test&debug=true';
+                
+                const response = await fetch(testUrl);
+                const location = response.headers.get('location');
+                
+                if (location && location.includes('1224262908946131')) {
+                    addResult('env-result', '✅ Environment Variables Correct!', 
+                        `The auth endpoint is using the correct Instagram Client ID: 1224262908946131\n\nRedirect URL: ${location}`, 'success');
+                } else if (location && location.includes('772026995163778')) {
+                    addResult('env-result', '⚠️ Using Facebook App ID Instead', 
+                        `The auth endpoint is using Facebook App ID (772026995163778) instead of Instagram App ID.\n\nThis might be why Instagram OAuth is failing.\n\nRedirect URL: ${location}`, 'error');
+                } else {
+                    addResult('env-result', '❓ Unable to Determine App ID', 
+                        `Redirect URL: ${location || 'No redirect URL found'}\n\nCannot determine which App ID is being used.`, 'info');
+                }
+                
+            } catch (error) {
+                addResult('env-result', '❌ Environment Check Failed', 
+                    `Error: ${error.message}`, 'error');
+            }
+        }
+
+        function buildManualOAuthURL() {
+            const clientId = '1224262908946131';
+            const redirectUri = 'https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback';
+            const scope = 'public_profile,email,pages_show_list,instagram_basic,instagram_content_publish,business_management';
+            
+            const oauthUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&response_type=code&state=instagram_test`;
+            
+            addResult('manual-result', '🔗 Manual OAuth URL Built', 
+                `Client ID: ${clientId}\nRedirect URI: ${redirectUri}\nScope: ${scope}\n\nFull URL:\n${oauthUrl}\n\nClick the link below to test manually:`, 'info');
+            
+            // Add clickable link
+            const resultDiv = document.getElementById('manual-result');
+            resultDiv.innerHTML += `<br><a href="${oauthUrl}" target="_blank" style="color: blue; text-decoration: underline;">🚀 Test Manual OAuth</a>`;
+        }
+    </script>
+</body>
+</html>

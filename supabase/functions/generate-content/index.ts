@@ -3,15 +3,21 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
-// Add debugging for API key
+// Enhanced debugging for API key
+console.log('=== OPENAI API KEY DEBUG ===');
 console.log('OpenAI API Key available:', !!openAIApiKey);
+console.log('API Key length:', openAIApiKey ? openAIApiKey.length : 0);
+console.log('API Key starts with sk-:', openAIApiKey ? openAIApiKey.startsWith('sk-') : false);
 if (!openAIApiKey) {
-  console.error('OPENAI_API_KEY environment variable is not set');
+  console.error('❌ CRITICAL: OPENAI_API_KEY environment variable is not set');
+  console.error('Please set OPENAI_API_KEY in Supabase Dashboard → Edge Functions → Environment Variables');
+} else {
+  console.log('✅ OpenAI API Key is configured');
 }
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, x-requested-with',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, x-requested-with, prefer',
   'Access-Control-Allow-Methods': 'POST, OPTIONS, GET',
   'Access-Control-Max-Age': '86400',
 };
@@ -151,9 +157,25 @@ The post should be ready to publish immediately and optimized for maximum engage
       let generatedText = '';
 
       // Try OpenAI API if key is available
-      if (openAIApiKey) {
+      if (openAIApiKey && openAIApiKey.startsWith('sk-')) {
         try {
-          console.log('Attempting OpenAI API call...');
+          console.log('🚀 Attempting OpenAI API call...');
+          console.log('System prompt:', systemPrompt);
+          console.log('User prompt:', userPrompt);
+
+          const requestBody = {
+            model: 'gpt-4o-mini',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
+            ],
+            max_tokens: isTwitterIncluded ? 150 : 300,
+            temperature: 0.8,
+            presence_penalty: 0.1,
+            frequency_penalty: 0.1,
+          };
+
+          console.log('Request body:', JSON.stringify(requestBody, null, 2));
 
           // Generate text using OpenAI with enhanced parameters
           const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -162,44 +184,53 @@ The post should be ready to publish immediately and optimized for maximum engage
               'Authorization': `Bearer ${openAIApiKey}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              model: 'gpt-4o-mini',
-              messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt }
-              ],
-              max_tokens: isTwitterIncluded ? 150 : 300,
-              temperature: 0.8,
-              presence_penalty: 0.1,
-              frequency_penalty: 0.1,
-            }),
+            body: JSON.stringify(requestBody),
           });
 
-          console.log('OpenAI API response status:', response.status);
+          console.log('✅ OpenAI API response status:', response.status);
+          console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
           if (response.ok) {
             const data = await response.json();
-            console.log('OpenAI response data:', JSON.stringify(data, null, 2));
+            console.log('✅ OpenAI response data:', JSON.stringify(data, null, 2));
 
-            if (data.choices && data.choices.length > 0) {
+            if (data.choices && data.choices.length > 0 && data.choices[0].message?.content) {
               generatedText = data.choices[0].message.content.trim();
-              console.log('Generated text from OpenAI:', generatedText);
+              console.log('✅ SUCCESS: Generated text from OpenAI:', generatedText);
+            } else {
+              console.error('❌ No content in OpenAI response choices');
             }
           } else {
             const errorText = await response.text();
-            console.error('OpenAI API error:', response.status, errorText);
+            console.error('❌ OpenAI API error:', response.status, response.statusText);
+            console.error('❌ Error response:', errorText);
+
+            // Try to parse error for more details
+            try {
+              const errorData = JSON.parse(errorText);
+              console.error('❌ Parsed error:', errorData);
+            } catch (e) {
+              console.error('❌ Could not parse error response');
+            }
           }
         } catch (openAIError) {
-          console.error('OpenAI API call failed:', openAIError);
+          console.error('❌ OpenAI API call failed with exception:', openAIError);
+          console.error('❌ Error stack:', openAIError.stack);
         }
       } else {
-        console.log('No OpenAI API key available, using fallback generation');
+        console.error('❌ Invalid or missing OpenAI API key');
+        console.log('API key exists:', !!openAIApiKey);
+        console.log('API key starts with sk-:', openAIApiKey ? openAIApiKey.startsWith('sk-') : false);
       }
 
       // Fallback content generation if OpenAI fails or is unavailable
-      if (!generatedText) {
-        console.log('Using fallback content generation...');
+      if (!generatedText || generatedText.trim().length === 0) {
+        console.log('❌ No content generated from OpenAI, using fallback...');
+        console.log('Generated text was:', generatedText);
         generatedText = generateFallbackContent(userPrompt, tone, platform, isTwitterIncluded, limit);
+        console.log('📝 Fallback content generated:', generatedText);
+      } else {
+        console.log('✅ Using OpenAI generated content:', generatedText);
       }
 
       // Ensure content fits within the specified limit (strict for Twitter)

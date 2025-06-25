@@ -46,14 +46,14 @@ const platforms = [
   },
   {
     name: 'Facebook',
-    clientId: '2249146282214303',
+    clientId: '1224262908946131',
     secretVar: 'FACEBOOK_CLIENT_SECRET',
     portal: 'https://developers.facebook.com/apps',
     instructions: 'Find your app → Settings → Basic → App Secret'
   },
   {
     name: 'Instagram',
-    clientId: '2249146282214303',
+    clientId: '1224262908946131',
     secretVar: 'INSTAGRAM_CLIENT_SECRET',
     portal: 'https://developers.facebook.com/apps',
     instructions: 'Same as Facebook - Find your app → Settings → Basic → App Secret'
@@ -78,7 +78,7 @@ console.log('4. Add each secret variable listed above\n');
 console.log('✅ VERIFICATION:');
 console.log('================');
 console.log('After setting the environment variables:');
-console.log('1. Visit your app: http://localhost:8082/debug-auth');
+console.log('1. Visit your app: https://scribe-schedule-labs.vercel.app/debug-auth');
 console.log('2. Click "Check Environment Variables"');
 console.log('3. Verify all secrets show "✅ Set"');
 console.log('4. Test connecting a social media account\n');
@@ -105,8 +105,8 @@ const envContent = `# Environment Variables for Social Media Scheduler
 VITE_SUPABASE_URL=https://eqiuukwwpdiyncahrdny.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaXV1a3d3cGRpeW5jYWhyZG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxOTA5MzcsImV4cCI6MjA2NDc2NjkzN30.sgwl7oP2fJD7rh64w59XWdfMCS0XQcNjD4Qr_WGILGs
 
-# Frontend URL
-YOUR_FRONTEND_URL=http://localhost:8082
+# Frontend URL - Production domain
+YOUR_FRONTEND_URL=https://scribe-schedule-labs.vercel.app
 
 # Social Media API Secrets (REPLACE WITH YOUR ACTUAL SECRETS)
 TWITTER_CLIENT_SECRET=your_twitter_client_secret_here

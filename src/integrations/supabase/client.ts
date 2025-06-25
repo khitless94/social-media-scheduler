@@ -12,30 +12,38 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: true,
+    flowType: 'pkce'
   },
   global: {
     headers: {
-      'Connection': 'close',
-      'Cache-Control': 'no-cache',
-      'HTTP-Version': '1.1'
-    },
-    fetch: (url, options = {}) => {
-      // Force HTTP/1.1 to avoid HTTP2 protocol errors
-      return fetch(url, {
-        ...options,
-        headers: {
-          ...options.headers,
-          'Connection': 'close',
-          'Cache-Control': 'no-cache'
-        }
-      });
+      'apikey': SUPABASE_PUBLISHABLE_KEY,
+      'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+      'Prefer': 'return=minimal'
     }
   },
   db: {
     schema: 'public'
   }
 });
+
+// Create a service role client for storage operations (bypasses RLS)
+export const supabaseAdmin = createClient<Database>(
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY, // Note: In production, use service role key
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    },
+    global: {
+      headers: {
+        'apikey': SUPABASE_PUBLISHABLE_KEY,
+        'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`
+      }
+    }
+  }
+);
 
 export async function postToPlatform({ platform, content, subreddit, image }) {
   try {

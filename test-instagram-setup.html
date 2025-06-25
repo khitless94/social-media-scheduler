@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram Setup Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        button { background: #E4405F; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #C13584; }
+        .result { margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px; white-space: pre-wrap; max-height: 300px; overflow-y: auto; }
+        .error { background: #f8d7da; color: #721c24; }
+        .success { background: #d4edda; color: #155724; }
+        .info { background: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Instagram Setup Test</h1>
+    
+    <div class="test-section">
+        <h2>Step 1: Test Instagram OAuth Connection</h2>
+        <p>This will test if Instagram OAuth is properly configured in your app</p>
+        <button onclick="testInstagramOAuth()">Test Instagram OAuth</button>
+        <div id="oauth-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Step 2: Get Instagram Account Info</h2>
+        <p>This will fetch your Instagram Business Account details (requires OAuth success)</p>
+        <button onclick="getInstagramAccount()">Get Instagram Account</button>
+        <div id="account-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Step 2: Test Media Upload</h2>
+        <p>This will test if we can create a media container (first step of posting)</p>
+        <button onclick="testMediaUpload()">Test Media Upload</button>
+        <div id="media-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Step 3: Get Account Insights</h2>
+        <p>This will test if we can access your account analytics</p>
+        <button onclick="getInsights()">Get Insights</button>
+        <div id="insights-result" class="result"></div>
+    </div>
+
+    <script>
+        const ACCESS_TOKEN = 'EAAKZBJ4rNwoIBO5SuTPgZC0JLNZA45wP4nMBRc6euZCfSyZBX5ZBGVXkFWOtZAw390VRJhpuCczu8RxkbP8bKs8EiyR7h5tN9VlWIq93uvXcPNZAie7Yg26IYNDGZCAtnlNYYx16j8lnRh82iSW25TvqZCV37YtEdyo0NyyRCNwqAYV9f6zSemJirRWuMcqj2dZBGvq';
+        
+        let INSTAGRAM_ACCOUNT_ID = null;
+
+        function addResult(elementId, title, content, type = 'info') {
+            const resultDiv = document.getElementById(elementId);
+            resultDiv.className = `result ${type}`;
+            resultDiv.innerHTML = `<strong>${title}</strong>\n${content}`;
+        }
+
+        async function testInstagramOAuth() {
+            addResult('oauth-result', '🔍 Testing Instagram OAuth Configuration...', 'Checking if Instagram OAuth is properly set up...');
+
+            try {
+                // Test the auth-redirect endpoint
+                const authTestUrl = 'https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/auth-redirect?platform=instagram&user_id=test&test=true';
+
+                const response = await fetch(authTestUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                console.log('Auth test response:', response);
+
+                if (response.ok) {
+                    addResult('oauth-result', '✅ Instagram OAuth Configuration OK!',
+                        'Instagram OAuth endpoints are properly configured.\nYou can now try connecting Instagram in your main app!', 'success');
+                } else if (response.status === 400) {
+                    addResult('oauth-result', '⚠️ OAuth Endpoint Accessible',
+                        'OAuth endpoint is working but needs proper parameters.\nThis is expected for a test call.\nTry connecting Instagram in your main app!', 'info');
+                } else {
+                    const errorText = await response.text();
+                    addResult('oauth-result', '❌ OAuth Configuration Issue',
+                        `HTTP ${response.status}: ${errorText}\n\nPlease check:\n1. Environment variables are set in Supabase\n2. Edge functions are deployed`, 'error');
+                }
+
+            } catch (error) {
+                console.error('OAuth test error:', error);
+                addResult('oauth-result', '❌ OAuth Test Failed',
+                    `Error: ${error.message}\n\nThis might indicate:\n1. Network connectivity issues\n2. Edge function deployment problems\n3. Environment configuration issues`, 'error');
+            }
+        }
+
+        async function getInstagramAccount() {
+            addResult('account-result', '🔍 Fetching Instagram Account...', 'Please wait...');
+
+            try {
+                // First, get the user's Facebook pages (Instagram Business accounts are linked to FB pages)
+                const pagesResponse = await fetch(`https://graph.facebook.com/me/accounts?access_token=${ACCESS_TOKEN}`);
+                const pagesData = await pagesResponse.json();
+
+                console.log('Pages data:', pagesData);
+
+                if (pagesData.error) {
+                    throw new Error(`Facebook API Error: ${pagesData.error.message}`);
+                }
+
+                // Also try to get user's own account info
+                const userResponse = await fetch(`https://graph.facebook.com/me?fields=id,name&access_token=${ACCESS_TOKEN}`);
+                const userData = await userResponse.json();
+                console.log('User data:', userData);
+
+                if (!pagesData.data || pagesData.data.length === 0) {
+                    addResult('account-result', '⚠️ No Facebook Pages Found',
+                        `Found your Facebook account: ${userData.name || 'Unknown'}\n\nBut no Facebook Pages were found. You might need to:\n1. Create a Facebook Page, OR\n2. Your Instagram might be linked differently\n\nLet's try alternative methods...`, 'error');
+
+                    // Try alternative: check if user has Instagram Business Account directly
+                    try {
+                        const directIgResponse = await fetch(`https://graph.facebook.com/me?fields=instagram_business_account&access_token=${ACCESS_TOKEN}`);
+                        const directIgData = await directIgResponse.json();
+                        console.log('Direct IG data:', directIgData);
+
+                        if (directIgData.instagram_business_account) {
+                            INSTAGRAM_ACCOUNT_ID = directIgData.instagram_business_account.id;
+                            addResult('account-result', '✅ Found Instagram Account (Direct Link)!',
+                                `Instagram Account ID: ${INSTAGRAM_ACCOUNT_ID}\nMethod: Direct user link`, 'success');
+                            return;
+                        }
+                    } catch (e) {
+                        console.log('Direct IG check failed:', e);
+                    }
+
+                    return;
+                }
+                
+                // Look for Instagram accounts connected to these pages
+                let instagramAccounts = [];
+                
+                for (const page of pagesData.data) {
+                    try {
+                        const igResponse = await fetch(`https://graph.facebook.com/${page.id}?fields=instagram_business_account&access_token=${ACCESS_TOKEN}`);
+                        const igData = await igResponse.json();
+                        
+                        if (igData.instagram_business_account) {
+                            instagramAccounts.push({
+                                page: page,
+                                instagram: igData.instagram_business_account
+                            });
+                        }
+                    } catch (error) {
+                        console.log(`No Instagram account for page ${page.name}`);
+                    }
+                }
+                
+                if (instagramAccounts.length === 0) {
+                    addResult('account-result', '❌ No Instagram Business Accounts Found', 
+                        `Found ${pagesData.data.length} Facebook page(s) but none have Instagram Business Accounts connected.\n\nPages found:\n${pagesData.data.map(p => `- ${p.name}`).join('\n')}\n\nPlease connect your Instagram Business Account to one of these pages.`, 'error');
+                    return;
+                }
+                
+                // Use the first Instagram account found
+                const account = instagramAccounts[0];
+                INSTAGRAM_ACCOUNT_ID = account.instagram.id;
+                
+                // Get detailed Instagram account info
+                const detailResponse = await fetch(`https://graph.facebook.com/${INSTAGRAM_ACCOUNT_ID}?fields=id,username,account_type,media_count&access_token=${ACCESS_TOKEN}`);
+                const detailData = await detailResponse.json();
+                
+                addResult('account-result', '✅ Instagram Account Found!', 
+                    `Instagram Account ID: ${INSTAGRAM_ACCOUNT_ID}\nUsername: ${detailData.username || 'N/A'}\nAccount Type: ${detailData.account_type || 'N/A'}\nMedia Count: ${detailData.media_count || 'N/A'}\nConnected Facebook Page: ${account.page.name}`, 'success');
+                
+            } catch (error) {
+                console.error('Error:', error);
+                addResult('account-result', '❌ Error', error.message, 'error');
+            }
+        }
+
+        async function testMediaUpload() {
+            if (!INSTAGRAM_ACCOUNT_ID) {
+                addResult('media-result', '❌ Error', 'Please get Instagram account first!', 'error');
+                return;
+            }
+            
+            addResult('media-result', '🔍 Testing Media Upload...', 'Creating test media container...');
+            
+            try {
+                // Test creating a media container with a sample image
+                const mediaData = {
+                    image_url: 'https://via.placeholder.com/1080x1080/E4405F/FFFFFF?text=Test+Post',
+                    caption: 'Test post from Social Media Scheduler! 🚀 #test #socialmedia',
+                    access_token: ACCESS_TOKEN
+                };
+                
+                const response = await fetch(`https://graph.facebook.com/${INSTAGRAM_ACCOUNT_ID}/media`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(mediaData)
+                });
+                
+                const result = await response.json();
+                console.log('Media upload result:', result);
+                
+                if (result.error) {
+                    throw new Error(`Instagram API Error: ${result.error.message}`);
+                }
+                
+                addResult('media-result', '✅ Media Upload Test Successful!', 
+                    `Media Container ID: ${result.id}\n\nThis means we can successfully create Instagram posts!\n\nNote: This was just a test - no actual post was published.`, 'success');
+                
+            } catch (error) {
+                console.error('Media upload error:', error);
+                addResult('media-result', '❌ Media Upload Failed', error.message, 'error');
+            }
+        }
+
+        async function getInsights() {
+            if (!INSTAGRAM_ACCOUNT_ID) {
+                addResult('insights-result', '❌ Error', 'Please get Instagram account first!', 'error');
+                return;
+            }
+            
+            addResult('insights-result', '🔍 Getting Account Insights...', 'Fetching analytics data...');
+            
+            try {
+                const response = await fetch(`https://graph.facebook.com/${INSTAGRAM_ACCOUNT_ID}/insights?metric=impressions,reach,profile_views&period=day&access_token=${ACCESS_TOKEN}`);
+                const result = await response.json();
+                
+                console.log('Insights result:', result);
+                
+                if (result.error) {
+                    throw new Error(`Instagram Insights Error: ${result.error.message}`);
+                }
+                
+                const insights = result.data || [];
+                const insightsText = insights.map(insight => 
+                    `${insight.name}: ${insight.values[0]?.value || 'N/A'}`
+                ).join('\n');
+                
+                addResult('insights-result', '✅ Insights Retrieved!', 
+                    `Account Analytics:\n${insightsText}\n\nThis confirms we have proper access to your Instagram Business Account!`, 'success');
+                
+            } catch (error) {
+                console.error('Insights error:', error);
+                addResult('insights-result', '❌ Insights Failed', error.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

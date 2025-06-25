@@ -94,7 +94,7 @@ if (response.status === 403) {
 ## 🧪 **Test Your LinkedIn Posting**
 
 ### **Step 1: Reconnect LinkedIn**
-1. Go to your app: http://localhost:8080/create
+1. Go to your app: https://scribe-schedule-labs.vercel.app/create
 2. Disconnect LinkedIn if already connected
 3. Click "Connect" for LinkedIn
 4. Complete OAuth flow with updated scopes

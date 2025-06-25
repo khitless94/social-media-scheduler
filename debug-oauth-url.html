@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug OAuth URL</title>
+</head>
+<body>
+    <h1>Debug Instagram OAuth URL</h1>
+    
+    <h2>Current Configuration:</h2>
+    <div id="config"></div>
+    
+    <h2>Generated OAuth URL:</h2>
+    <div id="oauth-url"></div>
+    
+    <h2>Test Links:</h2>
+    <div id="test-links"></div>
+
+    <script>
+        // Import the config (simulate what the app does)
+        const AppConfig = {
+            instagram: {
+                clientId: "772026995163778"
+            }
+        };
+        
+        const supabaseUrl = "https://eqiuukwwpdiyncahrdny.supabase.co";
+        const userId = "test-user-123";
+        
+        // Show current config
+        document.getElementById('config').innerHTML = `
+            <p><strong>Instagram Client ID:</strong> ${AppConfig.instagram.clientId}</p>
+            <p><strong>Supabase URL:</strong> ${supabaseUrl}</p>
+        `;
+        
+        // Generate the auth redirect URL (what your app would call)
+        const authRedirectUrl = `${supabaseUrl}/functions/v1/auth-redirect?platform=instagram&user_id=${userId}`;
+        
+        // Generate the direct OAuth URL (what should be generated)
+        const directOAuthUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${AppConfig.instagram.clientId}&redirect_uri=${encodeURIComponent(supabaseUrl + '/functions/v1/oauth-callback')}&scope=public_profile,email,pages_show_list,instagram_basic,instagram_content_publish,business_management&response_type=code&state=test123`;
+        
+        document.getElementById('oauth-url').innerHTML = `
+            <p><strong>Auth Redirect URL (what your app calls):</strong><br>
+            <a href="${authRedirectUrl}" target="_blank">${authRedirectUrl}</a></p>
+            
+            <p><strong>Direct OAuth URL (what should be generated):</strong><br>
+            <a href="${directOAuthUrl}" target="_blank">${directOAuthUrl}</a></p>
+        `;
+        
+        document.getElementById('test-links').innerHTML = `
+            <p><a href="${authRedirectUrl}" target="_blank">🔗 Test Auth Redirect (through Supabase function)</a></p>
+            <p><a href="${directOAuthUrl}" target="_blank">🔗 Test Direct OAuth URL</a></p>
+        `;
+    </script>
+</body>
+</html>

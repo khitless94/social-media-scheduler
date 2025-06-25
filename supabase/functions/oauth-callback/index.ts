@@ -31,14 +31,14 @@ const tokenConfigs = {
   },
   facebook: {
     tokenUrl: 'https://graph.facebook.com/v19.0/oauth/access_token',
-    clientId: Deno.env.get('FACEBOOK_CLIENT_ID') || '2249146282214303',
+    clientId: Deno.env.get('FACEBOOK_CLIENT_ID') || '772026995163778',
     clientSecret: Deno.env.get('FACEBOOK_CLIENT_SECRET'),
     grantType: 'authorization_code'
   },
   instagram: {
     tokenUrl: 'https://graph.facebook.com/v19.0/oauth/access_token',
-    clientId: Deno.env.get('INSTAGRAM_CLIENT_ID') || '2249146282214303',
-    clientSecret: Deno.env.get('INSTAGRAM_CLIENT_SECRET'),
+    clientId: Deno.env.get('FACEBOOK_CLIENT_ID') || '772026995163778',
+    clientSecret: Deno.env.get('FACEBOOK_CLIENT_SECRET'),
     grantType: 'authorization_code'
   }
 };
@@ -161,7 +161,7 @@ Your Twitter Client ID: ${config.clientId}`);
 2. Find your app with Client ID: ${config.clientId}
 3. Copy the Client Secret from "Keys and tokens" tab
 4. Set TWITTER_CLIENT_SECRET in Supabase environment variables
-5. Ensure redirect URI is: http://127.0.0.1:54321/functions/v1/oauth-callback
+5. Ensure redirect URI is: https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback
 6. Ensure app type is "Confidential client" (not Public client)
 
 Original error: ${responseText}`);
@@ -174,7 +174,7 @@ Original error: ${responseText}`);
 Please verify:
 - Your ${platform.toUpperCase()}_CLIENT_SECRET is correctly set in Supabase environment variables
 - Your client ID (${config.clientId}) matches your app in ${platform}'s developer portal
-- Your app has the correct redirect URI: http://127.0.0.1:54321/functions/v1/oauth-callback
+- Your app has the correct redirect URI: https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback
 
 Original error: ${responseText}`);
     }
@@ -287,7 +287,7 @@ serve(async (req) => {
 
     if (error) {
       console.error(`[OAuth Callback] OAuth error: ${error} - ${errorDescription}`);
-      const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'https://social-media-scheduler-khitless94s-projects.vercel.app';
+      const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'https://scribe-schedule-labs.vercel.app';
       return new Response(null, {
         status: 302,
         headers: {
@@ -529,7 +529,7 @@ serve(async (req) => {
       });
     } else {
       // Redirect for GET requests (browser redirects)
-      const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'https://social-media-scheduler-khitless94s-projects.vercel.app';
+      const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'https://scribe-schedule-labs.vercel.app';
       const successUrl = `${frontendUrl}/oauth/callback?success=true&platform=${platform}`;
       console.log(`[OAuth Callback] Redirecting to success URL: ${successUrl}`);
 
@@ -545,7 +545,7 @@ serve(async (req) => {
     console.error('[OAuth Callback] Error:', error.message);
     console.error('[OAuth Callback] Stack trace:', error.stack);
 
-    const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'https://social-media-scheduler-khitless94s-projects.vercel.app';
+    const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'https://scribe-schedule-labs.vercel.app';
 
     // Try to get platform from URL or session data for better error reporting
     const url = new URL(req.url);

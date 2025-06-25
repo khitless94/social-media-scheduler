@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test AI Generation</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px; white-space: pre-wrap; }
+        .error { background: #f8d7da; color: #721c24; }
+        .success { background: #d4edda; color: #155724; }
+    </style>
+</head>
+<body>
+    <h1>🧪 AI Generation Test</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: OpenAI API Connection</h2>
+        <button onclick="testOpenAI()">Test OpenAI API</button>
+        <div id="openai-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 2: Content Generation</h2>
+        <button onclick="testContentGeneration()">Generate Content</button>
+        <div id="content-result" class="result"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://eqiuukwwpdiyncahrdny.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaXV1a3d3cGRpeW5jYWhyZG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxOTA5MzcsImV4cCI6MjA2NDc2NjkzN30.sgwl7oP2fJD7rh64w59XWdfMCS0XQcNjD4Qr_WGILGs';
+
+        async function testOpenAI() {
+            const resultDiv = document.getElementById('openai-result');
+            resultDiv.textContent = 'Testing OpenAI API connection...';
+
+            try {
+                console.log('Testing OpenAI API...');
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/test-openai`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'apikey': SUPABASE_ANON_KEY
+                    },
+                    body: JSON.stringify({})
+                });
+
+                console.log('Response status:', response.status);
+                console.log('Response headers:', [...response.headers.entries()]);
+
+                const data = await response.json();
+                console.log('Response data:', data);
+
+                if (data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ SUCCESS!\nMessage: ${data.message}\nGenerated: ${data.generatedText}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ FAILED!\nError: ${data.error}\nDetails: ${JSON.stringify(data.details || data, null, 2)}`;
+                }
+            } catch (error) {
+                console.error('Test error:', error);
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ ERROR!\n${error.message}\nCheck browser console for details.`;
+            }
+        }
+
+        async function testContentGeneration() {
+            const resultDiv = document.getElementById('content-result');
+            resultDiv.textContent = 'Generating content...';
+
+            try {
+                console.log('Testing content generation...');
+                const requestBody = {
+                    prompt: 'Create an engaging post about the benefits of SaaS for small businesses',
+                    type: 'text',
+                    platform: 'reddit',
+                    tone: 'professional',
+                    maxLength: 500
+                };
+
+                console.log('Request body:', requestBody);
+
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-content`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'apikey': SUPABASE_ANON_KEY
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                console.log('Response status:', response.status);
+                console.log('Response headers:', [...response.headers.entries()]);
+
+                const data = await response.json();
+                console.log('Content generation response:', data);
+
+                if (data.content || data.generatedText) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ CONTENT GENERATED!\n\n${data.content || data.generatedText}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ NO CONTENT GENERATED!\nResponse: ${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                console.error('Content generation error:', error);
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ ERROR!\n${error.message}\nCheck browser console for details.`;
+            }
+        }
+    </script>
+</body>
+</html>

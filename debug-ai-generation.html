@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug AI Generation</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        .result { margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px; white-space: pre-wrap; max-height: 300px; overflow-y: auto; }
+        .error { background: #f8d7da; color: #721c24; }
+        .success { background: #d4edda; color: #155724; }
+        .warning { background: #fff3cd; color: #856404; }
+        input, textarea { width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ddd; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug AI Generation</h1>
+    
+    <div class="test-section">
+        <h2>Test Parameters</h2>
+        <label>Prompt:</label>
+        <input type="text" id="test-prompt" value="wwe on netflix in 100 words" />
+        
+        <label>Platform:</label>
+        <select id="test-platform">
+            <option value="linkedin">LinkedIn</option>
+            <option value="twitter">Twitter</option>
+            <option value="reddit">Reddit</option>
+        </select>
+        
+        <label>Tone:</label>
+        <select id="test-tone">
+            <option value="professional">Professional</option>
+            <option value="casual">Casual</option>
+            <option value="humorous">Humorous</option>
+        </select>
+        
+        <button onclick="testDirectAPI()">Test Direct API Call</button>
+        <button onclick="testAppMethod()">Test App Method</button>
+        <button onclick="clearResults()">Clear Results</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Results</h2>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://eqiuukwwpdiyncahrdny.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaXV1a3d3cGRpeW5jYWhyZG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxOTA5MzcsImV4cCI6MjA2NDc2NjkzN30.sgwl7oP2fJD7rh64w59XWdfMCS0XQcNjD4Qr_WGILGs';
+
+        function addResult(title, content, type = 'info') {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `result ${type}`;
+            resultDiv.innerHTML = `<strong>${title}</strong>\n${content}`;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function testDirectAPI() {
+            const prompt = document.getElementById('test-prompt').value;
+            const platform = document.getElementById('test-platform').value;
+            const tone = document.getElementById('test-tone').value;
+            
+            addResult('🚀 Testing Direct API Call', `Prompt: ${prompt}\nPlatform: ${platform}\nTone: ${tone}`);
+            
+            try {
+                const requestBody = {
+                    prompt: prompt,
+                    type: 'text',
+                    platform: platform,
+                    tone: tone,
+                    maxLength: platform === 'twitter' ? 280 : 500
+                };
+                
+                console.log('Direct API request:', requestBody);
+                
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-content`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'apikey': SUPABASE_ANON_KEY
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                console.log('Direct API response status:', response.status);
+                const data = await response.json();
+                console.log('Direct API response data:', data);
+                
+                if (data.generatedText) {
+                    addResult('✅ Direct API Success', `Generated: ${data.generatedText}`, 'success');
+                } else {
+                    addResult('❌ Direct API Failed', `Response: ${JSON.stringify(data, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                console.error('Direct API error:', error);
+                addResult('❌ Direct API Error', error.message, 'error');
+            }
+        }
+
+        async function testAppMethod() {
+            const prompt = document.getElementById('test-prompt').value;
+            const platform = document.getElementById('test-platform').value;
+            const tone = document.getElementById('test-tone').value;
+            
+            addResult('🔧 Testing App Method', `Simulating app's exact method...`);
+            
+            try {
+                // Create expert-level prompt like the app does
+                const expertPrompt = createExpertPrompt(prompt, tone, platform);
+                
+                const requestBody = {
+                    prompt: expertPrompt,
+                    tone,
+                    platform,
+                    type: 'text',
+                    maxLength: platform === 'twitter' ? 280 : 500,
+                    singlePost: true,
+                    expertMode: true
+                };
+                
+                console.log('App method request:', requestBody);
+                
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-content`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'apikey': SUPABASE_ANON_KEY
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                console.log('App method response status:', response.status);
+                const data = await response.json();
+                console.log('App method response data:', data);
+                
+                if (data.generatedText) {
+                    addResult('✅ App Method Success', `Generated: ${data.generatedText}`, 'success');
+                } else {
+                    addResult('❌ App Method Failed', `Response: ${JSON.stringify(data, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                console.error('App method error:', error);
+                addResult('❌ App Method Error', error.message, 'error');
+            }
+        }
+
+        // Simulate the app's expert prompt creation
+        function createExpertPrompt(prompt, tone, platform) {
+            const platformContext = platform ? ` for ${platform.toUpperCase()}` : '';
+            const toneInstruction = tone ? ` Use a ${tone} tone.` : '';
+            
+            return `You are an expert social media manager with 10+ years of experience creating viral content${platformContext}. 
+
+Create a single, highly engaging social media post about: ${prompt}
+
+Requirements:
+- ${toneInstruction}
+- Make it compelling and shareable
+- Include relevant emojis where appropriate
+- ${platform === 'twitter' ? 'Keep under 280 characters' : 'Keep it concise but impactful'}
+- Focus on engagement and value
+- Return ONLY the final post content, no explanations
+
+Create the post now:`;
+        }
+    </script>
+</body>
+</html>

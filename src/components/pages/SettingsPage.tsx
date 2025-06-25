@@ -6,6 +6,7 @@ import { useSocialMediaConnection } from "@/hooks/useSocialMediaConnection";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import StorageDebugPanel from "@/components/StorageDebugPanel";
 import {
   Settings as SettingsIcon,
   User,
@@ -24,7 +25,8 @@ import {
   Camera,
   Upload,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Wrench
 } from "lucide-react";
 
 // Helper function to convert data URI to Blob
@@ -795,7 +797,7 @@ const SettingsPage = () => {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             {/* Tab Navigation */}
             <div className="border-b border-gray-100 bg-gray-50/50">
-              <TabsList className="grid w-full grid-cols-4 bg-transparent p-0 h-auto">
+              <TabsList className="grid w-full grid-cols-5 bg-transparent p-0 h-auto">
                 <TabsTrigger
                   value="profile"
                   className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 data-[state=active]:shadow-none py-4 px-6 font-semibold transition-all"
@@ -823,6 +825,13 @@ const SettingsPage = () => {
                 >
                   <Shield className="h-4 w-4 mr-2" />
                   Security
+                </TabsTrigger>
+                <TabsTrigger
+                  value="diagnostic"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-purple-500 data-[state=active]:bg-transparent data-[state=active]:text-purple-600 data-[state=active]:shadow-none py-4 px-6 font-semibold transition-all"
+                >
+                  <Wrench className="h-4 w-4 mr-2" />
+                  Diagnostic
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -1246,6 +1255,18 @@ const SettingsPage = () => {
                       </div>
                     </div>
                   </div>
+                </div>
+              </TabsContent>
+
+              {/* Diagnostic Tab */}
+              <TabsContent value="diagnostic" className="mt-0 space-y-6">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-4">Image Upload Diagnostic</h3>
+                  <p className="text-gray-600 mb-6">
+                    Use this tool to diagnose and fix image upload issues. This will check your authentication,
+                    storage bucket configuration, and test the upload functionality.
+                  </p>
+                  <StorageDebugPanel />
                 </div>
               </TabsContent>
             </div>

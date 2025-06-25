@@ -33,7 +33,7 @@ const oauthConfigs = {
   },
   facebook: {
     authUrl: "https://www.facebook.com/v19.0/dialog/oauth",
-    clientId: Deno.env.get("FACEBOOK_CLIENT_ID") || "2249146282214303",
+    clientId: Deno.env.get("FACEBOOK_CLIENT_ID") || "772026995163778",
     scope:
       "public_profile,email,pages_show_list,pages_read_engagement,pages_manage_posts,business_management",
     responseType: "code",
@@ -41,7 +41,7 @@ const oauthConfigs = {
   },
   instagram: {
     authUrl: "https://www.facebook.com/v19.0/dialog/oauth",
-    clientId: Deno.env.get("INSTAGRAM_CLIENT_ID") || "2249146282214303",
+    clientId: Deno.env.get("FACEBOOK_CLIENT_ID") || "772026995163778",
     scope:
       "public_profile,email,pages_show_list,instagram_basic,instagram_content_publish,business_management",
     responseType: "code",
@@ -95,6 +95,7 @@ serve(async (req) => {
     }
 
     console.log(`[Auth Redirect] ${platform} client ID exists: ${!!config.clientId}`);
+    console.log(`[Auth Redirect] ${platform} client ID value: ${config.clientId}`);
     console.log(`[Auth Redirect] ${platform} requires PKCE: ${config.requiresPKCE}`);
 
     const state = generateRandomString(32);
@@ -178,7 +179,7 @@ serve(async (req) => {
     console.error("[Auth Redirect] Error:", err);
     console.error("[Auth Redirect] Stack trace:", err.stack);
     
-    const fallback = Deno.env.get("YOUR_FRONTEND_URL") || "http://localhost:8081";
+    const fallback = Deno.env.get("YOUR_FRONTEND_URL") || "https://scribe-schedule-labs.vercel.app";
     const platform = new URL(req.url).searchParams.get("platform") || "unknown";
     const errorRedirect = `${fallback}/oauth/callback?error=${encodeURIComponent(
       err.message

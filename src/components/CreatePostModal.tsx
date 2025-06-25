@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,13 +16,15 @@ import {
   ChevronLeft,
   ChevronRight,
   Image,
-  Download
+  Download,
+  ExternalLink
 } from "lucide-react";
 import { FaReddit } from "react-icons/fa";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useSocialMedia } from "@/hooks/useSocialMedia";
+import { ensureAuthenticated, authenticatedStorageOperation } from "@/utils/authenticatedRequest";
 
 interface CreatePostModalProps {
   isOpen: boolean;
@@ -46,7 +49,8 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
   const [generatingImage, setGeneratingImage] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [imageSource, setImageSource] = useState<'none' | 'generate' | 'upload'>('none');
+  const [imageSource, setImageSource] = useState<'none' | 'generate' | 'upload' | 'url'>('none');
+  const [imageUrl, setImageUrl] = useState('');
   const { toast } = useToast();
   const { connections, postToMultiplePlatforms, checkConnectionStatus } = useSocialMedia();
 
@@ -179,22 +183,33 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
 
     setUploadingImage(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
+      // Check if user is authenticated first
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-      // Upload to Supabase Storage
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      if (!session?.user) {
+        throw new Error('You must be logged in to upload images.');
+      }
 
+      // Create a unique filename
+      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 15);
+      const fileName = `${timestamp}-${randomId}.${fileExt}`;
+
+      console.log('Uploading file:', fileName, 'Size:', file.size, 'Type:', file.type);
+
+      // Upload to user-images bucket with minimal options to avoid RLS issues
       const { data, error } = await supabase.storage
         .from('user-images')
         .upload(fileName, file);
 
       if (error) {
-        if (error.message.includes('Bucket not found')) {
-          throw new Error('Please create the "user-images" storage bucket in your Supabase dashboard first');
-        }
-        throw error;
+        console.error('Upload error details:', error);
+        throw new Error(`Upload failed: ${error.message}`);
+      }
+
+      if (!data) {
+        throw new Error('Upload failed: No data returned');
       }
 
       // Get public URL
@@ -202,13 +217,22 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
         .from('user-images')
         .getPublicUrl(fileName);
 
+      if (!publicUrl) {
+        throw new Error('Failed to get public URL for uploaded image');
+      }
+
+      console.log('Upload successful! Public URL:', publicUrl);
+
+      // Success! Set the uploaded image
       setUploadedImage(publicUrl);
       setImageSource('upload');
       toast({
         title: "Image uploaded!",
         description: "Your image is ready to use in your posts.",
       });
+
     } catch (error: any) {
+      console.error('Upload error:', error);
       toast({
         title: "Error uploading image",
         description: error.message || "Failed to upload image",
@@ -500,7 +524,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
           contentType: selectedContentType,
           platforms: selectedTargetPlatforms,
           emoji: tone.emoji,
-          image: generatedImage || uploadedImage
+          image: generatedImage || uploadedImage || (imageUrl.trim() ? imageUrl.trim() : null)
         };
       });
 
@@ -576,7 +600,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
           contentType: selectedContentType,
           platforms: selectedTargetPlatforms,
           emoji: tone.emoji,
-          image: generatedImage || uploadedImage
+          image: generatedImage || uploadedImage || (imageUrl.trim() ? imageUrl.trim() : null)
         };
       });
 
@@ -618,7 +642,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
     setLoading(true);
     try {
       const platformsData = selectedPlatforms.map(platform => ({ platform }));
-      const finalImage = selectedPost.image || generatedImage || uploadedImage;
+      const finalImage = selectedPost.image || generatedImage || uploadedImage || (imageUrl.trim() ? imageUrl.trim() : null);
 
       // Check content length and truncate if needed
       const maxLength = platformsData.some(p => p.platform === 'twitter') ? 280 : 3000;
@@ -726,6 +750,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
     setUploadedImage(null);
     setUploadingImage(false);
     setImageSource('none');
+    setImageUrl('');
   };
 
   const handleClose = () => {
@@ -836,13 +861,6 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
                     size="sm"
                     onClick={async () => {
                       await checkConnectionStatus();
-                      setTimeout(() => {
-                        const currentConnected = connections.filter(c => c.isConnected).length;
-                        toast({
-                          title: "Connections refreshed",
-                          description: `Found ${currentConnected} connected platforms`,
-                        });
-                      }, 100);
                     }}
                     className="text-xs"
                   >
@@ -959,7 +977,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
                   <p className="text-xs text-gray-500 mb-4">Add an image to make your posts more engaging</p>
 
                   {/* Image Source Selection */}
-                  <div className="grid grid-cols-3 gap-2 mb-4">
+                  <div className="grid grid-cols-4 gap-2 mb-4">
                     <Button
                       variant={imageSource === 'none' ? 'default' : 'outline'}
                       size="sm"
@@ -968,6 +986,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
                         setGenerateImage(false);
                         setGeneratedImage(null);
                         setUploadedImage(null);
+                        setImageUrl('');
                       }}
                       className="text-xs"
                     >
@@ -980,6 +999,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
                         setImageSource('generate');
                         setGenerateImage(true);
                         setUploadedImage(null);
+                        setImageUrl('');
                       }}
                       className="text-xs"
                     >
@@ -992,10 +1012,24 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
                         setImageSource('upload');
                         setGenerateImage(false);
                         setGeneratedImage(null);
+                        setImageUrl('');
                       }}
                       className="text-xs"
                     >
                       📁 Upload
+                    </Button>
+                    <Button
+                      variant={imageSource === 'url' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => {
+                        setImageSource('url');
+                        setGenerateImage(false);
+                        setGeneratedImage(null);
+                        setUploadedImage(null);
+                      }}
+                      className="text-xs"
+                    >
+                      🔗 URL
                     </Button>
                   </div>
                 </div>
@@ -1120,6 +1154,127 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
                     </div>
                   </div>
                 )}
+
+                {/* Image URL Input */}
+                {imageSource === 'url' && (
+                  <div className="mb-6">
+                    <h4 className="text-sm font-medium mb-2">Image URL</h4>
+                    <p className="text-xs text-gray-500 mb-4">Enter a direct link to an image</p>
+
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <div className="flex space-x-2">
+                          <Input
+                            type="url"
+                            placeholder="https://example.com/image.jpg"
+                            value={imageUrl}
+                            onChange={(e) => setImageUrl(e.target.value)}
+                            className="flex-1"
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const url = imageUrl.trim();
+                                if (url) {
+                                  try {
+                                    new URL(url);
+                                    setImageUrl(url);
+                                  } catch {
+                                    toast({
+                                      title: "Invalid URL",
+                                      description: "Please enter a valid image URL",
+                                      variant: "destructive",
+                                    });
+                                  }
+                                }
+                              }
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const url = imageUrl.trim();
+                              if (url) {
+                                try {
+                                  new URL(url);
+                                  toast({
+                                    title: "URL validated!",
+                                    description: "Image URL is ready to use",
+                                  });
+                                } catch {
+                                  toast({
+                                    title: "Invalid URL",
+                                    description: "Please enter a valid image URL",
+                                    variant: "destructive",
+                                  });
+                                }
+                              }
+                            }}
+                          >
+                            Validate
+                          </Button>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          Enter a direct link to an image (JPG, PNG, GIF, WebP)
+                        </p>
+                      </div>
+
+                      {imageUrl.trim() && (() => {
+                        try {
+                          new URL(imageUrl.trim());
+                          return (
+                            <div className="space-y-3">
+                              <div className="relative">
+                                <img
+                                  src={imageUrl.trim()}
+                                  alt="Image from URL"
+                                  className="w-full h-48 object-cover rounded-lg border"
+                                  onLoad={(e) => {
+                                    e.currentTarget.style.display = 'block';
+                                    const errorDiv = e.currentTarget.nextElementSibling as HTMLElement;
+                                    if (errorDiv) errorDiv.style.display = 'none';
+                                  }}
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    const errorDiv = e.currentTarget.nextElementSibling as HTMLElement;
+                                    if (errorDiv) errorDiv.style.display = 'flex';
+                                  }}
+                                />
+                                <div
+                                  className="w-full h-48 bg-gray-100 rounded-lg border flex items-center justify-center text-gray-500 text-sm"
+                                  style={{ display: 'none' }}
+                                >
+                                  ❌ Failed to load image from URL
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  className="absolute top-2 right-2"
+                                  onClick={() => window.open(imageUrl.trim(), '_blank')}
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                </Button>
+                              </div>
+                              <div className="flex items-center justify-center space-x-2 text-xs text-green-600">
+                                <span>✓</span>
+                                <span>Image URL ready to use</span>
+                              </div>
+                            </div>
+                          );
+                        } catch {
+                          return (
+                            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                              <p className="text-sm text-yellow-800">
+                                ⚠️ Please enter a valid URL starting with http:// or https://
+                              </p>
+                            </div>
+                          );
+                        }
+                      })()}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3">
@@ -1153,7 +1308,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
                       contentType: selectedContentType,
                       platforms: selectedTargetPlatforms,
                       emoji: "✏️",
-                      image: generatedImage || uploadedImage
+                      image: generatedImage || uploadedImage || (imageUrl.trim() ? imageUrl.trim() : null)
                     };
                     setGeneratedPosts([manualPost]);
                     setStep(2);
@@ -1289,10 +1444,10 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
                   </div>
 
                   {/* Image Preview */}
-                  {(selectedPost.image || generatedImage || uploadedImage) && (
+                  {(selectedPost.image || generatedImage || uploadedImage || (imageUrl.trim() ? imageUrl.trim() : null)) && (
                     <div className="mb-3">
                       <img
-                        src={selectedPost.image || generatedImage || uploadedImage}
+                        src={selectedPost.image || generatedImage || uploadedImage || imageUrl.trim()}
                         alt="Post image"
                         className="w-full h-32 object-cover rounded-lg border"
                       />
@@ -1311,12 +1466,12 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
             <Separator />
 
             {/* Image Status Indicator */}
-            {(selectedPost?.image || generatedImage || uploadedImage) && (
+            {(selectedPost?.image || generatedImage || uploadedImage || (imageUrl.trim() ? imageUrl.trim() : null)) && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <div className="flex items-center space-x-2">
                   <Image className="w-4 h-4 text-blue-600" />
                   <span className="text-sm font-medium text-blue-800">
-                    {generatedImage ? 'AI-generated image' : uploadedImage ? 'Uploaded image' : 'Image'} will be included with your posts
+                    {generatedImage ? 'AI-generated image' : uploadedImage ? 'Uploaded image' : imageUrl.trim() ? 'Image from URL' : 'Image'} will be included with your posts
                   </span>
                 </div>
               </div>

@@ -206,10 +206,6 @@ const OAuthCallback = () => {
           console.log('🎯 OAUTH CALLBACK TOAST DEBUG: activePlatform =', activePlatform, 'type =', typeof activePlatform);
           const platformName = formatPlatformName(activePlatform);
           console.log('🎯 OAUTH CALLBACK TOAST DEBUG: platformName =', platformName);
-          toast({
-            title: "Connected successfully!",
-            description: `Your ${platformName} account has been connected.`,
-          });
 
           // Refresh session to get updated user data
           const { data: { session } } = await supabase.auth.getSession();
@@ -398,8 +394,8 @@ Please check your Twitter app configuration and try again.`;
               }
             }
 
-            // Call the OAuth callback function - use local development URL
-            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'http://127.0.0.1:54321';
+            // Call the OAuth callback function - use production URL
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://eqiuukwwpdiyncahrdny.supabase.co';
             const response = await fetch(`${supabaseUrl}/functions/v1/oauth-callback`, {
               method: 'POST',
               headers: {
@@ -421,10 +417,6 @@ Please check your Twitter app configuration and try again.`;
               setMessage(`Successfully connected your ${activePlatform.charAt(0).toUpperCase() + activePlatform.slice(1)} account!`);
 
               const platformName = formatPlatformName(activePlatform);
-              toast({
-                title: "Connected successfully!",
-                description: `Your ${platformName} account has been connected.`,
-              });
 
               // BULLETPROOF MESSAGE HANDLING - GUARANTEED TO WORK
               if (window.opener && !window.opener.closed) {
@@ -632,10 +624,6 @@ Please check your Twitter app configuration and try again.`;
             setMessage(`Successfully authenticated with ${activePlatform}!`);
             
             const platformName = formatPlatformName(activePlatform);
-            toast({
-              title: "Connected successfully!",
-              description: `Your ${platformName} account has been connected.`,
-            });
 
             if (window.opener) {
               window.opener.postMessage({ 

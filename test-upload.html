@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Image Upload</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        .upload-area { border: 2px dashed #ccc; padding: 20px; text-align: center; margin: 20px 0; }
+        .result { margin: 20px 0; padding: 10px; border-radius: 5px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        button { padding: 10px 20px; margin: 10px; cursor: pointer; }
+        img { max-width: 100%; height: auto; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Test Image Upload to Supabase</h1>
+    
+    <div class="upload-area">
+        <input type="file" id="fileInput" accept="image/*">
+        <button onclick="testUpload()">Test Upload</button>
+    </div>
+    
+    <div id="result"></div>
+    
+    <script>
+        const SUPABASE_URL = "https://eqiuukwwpdiyncahrdny.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaXV1a3d3cGRpeW5jYWhyZG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxOTA5MzcsImV4cCI6MjA2NDc2NjkzN30.sgwl7oP2fJD7rh64w59XWdfMCS0XQcNjD4Qr_WGILGs";
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        async function testUpload() {
+            const fileInput = document.getElementById('fileInput');
+            const resultDiv = document.getElementById('result');
+            
+            if (!fileInput.files[0]) {
+                resultDiv.innerHTML = '<div class="error">Please select a file first</div>';
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            resultDiv.innerHTML = '<div>Uploading...</div>';
+            
+            try {
+                // Test multiple upload strategies
+                const timestamp = Date.now();
+                const randomId = Math.random().toString(36).substring(2, 15);
+                const fileExt = file.name.split('.').pop() || 'jpg';
+                
+                const strategies = [
+                    `public/${timestamp}-${randomId}.${fileExt}`,
+                    `${timestamp}-${randomId}.${fileExt}`,
+                    `uploads/${timestamp}-${randomId}.${fileExt}`,
+                    `test/${timestamp}-${randomId}.${fileExt}`
+                ];
+                
+                let success = false;
+                let finalUrl = '';
+                
+                for (const fileName of strategies) {
+                    try {
+                        console.log(`Trying: ${fileName}`);
+                        
+                        const { data, error } = await supabase.storage
+                            .from('user-images')
+                            .upload(fileName, file, {
+                                cacheControl: '3600',
+                                upsert: true
+                            });
+                        
+                        if (!error && data) {
+                            const { data: { publicUrl } } = supabase.storage
+                                .from('user-images')
+                                .getPublicUrl(fileName);
+                            
+                            finalUrl = publicUrl;
+                            success = true;
+                            console.log(`Success with: ${fileName}`);
+                            break;
+                        } else {
+                            console.log(`Failed with: ${fileName}`, error);
+                        }
+                    } catch (err) {
+                        console.log(`Exception with: ${fileName}`, err);
+                    }
+                }
+                
+                if (success) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h3>Upload Successful!</h3>
+                            <p>File uploaded successfully</p>
+                            <p><strong>URL:</strong> <a href="${finalUrl}" target="_blank">${finalUrl}</a></p>
+                            <img src="${finalUrl}" alt="Uploaded image">
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = '<div class="error">All upload strategies failed. Check console for details.</div>';
+                }
+                
+            } catch (error) {
+                console.error('Upload error:', error);
+                resultDiv.innerHTML = `<div class="error">Upload failed: ${error.message}</div>`;
+            }
+        }
+        
+        // Test bucket access on page load
+        window.addEventListener('load', async () => {
+            try {
+                const { data, error } = await supabase.storage.listBuckets();
+                if (error) {
+                    console.error('Bucket list error:', error);
+                } else {
+                    console.log('Available buckets:', data);
+                    const userImagesBucket = data.find(b => b.name === 'user-images');
+                    if (userImagesBucket) {
+                        console.log('✅ user-images bucket found');
+                    } else {
+                        console.log('❌ user-images bucket not found');
+                    }
+                }
+            } catch (err) {
+                console.error('Bucket access error:', err);
+            }
+        });
+    </script>
+</body>
+</html>

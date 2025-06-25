@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram Business Account Diagnostic</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .step {
+            margin: 20px 0;
+            padding: 15px;
+            border-left: 4px solid #1877f2;
+            background-color: #f8f9fa;
+        }
+        .result {
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+        }
+        .success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .info { background-color: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+        .warning { background-color: #fff3cd; border: 1px solid #ffeaa7; color: #856404; }
+        button {
+            background-color: #1877f2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #166fe5; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .highlight { background-color: yellow; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Instagram Business Account Diagnostic</h1>
+        <p>This tool will help diagnose why you're getting "No Instagram business account found" error.</p>
+        
+        <div class="step">
+            <h3>Step 1: Get Facebook Access Token</h3>
+            <p>First, we need to get your Facebook access token to check your account setup.</p>
+            <button onclick="getFacebookToken()">Get Facebook Access Token</button>
+            <div id="token-result"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 2: Check Facebook Pages</h3>
+            <p>Check what Facebook Pages you have access to.</p>
+            <button onclick="checkFacebookPages()" id="pages-btn" disabled>Check Facebook Pages</button>
+            <div id="pages-result"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 3: Check Instagram Business Accounts</h3>
+            <p>Check for Instagram Business accounts linked to your Facebook Pages.</p>
+            <button onclick="checkInstagramAccounts()" id="instagram-btn" disabled>Check Instagram Accounts</button>
+            <div id="instagram-result"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 4: Test Instagram Permissions</h3>
+            <p>Test if we can access Instagram account details and permissions.</p>
+            <button onclick="testInstagramPermissions()" id="permissions-btn" disabled>Test Permissions</button>
+            <div id="permissions-result"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 5: Setup Instructions</h3>
+            <div id="setup-instructions"></div>
+        </div>
+    </div>
+
+    <script>
+        let ACCESS_TOKEN = '';
+        let FACEBOOK_PAGES = [];
+        let INSTAGRAM_ACCOUNTS = [];
+
+        function addResult(elementId, title, content, type = 'info') {
+            const element = document.getElementById(elementId);
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `result ${type}`;
+            resultDiv.innerHTML = `<strong>${title}</strong>\n${content}`;
+            element.appendChild(resultDiv);
+        }
+
+        function clearResults(elementId) {
+            document.getElementById(elementId).innerHTML = '';
+        }
+
+        async function getFacebookToken() {
+            clearResults('token-result');
+            addResult('token-result', '🔄 Getting Access Token...', 'Redirecting to Facebook for authentication...');
+            
+            // Use your actual Facebook App ID
+            const clientId = '772026995163778'; // Your Facebook App ID
+            const redirectUri = encodeURIComponent(window.location.href);
+            const scope = 'pages_read_engagement,pages_manage_posts,instagram_basic,instagram_content_publish,business_management';
+            
+            const authUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=token`;
+            
+            // Check if we're returning from Facebook with a token
+            const hash = window.location.hash;
+            if (hash && hash.includes('access_token=')) {
+                const params = new URLSearchParams(hash.substring(1));
+                ACCESS_TOKEN = params.get('access_token');
+                
+                if (ACCESS_TOKEN) {
+                    addResult('token-result', '✅ Access Token Received!', `Token: ${ACCESS_TOKEN.substring(0, 20)}...\n\nNow you can proceed to check your Facebook Pages.`, 'success');
+                    document.getElementById('pages-btn').disabled = false;
+                    return;
+                }
+            }
+            
+            // Redirect to Facebook for authentication
+            window.location.href = authUrl;
+        }
+
+        async function checkFacebookPages() {
+            clearResults('pages-result');
+            addResult('pages-result', '🔄 Checking Facebook Pages...', 'Fetching your Facebook Pages...');
+            
+            try {
+                const response = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${ACCESS_TOKEN}`);
+                const data = await response.json();
+                
+                console.log('Facebook Pages Response:', data);
+                
+                if (data.error) {
+                    throw new Error(`Facebook API Error: ${data.error.message}`);
+                }
+                
+                FACEBOOK_PAGES = data.data || [];
+                
+                if (FACEBOOK_PAGES.length === 0) {
+                    addResult('pages-result', '❌ No Facebook Pages Found', 
+                        'You don\'t have any Facebook Pages. Instagram Business accounts must be linked to a Facebook Page.\n\n🔧 To fix this:\n1. Go to https://www.facebook.com/pages/create\n2. Create a Facebook Page for your business\n3. Then link your Instagram account to this page', 'error');
+                    showSetupInstructions('no-pages');
+                } else {
+                    const pagesInfo = FACEBOOK_PAGES.map(page => `- ${page.name} (ID: ${page.id})`).join('\n');
+                    addResult('pages-result', '✅ Facebook Pages Found!', 
+                        `Found ${FACEBOOK_PAGES.length} Facebook Page(s):\n${pagesInfo}\n\nNow let's check for linked Instagram accounts.`, 'success');
+                    document.getElementById('instagram-btn').disabled = false;
+                }
+                
+            } catch (error) {
+                console.error('Error checking Facebook pages:', error);
+                addResult('pages-result', '❌ Error Checking Pages', error.message, 'error');
+            }
+        }
+
+        async function checkInstagramAccounts() {
+            clearResults('instagram-result');
+            addResult('instagram-result', '🔄 Checking Instagram Accounts...', 'Looking for Instagram Business accounts...');
+            
+            try {
+                INSTAGRAM_ACCOUNTS = [];
+                
+                // Method 1: Check direct Instagram Business account
+                try {
+                    const directResponse = await fetch(`https://graph.facebook.com/v18.0/me?fields=instagram_business_account&access_token=${ACCESS_TOKEN}`);
+                    const directData = await directResponse.json();
+                    console.log('Direct Instagram check:', directData);
+                    
+                    if (directData.instagram_business_account) {
+                        INSTAGRAM_ACCOUNTS.push({
+                            type: 'direct',
+                            account: directData.instagram_business_account,
+                            page: null
+                        });
+                    }
+                } catch (error) {
+                    console.log('Direct Instagram check failed:', error);
+                }
+                
+                // Method 2: Check each Facebook page for linked Instagram accounts
+                for (const page of FACEBOOK_PAGES) {
+                    try {
+                        const pageResponse = await fetch(`https://graph.facebook.com/v18.0/${page.id}?fields=instagram_business_account&access_token=${ACCESS_TOKEN}`);
+                        const pageData = await pageResponse.json();
+                        console.log(`Page ${page.name} Instagram check:`, pageData);
+                        
+                        if (pageData.instagram_business_account) {
+                            INSTAGRAM_ACCOUNTS.push({
+                                type: 'page-linked',
+                                account: pageData.instagram_business_account,
+                                page: page
+                            });
+                        }
+                    } catch (error) {
+                        console.log(`Error checking page ${page.name}:`, error);
+                    }
+                }
+                
+                if (INSTAGRAM_ACCOUNTS.length === 0) {
+                    addResult('instagram-result', '❌ No Instagram Business Accounts Found', 
+                        `No Instagram Business accounts are linked to your Facebook account or pages.\n\nPages checked:\n${FACEBOOK_PAGES.map(p => `- ${p.name}`).join('\n')}\n\n🔧 You need to link your Instagram account to a Facebook Page.`, 'error');
+                    showSetupInstructions('no-instagram');
+                } else {
+                    const accountsInfo = INSTAGRAM_ACCOUNTS.map(item => {
+                        const linkType = item.type === 'direct' ? 'Direct Link' : `Linked to Page: ${item.page.name}`;
+                        return `- Instagram ID: ${item.account.id} (${linkType})`;
+                    }).join('\n');
+                    
+                    addResult('instagram-result', '✅ Instagram Business Accounts Found!', 
+                        `Found ${INSTAGRAM_ACCOUNTS.length} Instagram Business account(s):\n${accountsInfo}\n\nNow let's test permissions.`, 'success');
+                    document.getElementById('permissions-btn').disabled = false;
+                }
+                
+            } catch (error) {
+                console.error('Error checking Instagram accounts:', error);
+                addResult('instagram-result', '❌ Error Checking Instagram', error.message, 'error');
+            }
+        }
+
+        async function testInstagramPermissions() {
+            clearResults('permissions-result');
+            addResult('permissions-result', '🔄 Testing Permissions...', 'Testing Instagram account access and permissions...');
+            
+            try {
+                for (const item of INSTAGRAM_ACCOUNTS) {
+                    const igId = item.account.id;
+                    
+                    // Test basic account info access
+                    const accountResponse = await fetch(`https://graph.facebook.com/v18.0/${igId}?fields=id,username,account_type,media_count&access_token=${ACCESS_TOKEN}`);
+                    const accountData = await accountResponse.json();
+                    
+                    if (accountData.error) {
+                        addResult('permissions-result', `❌ Permission Error for ${igId}`, 
+                            `Error: ${accountData.error.message}\n\nThis Instagram account exists but we can't access it properly.`, 'error');
+                        continue;
+                    }
+                    
+                    const linkInfo = item.type === 'direct' ? 'Direct Link' : `via ${item.page.name}`;
+                    addResult('permissions-result', `✅ Instagram Account Accessible`, 
+                        `Instagram ID: ${igId}\nUsername: ${accountData.username || 'N/A'}\nAccount Type: ${accountData.account_type || 'N/A'}\nMedia Count: ${accountData.media_count || 'N/A'}\nConnection: ${linkInfo}\n\n✅ This account should work for posting!`, 'success');
+                }
+                
+                if (INSTAGRAM_ACCOUNTS.length > 0) {
+                    addResult('permissions-result', '🎉 Diagnostic Complete!', 
+                        'Your Instagram Business account setup looks good! The "No Instagram business account found" error should be resolved with the updated code.', 'success');
+                    showSetupInstructions('success');
+                }
+                
+            } catch (error) {
+                console.error('Error testing permissions:', error);
+                addResult('permissions-result', '❌ Permission Test Failed', error.message, 'error');
+            }
+        }
+
+        function showSetupInstructions(scenario) {
+            const instructionsDiv = document.getElementById('setup-instructions');
+            let instructions = '';
+            
+            switch (scenario) {
+                case 'no-pages':
+                    instructions = `
+                        <div class="result warning">
+                            <strong>🔧 Setup Required: Create Facebook Page</strong>
+                            
+                            1. Go to https://www.facebook.com/pages/create
+                            2. Create a Facebook Page for your business
+                            3. Go to https://business.facebook.com
+                            4. Connect your Instagram account to this Facebook Page
+                            5. Convert your Instagram to Business or Creator account
+                            6. Return to your social media scheduler and reconnect
+                        </div>
+                    `;
+                    break;
+                    
+                case 'no-instagram':
+                    instructions = `
+                        <div class="result warning">
+                            <strong>🔧 Setup Required: Link Instagram to Facebook Page</strong>
+                            
+                            1. Go to https://business.facebook.com
+                            2. Select one of your Facebook Pages
+                            3. Go to "Instagram Accounts" section
+                            4. Click "Connect Account" and link your Instagram
+                            5. Make sure your Instagram is a Business or Creator account
+                            6. Return to your social media scheduler and reconnect
+                        </div>
+                    `;
+                    break;
+                    
+                case 'success':
+                    instructions = `
+                        <div class="result success">
+                            <strong>✅ Setup Complete!</strong>
+                            
+                            Your Instagram Business account is properly configured. The updated code should now work correctly.
+                            
+                            If you still get errors, try:
+                            1. Disconnecting and reconnecting Instagram in your app
+                            2. Making sure your Facebook app has the right permissions
+                            3. Checking that your Instagram account is still set to Business/Creator mode
+                        </div>
+                    `;
+                    break;
+            }
+            
+            instructionsDiv.innerHTML = instructions;
+        }
+
+        // Check if we're returning from Facebook OAuth
+        window.onload = function() {
+            const hash = window.location.hash;
+            if (hash && hash.includes('access_token=')) {
+                getFacebookToken();
+            }
+        };
+    </script>
+</body>
+</html>

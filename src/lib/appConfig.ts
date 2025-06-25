@@ -19,12 +19,11 @@ export const AppConfig = {
     clientId: "78yhh9neso7awt"
   },
   facebook: {
-    // TODO: Replace this with your real Facebook App ID from the Meta Developer Portal.
-    clientId: "2249146282214303"
+    // Your real Facebook App ID from the Meta Developer Portal
+    clientId: "772026995163778"
   },
   instagram: {
-    // Instagram uses the exact same App ID as your Facebook app.
-    // TODO: Replace this with your real Facebook App ID.
-    clientId: "2249146282214303"
+    // Instagram OAuth uses the main Facebook App ID, not the Instagram-specific ID
+    clientId: "772026995163778"
   }
 };

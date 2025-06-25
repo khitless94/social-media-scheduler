@@ -597,25 +597,73 @@ async function postToInstagram(content: string, image?: string, credentials?: an
       throw new Error('Instagram posts require an image');
     }
 
-    // Get Instagram business account ID
-    const accountResponse = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${accessToken}`);
+    // Get Instagram business account ID using comprehensive detection
+    let instagramAccountId = null;
 
-    if (!accountResponse.ok) {
-      throw new Error(`Failed to get Instagram account: ${accountResponse.status}`);
+    console.log('[Instagram] Starting Instagram Business account detection...');
+
+    // Method 1: Check if user has direct Instagram Business account
+    try {
+      const directResponse = await fetch(`https://graph.facebook.com/v18.0/me?fields=instagram_business_account&access_token=${accessToken}`);
+      if (directResponse.ok) {
+        const directData = await directResponse.json();
+        console.log('[Instagram] Direct IG check result:', directData);
+
+        if (directData.instagram_business_account?.id) {
+          instagramAccountId = directData.instagram_business_account.id;
+          console.log('[Instagram] Found direct Instagram Business account:', instagramAccountId);
+        }
+      }
+    } catch (error) {
+      console.log('[Instagram] Direct IG check failed:', error);
     }
 
-    const accountData = await accountResponse.json();
-
-    if (!accountData.data || accountData.data.length === 0) {
-      throw new Error('No Instagram business account found');
-    }
-
-    const instagramAccountId = accountData.data[0].instagram_business_account?.id;
+    // Method 2: If no direct account, check Facebook pages for linked Instagram accounts
     if (!instagramAccountId) {
-      throw new Error('No Instagram business account linked to Facebook page');
+      console.log('[Instagram] No direct account found, checking Facebook pages...');
+
+      const accountResponse = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${accessToken}`);
+
+      if (!accountResponse.ok) {
+        throw new Error(`Failed to get Facebook pages: ${accountResponse.status}`);
+      }
+
+      const accountData = await accountResponse.json();
+      console.log('[Instagram] Facebook pages response:', accountData);
+
+      if (accountData.data && accountData.data.length > 0) {
+        // Check each Facebook page for linked Instagram Business account
+        for (const page of accountData.data) {
+          try {
+            const pageIgResponse = await fetch(`https://graph.facebook.com/v18.0/${page.id}?fields=instagram_business_account&access_token=${accessToken}`);
+            if (pageIgResponse.ok) {
+              const pageIgData = await pageIgResponse.json();
+              console.log(`[Instagram] Page ${page.name} IG check:`, pageIgData);
+
+              if (pageIgData.instagram_business_account?.id) {
+                instagramAccountId = pageIgData.instagram_business_account.id;
+                console.log(`[Instagram] Found Instagram account via page ${page.name}:`, instagramAccountId);
+                break;
+              }
+            }
+          } catch (error) {
+            console.log(`[Instagram] Failed to check page ${page.name}:`, error);
+          }
+        }
+      } else {
+        console.log('[Instagram] No Facebook pages found');
+      }
     }
+
+    // Final check: if still no Instagram account found
+    if (!instagramAccountId) {
+      throw new Error('No Instagram Business account found. Please ensure you have:\n1. An Instagram Business or Creator account\n2. The account is linked to a Facebook Page\n3. You have the necessary permissions\n\nVisit https://business.facebook.com to set up your Instagram Business account.');
+    }
+
+    console.log('[Instagram] Using Instagram account ID:', instagramAccountId);
 
     // Create media container
+    console.log('[Instagram] Creating media container...');
     const containerData = new URLSearchParams();
     containerData.append('image_url', image);
     containerData.append('caption', content);
@@ -629,13 +677,31 @@ async function postToInstagram(content: string, image?: string, credentials?: an
     if (!containerResponse.ok) {
       const errorText = await containerResponse.text();
       console.error('[Instagram] Container creation failed:', errorText);
+
+      // Parse error for more specific messaging
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.error?.message) {
+          throw new Error(`Instagram media creation failed: ${errorData.error.message}`);
+        }
+      } catch (parseError) {
+        // If we can't parse the error, use the raw text
+      }
+
       throw new Error(`Instagram container creation failed: ${containerResponse.status} - ${errorText}`);
     }
 
     const containerResult = await containerResponse.json();
+    console.log('[Instagram] Container created:', containerResult);
+
+    if (!containerResult.id) {
+      throw new Error('Instagram container creation succeeded but no container ID returned');
+    }
+
     const containerId = containerResult.id;
 
     // Publish the media
+    console.log('[Instagram] Publishing media container:', containerId);
     const publishData = new URLSearchParams();
     publishData.append('creation_id', containerId);
     publishData.append('access_token', accessToken);
@@ -648,11 +714,26 @@ async function postToInstagram(content: string, image?: string, credentials?: an
     if (!publishResponse.ok) {
       const errorText = await publishResponse.text();
       console.error('[Instagram] Publish failed:', errorText);
+
+      // Parse error for more specific messaging
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.error?.message) {
+          throw new Error(`Instagram publish failed: ${errorData.error.message}`);
+        }
+      } catch (parseError) {
+        // If we can't parse the error, use the raw text
+      }
+
       throw new Error(`Instagram publish failed: ${publishResponse.status} - ${errorText}`);
     }
 
     const result = await publishResponse.json();
     console.log('[Instagram] Post successful:', result);
+
+    if (!result.id) {
+      throw new Error('Instagram publish succeeded but no post ID returned');
+    }
 
     return {
       platform: "instagram",
@@ -664,10 +745,17 @@ async function postToInstagram(content: string, image?: string, credentials?: an
 
   } catch (error) {
     console.error('[Instagram] Error:', error);
+
+    // Provide more helpful error messages
+    let errorMessage = error.message;
+    if (errorMessage.includes('No Instagram Business account found')) {
+      errorMessage += '\n\n🔧 To fix this:\n1. Go to https://business.facebook.com\n2. Connect your Instagram account to a Facebook Page\n3. Convert to Instagram Business or Creator account\n4. Try reconnecting in the app';
+    }
+
     return {
       platform: "instagram",
       success: false,
-      error: error.message
+      error: errorMessage
     };
   }
 }

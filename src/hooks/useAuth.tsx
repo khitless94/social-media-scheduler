@@ -44,25 +44,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // Get initial session with retry logic
+    // Get initial session with enhanced retry logic
     const getInitialSession = async () => {
       try {
+        console.log('Getting initial session...');
         const { data: { session }, error } = await supabase.auth.getSession();
 
         if (error) {
           console.warn('Session error, attempting refresh:', error);
           // Try to refresh the session
-          const { data: refreshData } = await supabase.auth.refreshSession();
-          if (refreshData.session && mounted) {
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+          if (refreshError) {
+            console.error('Session refresh failed:', refreshError);
+            // Clear any invalid session data
+            if (mounted) {
+              setSession(null);
+              setUser(null);
+            }
+          } else if (refreshData.session && mounted) {
+            console.log('Session refreshed successfully');
             setSession(refreshData.session);
             setUser(refreshData.session.user);
           }
         } else if (session && mounted) {
+          console.log('Valid session found:', { userId: session.user?.id, email: session.user?.email });
           setSession(session);
           setUser(session.user);
+        } else {
+          console.log('No session found');
+          if (mounted) {
+            setSession(null);
+            setUser(null);
+          }
         }
       } catch (error) {
         console.error('Failed to get initial session:', error);
+        if (mounted) {
+          setSession(null);
+          setUser(null);
+        }
       } finally {
         if (mounted) {
           setLoading(false);
