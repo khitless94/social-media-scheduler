@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UI Update Debug Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .status-card {
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .connected {
+            background-color: #d4edda;
+            color: #155724;
+            border: 2px solid #c3e6cb;
+        }
+        .disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 2px solid #f5c6cb;
+        }
+        .button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .button:hover {
+            background-color: #0056b3;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>UI Update Debug Tool</h1>
+        <p>This tool helps debug UI update issues after OAuth success.</p>
+        
+        <div class="test-section">
+            <h3>Current Connection Status</h3>
+            <div id="status-display" class="status-grid">
+                <!-- Status cards will be populated here -->
+            </div>
+            <button class="button" onclick="updateStatusDisplay()">Refresh Status</button>
+        </div>
+
+        <div class="test-section">
+            <h3>Test OAuth Success Simulation</h3>
+            <p>Simulate OAuth success for testing UI updates:</p>
+            <button class="button" onclick="simulateOAuthSuccess('twitter')">Simulate Twitter Success</button>
+            <button class="button" onclick="simulateOAuthSuccess('linkedin')">Simulate LinkedIn Success</button>
+            <button class="button" onclick="simulateOAuthSuccess('instagram')">Simulate Instagram Success</button>
+            <button class="button" onclick="simulateOAuthSuccess('facebook')">Simulate Facebook Success</button>
+            <button class="button" onclick="simulateOAuthSuccess('reddit')">Simulate Reddit Success</button>
+        </div>
+
+        <div class="test-section">
+            <h3>Manual Connection Test</h3>
+            <p>Manually set connection status for testing:</p>
+            <button class="button" onclick="setConnectionStatus('twitter', true)">Connect Twitter</button>
+            <button class="button" onclick="setConnectionStatus('linkedin', true)">Connect LinkedIn</button>
+            <button class="button" onclick="setConnectionStatus('instagram', true)">Connect Instagram</button>
+            <button class="button" onclick="setConnectionStatus('facebook', true)">Connect Facebook</button>
+            <button class="button" onclick="setConnectionStatus('reddit', true)">Connect Reddit</button>
+            <br><br>
+            <button class="button" onclick="clearAllConnections()">Clear All Connections</button>
+        </div>
+
+        <div class="test-section">
+            <h3>Event Testing</h3>
+            <button class="button" onclick="triggerRefreshEvent()">Trigger Refresh Event</button>
+            <button class="button" onclick="triggerOAuthMessage()">Trigger OAuth Message</button>
+            <button class="button" onclick="callGlobalFunction()">Call Global OAuth Function</button>
+            <button class="button" onclick="checkMainAppStatus()">Check Main App Status</button>
+        </div>
+
+        <div class="test-section">
+            <h3>Debug Log</h3>
+            <div id="debug-log" class="log"></div>
+            <button class="button" onclick="clearLog()">Clear Log</button>
+        </div>
+    </div>
+
+    <script>
+        const platforms = ['twitter', 'linkedin', 'instagram', 'facebook', 'reddit'];
+        const userId = 'a26953d6-0008-4f6c-bf86-e7cf384ff45e'; // Actual user ID from logs
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logDiv = document.getElementById('debug-log');
+            logDiv.innerHTML += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function updateStatusDisplay() {
+            const statusDiv = document.getElementById('status-display');
+            let html = '';
+            
+            platforms.forEach(platform => {
+                const connectionKey = `connected_${platform}_${userId}`;
+                const isConnected = localStorage.getItem(connectionKey) === 'true';
+                const statusClass = isConnected ? 'connected' : 'disconnected';
+                const statusText = isConnected ? 'CONNECTED' : 'NOT CONNECTED';
+                
+                html += `<div class="status-card ${statusClass}">${platform.toUpperCase()}<br>${statusText}</div>`;
+            });
+            
+            statusDiv.innerHTML = html;
+            log(`Status updated: ${platforms.map(p => `${p}=${localStorage.getItem(`connected_${p}_${userId}`) === 'true'}`).join(', ')}`);
+        }
+
+        function setConnectionStatus(platform, connected) {
+            const key = `connected_${platform}_${userId}`;
+            if (connected) {
+                localStorage.setItem(key, 'true');
+                log(`✅ Set ${platform} as connected`);
+            } else {
+                localStorage.removeItem(key);
+                log(`❌ Set ${platform} as disconnected`);
+            }
+            updateStatusDisplay();
+        }
+
+        function clearAllConnections() {
+            platforms.forEach(platform => {
+                const key = `connected_${platform}_${userId}`;
+                localStorage.removeItem(key);
+            });
+            log('🧹 Cleared all connections');
+            updateStatusDisplay();
+        }
+
+        function simulateOAuthSuccess(platform) {
+            log(`🎯 Simulating OAuth success for ${platform}`);
+            
+            // Set localStorage
+            setConnectionStatus(platform, true);
+            
+            // Trigger various events that should happen during OAuth success
+            
+            // 1. Post message event
+            window.postMessage({
+                type: "oauth_success",
+                platform: platform
+            }, window.location.origin);
+            
+            // 2. Storage event
+            window.dispatchEvent(new StorageEvent('storage', {
+                key: `oauth_success_${platform}`,
+                newValue: 'true',
+                oldValue: null
+            }));
+            
+            // 3. Custom refresh event
+            window.dispatchEvent(new CustomEvent("refreshConnectionStatus"));
+            
+            // 4. Call global function if available
+            if (window.handleOAuthSuccess) {
+                window.handleOAuthSuccess(platform);
+            }
+            
+            log(`✅ OAuth success simulation complete for ${platform}`);
+        }
+
+        function triggerRefreshEvent() {
+            window.dispatchEvent(new CustomEvent("refreshConnectionStatus"));
+            log('🔄 Triggered refresh event');
+        }
+
+        function triggerOAuthMessage() {
+            window.postMessage({
+                type: "oauth_success",
+                platform: "twitter"
+            }, window.location.origin);
+            log('📨 Triggered OAuth message');
+        }
+
+        function callGlobalFunction() {
+            if (window.handleOAuthSuccess) {
+                window.handleOAuthSuccess('twitter');
+                log('📞 Called global OAuth function');
+            } else {
+                log('❌ Global OAuth function not available');
+            }
+        }
+
+        function checkMainAppStatus() {
+            log('🔍 Checking what main app sees...');
+
+            // Check all possible localStorage keys
+            const allKeys = Object.keys(localStorage);
+            const connectionKeys = allKeys.filter(key => key.includes('connected_') || key.includes('connection_'));
+
+            log(`📋 All connection-related localStorage keys:`);
+            connectionKeys.forEach(key => {
+                log(`  ${key} = ${localStorage.getItem(key)}`);
+            });
+
+            // Check if main app has different user ID
+            const statusKeys = allKeys.filter(key => key.startsWith('connection_status_'));
+            log(`📋 Status object keys: ${statusKeys.join(', ')}`);
+
+            statusKeys.forEach(key => {
+                const value = localStorage.getItem(key);
+                log(`  ${key} = ${value}`);
+            });
+        }
+
+        function clearLog() {
+            document.getElementById('debug-log').innerHTML = '';
+        }
+
+        // Auto-refresh status every 2 seconds
+        setInterval(updateStatusDisplay, 2000);
+
+        // Initial check
+        log('UI Update Debug Tool Loaded');
+        updateStatusDisplay();
+        
+        // Listen for storage events
+        window.addEventListener('storage', (event) => {
+            log(`📦 Storage event: ${event.key} = ${event.newValue}`);
+            updateStatusDisplay();
+        });
+
+        // Listen for messages
+        window.addEventListener('message', (event) => {
+            log(`📨 Message received: ${JSON.stringify(event.data)}`);
+        });
+
+        // Listen for custom events
+        window.addEventListener('refreshConnectionStatus', () => {
+            log('🔄 Custom refresh event received');
+            updateStatusDisplay();
+        });
+    </script>
+</body>
+</html>

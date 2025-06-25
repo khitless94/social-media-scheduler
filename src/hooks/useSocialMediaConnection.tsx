@@ -2,6 +2,88 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+
+// Global toast manager to prevent duplicate success toasts
+class ToastManager {
+  private static instance: ToastManager;
+  private recentToasts: Map<string, number> = new Map();
+  private disabledToasts: Set<string> = new Set();
+  private readonly DEBOUNCE_TIME = 15000; // 15 seconds - longer debounce
+
+  static getInstance(): ToastManager {
+    if (!ToastManager.instance) {
+      ToastManager.instance = new ToastManager();
+    }
+    return ToastManager.instance;
+  }
+
+  // Disable toasts for a platform temporarily
+  disableToastsFor(platform: string, duration: number = 30000): void {
+    this.disabledToasts.add(platform);
+    setTimeout(() => {
+      this.disabledToasts.delete(platform);
+    }, duration);
+  }
+
+  canShowToast(platform: string, type: string = 'success'): boolean {
+    // Check if toasts are disabled for this platform
+    if (this.disabledToasts.has(platform)) {
+      console.log(`Toast disabled for ${platform}`);
+      return false;
+    }
+
+    const key = `${platform}_${type}`;
+    const now = Date.now();
+    const lastShown = this.recentToasts.get(key);
+
+    if (!lastShown || now - lastShown > this.DEBOUNCE_TIME) {
+      this.recentToasts.set(key, now);
+      console.log(`Showing toast for ${platform}`);
+      return true;
+    }
+
+    console.log(`Toast blocked for ${platform} - too recent`);
+    return false;
+  }
+
+  cleanup(): void {
+    const now = Date.now();
+    for (const [key, timestamp] of this.recentToasts.entries()) {
+      if (now - timestamp > this.DEBOUNCE_TIME) {
+        this.recentToasts.delete(key);
+      }
+    }
+  }
+
+  // Clear all toasts for a platform
+  clearPlatform(platform: string): void {
+    const keysToDelete = Array.from(this.recentToasts.keys()).filter(key => key.startsWith(platform));
+    keysToDelete.forEach(key => this.recentToasts.delete(key));
+    this.disabledToasts.delete(platform);
+  }
+}
+
+const toastManager = ToastManager.getInstance();
+
+// Helper function to format platform names properly
+const formatPlatformName = (platform: string): string => {
+  if (!platform || typeof platform !== 'string') {
+    console.warn('Invalid platform value:', platform);
+    return 'Social Media';
+  }
+
+  // Handle specific platform names
+  const platformMap: Record<string, string> = {
+    'twitter': 'Twitter',
+    'linkedin': 'LinkedIn',
+    'facebook': 'Facebook',
+    'instagram': 'Instagram',
+    'reddit': 'Reddit'
+  };
+
+  const normalized = platform.toLowerCase().trim();
+  return platformMap[normalized] || platform.charAt(0).toUpperCase() + platform.slice(1);
+};
 import { AppConfig } from "@/lib/appConfig";
 import { generateRandomString, createPkceChallenge } from "@/lib/authHelpers";
 
@@ -139,6 +221,7 @@ export const useSocialMediaConnection = (
 
       // Force update even if status seems the same
       currentConnectionStatus.current = localStatus;
+      console.log('🔄 Calling onConnectionStatusChange with:', localStatus);
       onConnectionStatusChange(localStatus);
 
       // Force re-render to ensure UI updates
@@ -192,6 +275,7 @@ export const useSocialMediaConnection = (
       platforms.forEach(platform => {
         const key = `connected_${platform}_${user.id}`;
         const isConnected = localStorage.getItem(key) === 'true';
+        console.log(`🔍 Checking ${platform}: key=${key}, value=${localStorage.getItem(key)}, isConnected=${isConnected}`);
         if (isConnected) {
           status[platform] = true;
           hasAnyConnection = true;
@@ -200,6 +284,8 @@ export const useSocialMediaConnection = (
       });
 
       console.log('📋 localStorage status:', status);
+      console.log('📋 hasAnyConnection:', hasAnyConnection);
+      console.log('📋 Returning:', hasAnyConnection ? status : null);
       return hasAnyConnection ? status : null;
     } catch (error) {
       console.error('Failed to load from localStorage:', error);
@@ -226,15 +312,16 @@ export const useSocialMediaConnection = (
 
   // Debounce mechanism to prevent excessive calls
   const lastLoadTime = useRef<number>(0);
-  const LOAD_DEBOUNCE_MS = 2000; // 2 seconds
+  const LOAD_DEBOUNCE_MS = 500; // Reduced to 500ms for faster updates
 
-  const debouncedLoadConnectionStatus = useCallback(async () => {
+  const debouncedLoadConnectionStatus = useCallback(async (forceLoad = false) => {
     const now = Date.now();
-    if (now - lastLoadTime.current < LOAD_DEBOUNCE_MS) {
+    if (!forceLoad && now - lastLoadTime.current < LOAD_DEBOUNCE_MS) {
       console.log('Skipping connection status load due to debounce');
       return;
     }
     lastLoadTime.current = now;
+    console.log('🔄 LOADING CONNECTION STATUS - Force:', forceLoad);
     await loadConnectionStatusFromDB();
   }, [user, onConnectionStatusChange]);
 
@@ -242,6 +329,9 @@ export const useSocialMediaConnection = (
   useEffect(() => {
     const initializeConnectionStatus = () => {
       if (!user) return;
+
+      // Clean up old toast manager entries
+      toastManager.cleanup();
 
       // Load connection status without aggressive session checking
       setTimeout(() => {
@@ -268,10 +358,7 @@ export const useSocialMediaConnection = (
                 [platform]: true
               };
 
-              onConnectionStatusChange(prev => ({
-                ...prev,
-                [platform]: true
-              }));
+              onConnectionStatusChange(currentConnectionStatus.current);
 
               forceRender();
               setIsConnecting(prev => ({ ...prev, [platform]: false }));
@@ -279,10 +366,20 @@ export const useSocialMediaConnection = (
               // Clean up flag
               localStorage.removeItem('oauth_success_flag');
 
+              // Clear any previous toast state and show success toast
+              toastManager.clearPlatform(platform);
+              console.log('🎯 TOAST DEBUG: platform =', platform, 'type =', typeof platform);
+              const platformName = formatPlatformName(platform);
+              console.log('🎯 TOAST DEBUG: platformName =', platformName);
               toast({
                 title: "Connected successfully!",
-                description: `Your ${platform} account is linked.`
+                description: `Your ${platformName} account is linked.`
               });
+
+              // Trigger manual refresh to ensure UI updates (force load)
+              setTimeout(() => {
+                debouncedLoadConnectionStatus(true);
+              }, 200);
 
               console.log(`✅ POLLING SUCCESS: ${platform} UI updated`);
             }
@@ -318,9 +415,10 @@ export const useSocialMediaConnection = (
             forceRender();
             setIsConnecting(prev => ({ ...prev, [platform]: false }));
 
+            const platformName = formatPlatformName(platform);
             toast({
               title: "Connected successfully!",
-              description: `Your ${platform} account is linked.`
+              description: `Your ${platformName} account is linked.`
             });
 
             console.log(`✅ DIRECT STATUS FIX: ${platform} UI updated from localStorage`);
@@ -354,9 +452,10 @@ export const useSocialMediaConnection = (
               localStorage.removeItem(successKey);
               localStorage.removeItem(completeKey);
 
+              const platformName = formatPlatformName(platform);
               toast({
                 title: "Connected successfully!",
-                description: `Your ${platform} account is linked.`
+                description: `Your ${platformName} account is linked.`
               });
 
               console.log(`✅ INDIVIDUAL POLLING SUCCESS: ${platform} UI updated`);
@@ -384,10 +483,18 @@ export const useSocialMediaConnection = (
 
               localStorage.removeItem('last_oauth_success');
 
+              // Clear any previous toast state and show success toast
+              toastManager.clearPlatform(platform);
+              const platformName = formatPlatformName(platform);
               toast({
                 title: "Connected successfully!",
-                description: `Your ${platform} account is linked.`
+                description: `Your ${platformName} account is linked.`
               });
+
+              // Trigger manual refresh to ensure UI updates (force load)
+              setTimeout(() => {
+                debouncedLoadConnectionStatus(true);
+              }, 200);
             }
           } catch (e) {
             localStorage.removeItem('last_oauth_success');
@@ -445,7 +552,14 @@ export const useSocialMediaConnection = (
       if (user) {
         const key = `connected_${platform}_${user.id}`;
         localStorage.setItem(key, 'true');
-        console.log(`✅ PERSISTED: ${platform} saved to localStorage`);
+        console.log(`✅ PERSISTED: ${platform} saved to localStorage with key: ${key}`);
+
+        // Also save to the general status object
+        const statusKey = `connection_status_${user.id}`;
+        const currentStatus = JSON.parse(localStorage.getItem(statusKey) || '{}');
+        currentStatus[platform] = true;
+        localStorage.setItem(statusKey, JSON.stringify(currentStatus));
+        console.log(`✅ PERSISTED: Updated general status object:`, currentStatus);
       }
 
       // 4. Force component re-render
@@ -454,22 +568,32 @@ export const useSocialMediaConnection = (
       // 5. Stop loading state
       setIsConnecting(prev => ({ ...prev, [platform]: false }));
 
-      // 6. Show success toast
+      // 6. Clear any previous toast state and show success toast
+      toastManager.clearPlatform(platform);
+      const platformName = formatPlatformName(platform);
       toast({
         title: "Connected successfully!",
-        description: `Your ${platform} account is linked.`
+        description: `Your ${platformName} account is linked.`
       });
 
-      // 7. Additional updates with delays to ensure UI catches up
-      setTimeout(() => {
+      // 7. IMMEDIATE UI UPDATE - Force update without waiting for database
+      const immediateUpdate = () => {
         onConnectionStatusChange(newStatus);
         forceRender();
-      }, 100);
+      };
 
+      // Multiple immediate updates to ensure UI catches up
+      immediateUpdate(); // Immediate
+      setTimeout(immediateUpdate, 50);
+      setTimeout(immediateUpdate, 100);
+      setTimeout(immediateUpdate, 200);
+      setTimeout(immediateUpdate, 500);
+      setTimeout(immediateUpdate, 1000);
+
+      // Trigger manual refresh to ensure UI updates (force load)
       setTimeout(() => {
-        onConnectionStatusChange(newStatus);
-        forceRender();
-      }, 500);
+        debouncedLoadConnectionStatus(true);
+      }, 100);
 
       console.log(`✅ GLOBAL FUNCTION: ${platform} UI update complete`);
     };
@@ -503,9 +627,18 @@ export const useSocialMediaConnection = (
 
     window.addEventListener("storage", handleStorageChange);
 
+    // Listen for custom refresh events
+    const handleRefreshEvent = () => {
+      console.log('🔄 Custom refresh event triggered');
+      debouncedLoadConnectionStatus(true); // Force load on custom refresh
+    };
+
+    window.addEventListener("refreshConnectionStatus", handleRefreshEvent);
+
     return () => {
       window.removeEventListener("message", handleMessage);
       window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("refreshConnectionStatus", handleRefreshEvent);
       delete (window as any).handleOAuthSuccess;
       delete (window as any).forceUpdateConnection;
     };
@@ -540,6 +673,9 @@ export const useSocialMediaConnection = (
 
     try {
       setIsConnecting(prev => ({ ...prev, [platform]: true }));
+
+      // Disable toasts for this platform during OAuth flow to prevent duplicates
+      toastManager.disableToastsFor(platform, 30000); // 30 seconds
 
       // Verify user is authenticated with retry
       const { data: { session } } = await retryWithBackoff(() => supabase.auth.getSession());

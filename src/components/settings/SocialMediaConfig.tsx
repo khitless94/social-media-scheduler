@@ -51,6 +51,21 @@ const SocialMediaConfig = ({ connectionStatus, onConnectionStatusChange }: Socia
                 <RefreshCw className="h-3 w-3 mr-1" />
                 Refresh
               </Button>
+              {process.env.NODE_ENV === 'development' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Test OAuth success simulation
+                    if ((window as any).handleOAuthSuccess) {
+                      (window as any).handleOAuthSuccess('twitter');
+                    }
+                  }}
+                  className="text-xs bg-yellow-100 hover:bg-yellow-200 text-yellow-800"
+                >
+                  Test OAuth
+                </Button>
+              )}
             </div>
           </CardTitle>
           <CardDescription className="text-base text-gray-600 mt-3">

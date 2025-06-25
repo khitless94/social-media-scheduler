@@ -4,6 +4,26 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 
+// Helper function to format platform names properly
+const formatPlatformName = (platform: string): string => {
+  if (!platform || typeof platform !== 'string') {
+    console.warn('Invalid platform value:', platform);
+    return 'Social Media';
+  }
+
+  // Handle specific platform names
+  const platformMap: Record<string, string> = {
+    'twitter': 'Twitter',
+    'linkedin': 'LinkedIn',
+    'facebook': 'Facebook',
+    'instagram': 'Instagram',
+    'reddit': 'Reddit'
+  };
+
+  const normalized = platform.toLowerCase().trim();
+  return platformMap[normalized] || platform.charAt(0).toUpperCase() + platform.slice(1);
+};
+
 const OAuthCallback = () => {
   const { platform } = useParams<{ platform: string }>();
   const navigate = useNavigate();
@@ -183,13 +203,30 @@ const OAuthCallback = () => {
           setStatus('success');
           setMessage(`Successfully connected your ${activePlatform.charAt(0).toUpperCase() + activePlatform.slice(1)} account!`);
 
+          console.log('🎯 OAUTH CALLBACK TOAST DEBUG: activePlatform =', activePlatform, 'type =', typeof activePlatform);
+          const platformName = formatPlatformName(activePlatform);
+          console.log('🎯 OAUTH CALLBACK TOAST DEBUG: platformName =', platformName);
           toast({
             title: "Connected successfully!",
-            description: `Your ${activePlatform} account has been connected.`,
+            description: `Your ${platformName} account has been connected.`,
           });
 
           // Refresh session to get updated user data
-          await supabase.auth.getSession();
+          const { data: { session } } = await supabase.auth.getSession();
+
+          // Immediately update localStorage for instant UI update
+          if (session?.user) {
+            const connectionKey = `connected_${activePlatform}_${session.user.id}`;
+            localStorage.setItem(connectionKey, 'true');
+            console.log(`✅ OAuth Callback: Set ${connectionKey} = true`);
+
+            // Also set a success flag for polling detection
+            localStorage.setItem('oauth_success_flag', JSON.stringify({
+              platform: activePlatform,
+              timestamp: Date.now(),
+              userId: session.user.id
+            }));
+          }
 
           // Handle popup vs regular window
           if (window.opener && !window.opener.closed) {
@@ -197,7 +234,25 @@ const OAuthCallback = () => {
               window.opener.postMessage({
                 type: "oauth_success",
                 platform: activePlatform
-              }, window.location.origin);
+              }, "https://socialscheduler.vercel.app");
+
+              // Trigger custom refresh event in opener
+              try {
+                window.opener.dispatchEvent(new CustomEvent("refreshConnectionStatus"));
+              } catch (e) {
+                console.log('Could not dispatch custom event:', e);
+              }
+
+              // Call global OAuth success function directly if available
+              try {
+                if (window.opener.handleOAuthSuccess) {
+                  window.opener.handleOAuthSuccess(activePlatform);
+                  console.log(`✅ Called global OAuth success function for ${activePlatform}`);
+                }
+              } catch (e) {
+                console.log('Could not call global OAuth function:', e);
+              }
+
               setTimeout(() => {
                 if (!window.closed) window.close();
               }, 1500);
@@ -209,6 +264,19 @@ const OAuthCallback = () => {
               }, 1500);
             }
           } else {
+            // Trigger refresh event for same-window navigation
+            window.dispatchEvent(new CustomEvent("refreshConnectionStatus"));
+
+            // Call global OAuth success function directly if available
+            try {
+              if (window.handleOAuthSuccess) {
+                window.handleOAuthSuccess(activePlatform);
+                console.log(`✅ Called global OAuth success function for ${activePlatform}`);
+              }
+            } catch (e) {
+              console.log('Could not call global OAuth function:', e);
+            }
+
             setTimeout(() => navigate("/settings"), 1500);
           }
           return;
@@ -352,9 +420,10 @@ Please check your Twitter app configuration and try again.`;
               setStatus('success');
               setMessage(`Successfully connected your ${activePlatform.charAt(0).toUpperCase() + activePlatform.slice(1)} account!`);
 
+              const platformName = formatPlatformName(activePlatform);
               toast({
                 title: "Connected successfully!",
-                description: `Your ${activePlatform} account has been connected.`,
+                description: `Your ${platformName} account has been connected.`,
               });
 
               // BULLETPROOF MESSAGE HANDLING - GUARANTEED TO WORK
@@ -562,9 +631,10 @@ Please check your Twitter app configuration and try again.`;
             setStatus('success');
             setMessage(`Successfully authenticated with ${activePlatform}!`);
             
+            const platformName = formatPlatformName(activePlatform);
             toast({
               title: "Connected successfully!",
-              description: `Your ${activePlatform} account has been connected.`,
+              description: `Your ${platformName} account has been connected.`,
             });
 
             if (window.opener) {

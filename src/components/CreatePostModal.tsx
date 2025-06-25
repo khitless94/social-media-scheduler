@@ -332,6 +332,60 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
     return cleaned;
   };
 
+  // Generate relevant hashtags for Twitter based on content and tone
+  const getTwitterHashtags = (content: string, tone: string): string => {
+    const contentLower = content.toLowerCase();
+    const hashtags: string[] = [];
+
+    // Tone-based hashtags
+    const toneHashtags: Record<string, string[]> = {
+      'professional': ['#Business', '#Professional', '#Growth'],
+      'casual': ['#Community', '#Social', '#Lifestyle'],
+      'enthusiastic': ['#Exciting', '#Amazing', '#Success'],
+      'informative': ['#Tips', '#Knowledge', '#Education'],
+      'humorous': ['#Fun', '#Humor', '#Entertainment']
+    };
+
+    // Content-based hashtags
+    const contentKeywords: Record<string, string[]> = {
+      'marketing': ['#Marketing', '#DigitalMarketing', '#SocialMedia'],
+      'business': ['#Business', '#Entrepreneur', '#Startup'],
+      'technology': ['#Tech', '#Innovation', '#Digital'],
+      'social media': ['#SocialMedia', '#Content', '#Engagement'],
+      'ai': ['#AI', '#ArtificialIntelligence', '#Tech'],
+      'productivity': ['#Productivity', '#Efficiency', '#WorkSmart'],
+      'leadership': ['#Leadership', '#Management', '#Success'],
+      'finance': ['#Finance', '#Money', '#Investment'],
+      'health': ['#Health', '#Wellness', '#Fitness'],
+      'education': ['#Education', '#Learning', '#Knowledge']
+    };
+
+    // Add tone-based hashtag
+    if (toneHashtags[tone]) {
+      hashtags.push(toneHashtags[tone][0]);
+    }
+
+    // Add content-based hashtags
+    for (const [keyword, tags] of Object.entries(contentKeywords)) {
+      if (contentLower.includes(keyword)) {
+        hashtags.push(tags[0]);
+        if (hashtags.length >= 3) break;
+      }
+    }
+
+    // Fill with general hashtags if needed
+    if (hashtags.length < 2) {
+      const generalHashtags = ['#Growth', '#Success', '#Innovation', '#Strategy'];
+      for (const tag of generalHashtags) {
+        if (!hashtags.includes(tag) && hashtags.length < 3) {
+          hashtags.push(tag);
+        }
+      }
+    }
+
+    return hashtags.slice(0, 3).join(' ');
+  };
+
   const generateVariation = (baseContent: string, tone: string): string => {
     const safeContent = baseContent || "Check out this amazing content!";
     
@@ -404,17 +458,51 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
       // Clean up AI-generated content - remove instructional text
       generatedContent = cleanAIGeneratedContent(generatedContent);
 
+      // Add hashtags for Twitter if not already present
+      if (selectedTargetPlatforms.includes('twitter') && !generatedContent.includes('#')) {
+        const hashtags = getTwitterHashtags(prompt, selectedTone);
+        const contentWithHashtags = `${generatedContent.trim()} ${hashtags}`;
+
+        // Ensure it fits within Twitter's limit
+        if (contentWithHashtags.length <= 280) {
+          generatedContent = contentWithHashtags;
+        } else {
+          // Truncate content to fit with hashtags
+          const availableSpace = 280 - hashtags.length - 1; // -1 for space
+          const truncatedContent = generatedContent.substring(0, availableSpace).trim();
+          generatedContent = `${truncatedContent} ${hashtags}`;
+        }
+      }
+
       // Generate variations for all tone options
-      const variations = toneOptions.map((tone, index) => ({
-        id: index + 1,
-        content: index === 0 ? generatedContent : generateVariation(generatedContent, tone.id),
-        style: tone.name,
-        tone: tone.id,
-        contentType: selectedContentType,
-        platforms: selectedTargetPlatforms,
-        emoji: tone.emoji,
-        image: generatedImage || uploadedImage
-      }));
+      const variations = toneOptions.map((tone, index) => {
+        let content = index === 0 ? generatedContent : generateVariation(generatedContent, tone.id);
+
+        // Add hashtags to Twitter variations if not present
+        if (selectedTargetPlatforms.includes('twitter') && !content.includes('#')) {
+          const hashtags = getTwitterHashtags(prompt, tone.id);
+          const contentWithHashtags = `${content.trim()} ${hashtags}`;
+
+          if (contentWithHashtags.length <= 280) {
+            content = contentWithHashtags;
+          } else {
+            const availableSpace = 280 - hashtags.length - 1;
+            const truncatedContent = content.substring(0, availableSpace).trim();
+            content = `${truncatedContent} ${hashtags}`;
+          }
+        }
+
+        return {
+          id: index + 1,
+          content,
+          style: tone.name,
+          tone: tone.id,
+          contentType: selectedContentType,
+          platforms: selectedTargetPlatforms,
+          emoji: tone.emoji,
+          image: generatedImage || uploadedImage
+        };
+      });
 
       const validVariations = variations.filter(v => v.content && v.content.trim().length > 0);
       if (validVariations.length === 0) {
@@ -439,18 +527,20 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
         const maxLength = hasTwitter ? 240 : 500; // Leave room for hashtags
 
         let content = '';
+        const twitterHashtags = hasTwitter ? getTwitterHashtags(basePrompt, tone) : '';
+
         switch (tone) {
           case 'professional':
-            content = `${contentTypeEmoji} ${basePrompt}\n\nWe're excited to share this with our community. This represents an important step forward.\n\n#business #professional`;
+            content = `${contentTypeEmoji} ${basePrompt}\n\nWe're excited to share this with our community. This represents an important step forward.${hasTwitter ? `\n\n${twitterHashtags}` : '\n\n#business #professional'}`;
             break;
           case 'casual':
-            content = `Hey everyone! 😊\n\n${basePrompt}\n\nWhat do you think? Let us know in the comments!\n\n#community #casual`;
+            content = `Hey everyone! 😊\n\n${basePrompt}\n\nWhat do you think? Let us know in the comments!${hasTwitter ? `\n\n${twitterHashtags}` : '\n\n#community #casual'}`;
             break;
           case 'enthusiastic':
-            content = `🚀 AMAZING NEWS! 🚀\n\n${basePrompt}\n\nWe can't contain our excitement about this! 🎉\n\n#exciting #amazing`;
+            content = `🚀 AMAZING NEWS! 🚀\n\n${basePrompt}\n\nWe can't contain our excitement about this! 🎉${hasTwitter ? `\n\n${twitterHashtags}` : '\n\n#exciting #amazing'}`;
             break;
           case 'informative':
-            content = `📚 ${basePrompt}\n\nKey points:\n• Important information\n• Valuable insights\n• Actionable takeaways\n\n#education #knowledge`;
+            content = `📚 ${basePrompt}\n\nKey points:\n• Important information\n• Valuable insights\n• Actionable takeaways${hasTwitter ? `\n\n${twitterHashtags}` : '\n\n#education #knowledge'}`;
             break;
           case 'humorous':
             content = `😄 ${basePrompt}\n\nWell, this is interesting! 🤔 More exciting than watching paint dry!\n\n#humor #funny`;
@@ -1131,7 +1221,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
                     )}
 
                     {/* Content Preview */}
-                    <div className="bg-white border border-gray-200 p-4 rounded-lg min-h-[140px] shadow-sm">
+                    <div className="bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
                       <div className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
                         {post.content || "Content not available"}
                       </div>
@@ -1210,7 +1300,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
                   )}
 
                   <div className="bg-gray-50 p-3 rounded-lg">
-                    <div className="text-sm text-gray-700 whitespace-pre-wrap">
+                    <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
                       {selectedPost.content}
                     </div>
                   </div>

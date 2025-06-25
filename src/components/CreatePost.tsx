@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,32 +14,23 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSocialMedia } from '@/hooks/useSocialMedia';
 import {
   ArrowLeft,
-  Home,
   Sparkles,
   Wand2,
-  Eye,
   Copy,
-  RefreshCw,
-  Target,
   CheckCircle,
-  AlertCircle,
-  Settings,
   Loader2,
   CalendarIcon,
-  Clock,
   Send,
   CalendarDays
 } from 'lucide-react';
 import { FaLinkedin, FaTwitter, FaInstagram, FaFacebook, FaReddit } from 'react-icons/fa';
 import { format } from 'date-fns';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from '@/integrations/supabase/client';
 
 const CreatePost: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
-
-  // Real social media posting hook
   const { postToSocial, loading: socialMediaLoading } = useSocialMedia();
 
   // State management
@@ -48,7 +39,6 @@ const CreatePost: React.FC = () => {
   const [tone, setTone] = useState('');
   const [generatedText, setGeneratedText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [usageCount, setUsageCount] = useState(0);
   const [scheduleDate, setScheduleDate] = useState<Date>();
   const [scheduleTime, setScheduleTime] = useState('');
   const [isPosting, setIsPosting] = useState(false);
@@ -63,7 +53,7 @@ const CreatePost: React.FC = () => {
   });
 
   // Use the real-time social media connection hook
-  const { connectPlatform: connectToSocialPlatform, isConnecting, refreshConnectionStatus } = useSocialMediaConnection(setConnectionStatus);
+  const { connectPlatform: connectToSocialPlatform, isConnecting } = useSocialMediaConnection(setConnectionStatus);
 
   // Configuration
   const platforms = [
@@ -82,10 +72,272 @@ const CreatePost: React.FC = () => {
     { value: 'inspirational', label: 'Inspirational' }
   ];
 
-  // Real-time connection status is handled by useSocialMediaConnection hook
-  // No need for manual localStorage checking
+  // Helper function to handle platform connection
+  const handleConnectPlatform = (platformValue: string) => {
+    connectToSocialPlatform(platformValue as Platform);
+  };
 
-  // Generate content function
+  // Helper function to create expert-level AI prompts
+  const createExpertPrompt = (userPrompt: string, selectedTone: string, selectedPlatform: string): string => {
+    const platformGuidelines = {
+      linkedin: {
+        style: "professional networking platform",
+        format: "thought leadership content with industry insights",
+        engagement: "professional discussion and networking",
+        length: "1-3 paragraphs with strategic line breaks",
+        hashtags: "3-5 relevant industry hashtags",
+        cta: "professional call-to-action encouraging meaningful discussion"
+      },
+      twitter: {
+        style: "concise and impactful microblogging platform",
+        format: "punchy, quotable content under 280 characters",
+        engagement: "retweets, replies, and viral potential",
+        length: "1-2 sentences maximum",
+        hashtags: "ALWAYS include 2-3 relevant hashtags at the end for maximum reach",
+        cta: "engaging question or statement that encourages interaction"
+      },
+      facebook: {
+        style: "community-focused social platform",
+        format: "storytelling with personal connection",
+        engagement: "likes, comments, and shares from friends/followers",
+        length: "2-4 sentences with emotional appeal",
+        hashtags: "2-3 broad appeal hashtags",
+        cta: "community-building question or relatable statement"
+      },
+      instagram: {
+        style: "visual-first lifestyle platform",
+        format: "aesthetic and aspirational content",
+        engagement: "likes, comments, and story shares",
+        length: "caption that complements visual content",
+        hashtags: "5-10 mix of popular and niche hashtags",
+        cta: "lifestyle-focused engagement encouraging saves and shares"
+      },
+      reddit: {
+        style: "discussion-focused community platform",
+        format: "informative and authentic content",
+        engagement: "upvotes, detailed comments, and community discussion",
+        length: "detailed explanation with context and value",
+        hashtags: "minimal to no hashtags",
+        cta: "thought-provoking question encouraging detailed responses"
+      }
+    };
+
+    const toneGuidelines = {
+      professional: "authoritative yet approachable, industry expertise, credible insights",
+      casual: "conversational, relatable, friendly neighborhood expert",
+      friendly: "warm, helpful, supportive community member",
+      humorous: "witty, clever, entertaining while staying on-brand",
+      inspirational: "motivational, uplifting, empowering with actionable wisdom",
+      informative: "educational, fact-based, valuable insights and tips"
+    };
+
+    const platform = platformGuidelines[selectedPlatform as keyof typeof platformGuidelines] || platformGuidelines.linkedin;
+    const toneStyle = toneGuidelines[selectedTone as keyof typeof toneGuidelines] || toneGuidelines.casual;
+
+    return `You are an expert social media manager and content strategist with 10+ years of experience creating viral, engaging content across all major platforms. You specialize in ${platform.style} and have a proven track record of driving high engagement rates.
+
+Your task: Create a single, high-performing social media post about "${userPrompt}" for ${selectedPlatform.toUpperCase()}.
+
+PLATFORM REQUIREMENTS:
+- Style: ${platform.style}
+- Format: ${platform.format}
+- Target engagement: ${platform.engagement}
+- Optimal length: ${platform.length}
+- Hashtag strategy: ${platform.hashtags}
+- Call-to-action: ${platform.cta}
+
+TONE REQUIREMENTS:
+- Voice: ${toneStyle}
+- Maintain ${selectedTone} tone throughout
+- Match the platform's native communication style
+
+CONTENT STRATEGY:
+1. Hook: Start with an attention-grabbing opening
+2. Value: Provide clear value or insight
+3. Engagement: Include elements that encourage interaction
+4. Authenticity: Sound natural and genuine to the platform
+5. Optimization: Use platform-specific best practices
+
+STRICT REQUIREMENTS:
+- Return ONLY the final post content
+- No explanations, alternatives, or meta-commentary
+- Include appropriate emojis for the platform and tone
+- Add relevant hashtags following platform conventions
+- Ensure content is ready to publish immediately
+- ${selectedPlatform === 'twitter' ? 'MUST be under 280 characters INCLUDING hashtags. ALWAYS end with 2-3 relevant hashtags.' : 'Optimize length for maximum engagement'}
+
+Create the post now:`;
+  };
+
+  // Generate relevant hashtags for Twitter
+  // Platform-specific character limits
+  const platformLimits = {
+    twitter: 280,
+    linkedin: 3000,
+    facebook: 63206,
+    instagram: 2200,
+    reddit: 40000
+  };
+
+  // Get character limit for current platform
+  const getCharacterLimit = (platform: string): number => {
+    return platformLimits[platform as keyof typeof platformLimits] || 500;
+  };
+
+  // Check if content exceeds platform limit
+  const isOverLimit = (content: string, platform: string): boolean => {
+    const limit = getCharacterLimit(platform);
+    return content.length > limit;
+  };
+
+  // Get character count status (normal, warning, error)
+  const getCharacterStatus = (content: string, platform: string): 'normal' | 'warning' | 'error' => {
+    const limit = getCharacterLimit(platform);
+    const length = content.length;
+
+    if (length > limit) return 'error';
+    if (length > limit * 0.9) return 'warning'; // 90% of limit
+    return 'normal';
+  };
+
+  const generateTwitterHashtags = (content: string, tone: string): string => {
+    const contentLower = content.toLowerCase();
+    const hashtags: string[] = [];
+
+    // Content-based hashtags
+    const keywords = {
+      'business': '#Business',
+      'marketing': '#Marketing',
+      'tech': '#Tech',
+      'ai': '#AI',
+      'social media': '#SocialMedia',
+      'productivity': '#Productivity',
+      'leadership': '#Leadership',
+      'innovation': '#Innovation',
+      'growth': '#Growth',
+      'success': '#Success',
+      'strategy': '#Strategy',
+      'tips': '#Tips',
+      'education': '#Education',
+      'finance': '#Finance',
+      'health': '#Health'
+    };
+
+    // Add content-based hashtags
+    for (const [keyword, hashtag] of Object.entries(keywords)) {
+      if (contentLower.includes(keyword) && hashtags.length < 2) {
+        hashtags.push(hashtag);
+      }
+    }
+
+    // Add tone-based hashtag
+    const toneHashtags = {
+      'professional': '#Professional',
+      'casual': '#Community',
+      'enthusiastic': '#Exciting',
+      'informative': '#Knowledge',
+      'humorous': '#Fun'
+    };
+
+    if (toneHashtags[tone as keyof typeof toneHashtags] && hashtags.length < 3) {
+      hashtags.push(toneHashtags[tone as keyof typeof toneHashtags]);
+    }
+
+    // Fill with general hashtags if needed
+    if (hashtags.length === 0) {
+      hashtags.push('#Growth', '#Success');
+    } else if (hashtags.length === 1) {
+      hashtags.push('#Success');
+    }
+
+    return hashtags.slice(0, 3).join(' ');
+  };
+
+  // Enhanced fallback content creation with better templates
+  const createFallbackContent = (userPrompt: string, selectedTone: string, selectedPlatform: string): string => {
+    const basePrompt = userPrompt.trim();
+    const isTwitter = selectedPlatform === 'twitter';
+    const maxLength = isTwitter ? 240 : 500;
+
+    // Expert-level content templates
+    const expertTemplates = {
+      professional: {
+        linkedin: [
+          `💡 Key insight: ${basePrompt}. In my experience, this approach has consistently delivered results. What strategies have worked best for your team?`,
+          `🎯 Industry update: ${basePrompt}. This trend is reshaping how we approach our work. I'd love to hear your perspective on the implications.`,
+          `📈 Sharing a valuable lesson: ${basePrompt}. The data speaks for itself, and the results have been remarkable. What's your take on this?`
+        ],
+        twitter: [
+          `🔥 ${basePrompt} - game changer! Who else is seeing this trend? #Innovation #Business #Growth`,
+          `💡 Quick insight: ${basePrompt}. Thoughts? #Professional #Strategy #Success`,
+          `🎯 ${basePrompt} - this is the future. Agree? #Future #Tech #Business`
+        ],
+        facebook: [
+          `Professional insight: ${basePrompt}. This has been a game-changer in our industry. What are your thoughts?`,
+          `Sharing something important: ${basePrompt}. Would love to hear your experiences with this!`
+        ]
+      },
+      casual: {
+        linkedin: [
+          `Just had to share this: ${basePrompt}! 🙌 It's been such a learning experience. Anyone else dealing with something similar?`,
+          `Real talk: ${basePrompt}. Sometimes the best insights come from unexpected places. What's been your biggest surprise lately?`
+        ],
+        twitter: [
+          `Okay but seriously, ${basePrompt} 😅 Anyone else?`,
+          `Just me or is ${basePrompt} actually amazing? 🤔`,
+          `${basePrompt} and I'm here for it! 🙌`
+        ],
+        facebook: [
+          `Hey everyone! 👋 Just wanted to share: ${basePrompt}. It's been on my mind lately and thought you might find it interesting too!`,
+          `So... ${basePrompt} 😊 What do you all think about this?`
+        ]
+      },
+      inspirational: {
+        linkedin: [
+          `✨ Remember: ${basePrompt}. Every challenge is an opportunity to grow stronger. What's inspiring you today?`,
+          `🚀 Motivation Monday: ${basePrompt}. Success isn't just about the destination—it's about who you become along the way.`
+        ],
+        twitter: [
+          `✨ ${basePrompt} ✨ You've got this! 💪`,
+          `🌟 Daily reminder: ${basePrompt} Keep pushing forward!`,
+          `💫 ${basePrompt} - believe in yourself! 🚀`
+        ],
+        facebook: [
+          `🌟 Feeling inspired today: ${basePrompt}. Life has a way of teaching us exactly what we need to know. Hope this brightens your day too! ✨`,
+          `💪 Just a reminder: ${basePrompt}. We're all capable of more than we realize. What's motivating you today?`
+        ]
+      }
+    };
+
+    // Get platform-specific template
+    const toneTemplates = expertTemplates[selectedTone as keyof typeof expertTemplates];
+    if (toneTemplates) {
+      const platformTemplates = toneTemplates[selectedPlatform as keyof typeof toneTemplates] || toneTemplates.linkedin;
+      if (platformTemplates && platformTemplates.length > 0) {
+        const template = platformTemplates[Math.floor(Math.random() * platformTemplates.length)];
+
+        // Ensure it fits within character limits
+        if (template.length > maxLength) {
+          return template.substring(0, maxLength - 3) + '...';
+        }
+        return template;
+      }
+    }
+
+    // Fallback to simple template
+    const simpleTemplate = `${basePrompt} - what are your thoughts? 🤔`;
+
+    // Add hashtags for Twitter
+    if (isTwitter) {
+      const hashtags = generateTwitterHashtags(basePrompt, selectedTone);
+      const withHashtags = `${simpleTemplate} ${hashtags}`;
+      return withHashtags.length <= 280 ? withHashtags : simpleTemplate;
+    }
+
+    return simpleTemplate;
+  };
+
+  // Generate content function with expert-level AI prompting
   const generatePost = async () => {
     if (!prompt.trim() || !platform || !tone) {
       toast({
@@ -98,94 +350,113 @@ const CreatePost: React.FC = () => {
 
     setIsGenerating(true);
     try {
-      // Mock content generation for demo
-      const mockContent = generateMockContent(prompt, platform, tone);
-      setGeneratedText(mockContent);
-      setUsageCount(prev => prev + 1);
-      
-      toast({
-        title: "Content generated!",
-        description: "Your post is ready. You can copy it or make changes.",
+      // Create expert-level prompt for AI
+      const expertPrompt = createExpertPrompt(prompt, tone, platform);
+
+      console.log('🚀 Starting content generation...');
+      console.log('Platform:', platform, 'Tone:', tone, 'Prompt:', prompt);
+
+      // First try the Supabase function with expert prompting
+      const { data, error } = await supabase.functions.invoke('generate-content', {
+        body: {
+          prompt: expertPrompt,
+          tone,
+          platform,
+          type: 'text',
+          maxLength: platform === 'twitter' ? 280 : 500,
+          singlePost: true,
+          expertMode: true // Flag to indicate this is an expert-level request
+        }
       });
-    } catch (error) {
-      console.error('Error generating post:', error);
+
+      console.log('Supabase function response:', { data, error });
+
+      if (!error && data && (data.content || data.generatedText)) {
+        // Clean up any potential AI artifacts
+        let cleanContent = (data.content || data.generatedText).trim();
+
+        // Remove common AI artifacts
+        cleanContent = cleanContent.replace(/^(Here's|Here is|Post:|Content:)/i, '');
+        cleanContent = cleanContent.replace(/\n\n+/g, '\n\n'); // Clean up excessive line breaks
+        cleanContent = cleanContent.trim();
+
+        // Add hashtags for Twitter if not already present
+        if (platform === 'twitter' && !cleanContent.includes('#')) {
+          const hashtags = generateTwitterHashtags(prompt, tone);
+          const contentWithHashtags = `${cleanContent.trim()} ${hashtags}`;
+
+          // Ensure it fits within Twitter's limit
+          if (contentWithHashtags.length <= 280) {
+            cleanContent = contentWithHashtags;
+          } else {
+            // Truncate content to fit with hashtags
+            const availableSpace = 280 - hashtags.length - 1; // -1 for space
+            const truncatedContent = cleanContent.substring(0, availableSpace).trim();
+            cleanContent = `${truncatedContent} ${hashtags}`;
+          }
+        }
+
+        setGeneratedText(cleanContent);
+        toast({
+          title: "Expert content generated! 🚀",
+          description: "Your AI-generated content is optimized for maximum engagement.",
+        });
+        return;
+      }
+
+      // If Supabase function fails or returns no content, use enhanced fallback
+      console.log('Supabase function failed or returned no content, using enhanced fallback');
+      console.log('Error details:', error);
+
+      let fallbackContent = createFallbackContent(prompt, tone, platform);
+
+      // Add hashtags for Twitter if not already present
+      if (platform === 'twitter' && !fallbackContent.includes('#')) {
+        const hashtags = generateTwitterHashtags(prompt, tone);
+        const contentWithHashtags = `${fallbackContent.trim()} ${hashtags}`;
+
+        if (contentWithHashtags.length <= 280) {
+          fallbackContent = contentWithHashtags;
+        } else {
+          const availableSpace = 280 - hashtags.length - 1;
+          const truncatedContent = fallbackContent.substring(0, availableSpace).trim();
+          fallbackContent = `${truncatedContent} ${hashtags}`;
+        }
+      }
+
+      setGeneratedText(fallbackContent);
+
       toast({
-        title: "Generation failed",
-        description: "There was an error generating your post. Please try again.",
-        variant: "destructive",
+        title: "Content generated! ✨",
+        description: "Your content has been created using expert templates optimized for engagement.",
       });
+
+    } catch (error: any) {
+      console.error('Error with content generation:', error);
+
+      // Use enhanced fallback content generation
+      try {
+        const fallbackContent = createFallbackContent(prompt, tone, platform);
+        setGeneratedText(fallbackContent);
+
+        toast({
+          title: "Content generated! 💡",
+          description: "Your content has been created using expert templates. Ready to engage your audience!",
+        });
+      } catch (fallbackError) {
+        console.error('Fallback generation also failed:', fallbackError);
+        toast({
+          title: "Generation failed",
+          description: "There was an error generating your content. Please try again.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const generateMockContent = (userPrompt: string, selectedPlatform: string, selectedTone: string): string => {
-    const toneAdjectives = {
-      professional: ['strategic', 'innovative', 'efficient', 'results-driven'],
-      casual: ['awesome', 'amazing', 'cool', 'fantastic'],
-      friendly: ['wonderful', 'great', 'lovely', 'delightful'],
-      humorous: ['hilarious', 'witty', 'entertaining', 'amusing'],
-      inspirational: ['motivating', 'empowering', 'uplifting', 'transformative']
-    };
-
-    const platformTemplates = {
-      linkedin: `🚀 Excited to share insights about ${userPrompt}! This ${toneAdjectives[selectedTone as keyof typeof toneAdjectives]?.[0] || 'amazing'} topic has been on my mind lately.
-
-Key takeaways:
-• Innovation drives success
-• Collaboration creates value
-• Continuous learning is essential
-
-What are your thoughts? Let's discuss in the comments!
-
-#Innovation #Leadership #Growth #${userPrompt.replace(/\s+/g, '')}`,
-
-      twitter: `🔥 Just discovered something ${toneAdjectives[selectedTone as keyof typeof toneAdjectives]?.[1] || 'incredible'} about ${userPrompt}!
-
-This could be a game-changer 🚀
-
-#${userPrompt.replace(/\s+/g, '')} #Innovation #TechTrends`,
-
-      instagram: `✨ ${userPrompt} is absolutely ${toneAdjectives[selectedTone as keyof typeof toneAdjectives]?.[2] || 'amazing'}! 📸
-
-🌟 Key insights:
-💡 Innovation is everywhere
-🚀 Growth mindset wins
-💪 Keep pushing forward
-
-What do you think? Drop a comment below! 👇
-
-#${userPrompt.replace(/\s+/g, '')} #Inspiration #Growth #Innovation`,
-
-      facebook: `Hey everyone! 👋
-
-I've been thinking a lot about ${userPrompt} lately, and it's truly ${toneAdjectives[selectedTone as keyof typeof toneAdjectives]?.[3] || 'fascinating'}!
-
-Here's what I've learned:
-🔹 Every challenge is an opportunity
-🔹 Small steps lead to big changes
-🔹 Community support makes all the difference
-
-Would love to hear your experiences with this! Share your thoughts in the comments 💬`,
-
-      reddit: `TIL about ${userPrompt} and it's honestly mind-blowing 🤯
-
-For those who haven't heard about this yet, here's the deal:
-
-The ${toneAdjectives[selectedTone as keyof typeof toneAdjectives]?.[0] || 'interesting'} thing is how this connects to so many other areas.
-
-Key points:
-- This changes everything we thought we knew
-- The applications are endless
-- More research is definitely needed
-
-Anyone else following developments in this space? Would love to discuss!`
-    };
-
-    return platformTemplates[selectedPlatform as keyof typeof platformTemplates] || 
-           `This is a ${selectedTone} post about ${userPrompt}. ${toneAdjectives[selectedTone as keyof typeof toneAdjectives]?.[0] || 'Great'} content coming your way!`;
-  };
-
+  // Copy to clipboard function
   const copyToClipboard = () => {
     navigator.clipboard.writeText(generatedText);
     toast({
@@ -194,66 +465,12 @@ Anyone else following developments in this space? Would love to discuss!`
     });
   };
 
-  const regeneratePost = () => {
-    generatePost();
-  };
-
-  // Real platform connection using the hook
-  const handleConnectPlatform = async (platformName: string) => {
-    if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to connect social media accounts.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      await connectToSocialPlatform(platformName as Platform);
-    } catch (error) {
-      console.error('Connection error:', error);
-      toast({
-        title: "Connection failed",
-        description: `Failed to connect to ${platformName}. Please try again.`,
-        variant: "destructive",
-      });
-    }
-  };
-
   // Post content function
   const handlePostNow = async () => {
-    if (!generatedText.trim()) {
+    if (!generatedText.trim() || !platform || !connectionStatus[platform as Platform]) {
       toast({
-        title: "No content to post",
-        description: "Please generate content first.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!platform) {
-      toast({
-        title: "No platform selected",
-        description: "Please select a platform to post to.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!connectionStatus[platform as Platform]) {
-      toast({
-        title: "Platform not connected",
-        description: `Please connect to ${platform} first.`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to post content.",
+        title: "Cannot post",
+        description: "Please generate content and ensure platform is connected.",
         variant: "destructive",
       });
       return;
@@ -261,35 +478,26 @@ Anyone else following developments in this space? Would love to discuss!`
 
     setIsPosting(true);
     try {
-      console.log(`🚀 Posting to ${platform} with real API...`);
-
-      // Use the real social media posting API
       const result = await postToSocial({
         content: generatedText,
         platform: platform as Platform,
-        subreddit: platform === 'reddit' ? 'test' : undefined, // Default subreddit for Reddit
-        image: undefined // No image support in this version
+        subreddit: platform === 'reddit' ? 'test' : undefined,
+        image: undefined
       });
 
       if (result.success) {
         toast({
           title: "Posted successfully!",
-          description: `Your content has been posted to ${platform}. ${result.postId ? `Post ID: ${result.postId}` : ''}`,
+          description: `Your content has been posted to ${platform}.`,
         });
-
-        // Clear the form after successful post
         setGeneratedText('');
         setPrompt('');
         setPlatform('');
         setTone('');
-        setScheduleDate(undefined);
-        setScheduleTime('');
       } else {
         throw new Error(result.error || 'Unknown error occurred');
       }
-
-    } catch (error) {
-      console.error('Posting error:', error);
+    } catch (error: any) {
       toast({
         title: "Posting failed",
         description: error.message || "There was an error posting your content. Please try again.",
@@ -302,46 +510,10 @@ Anyone else following developments in this space? Would love to discuss!`
 
   // Schedule post function
   const handleSchedulePost = async () => {
-    if (!generatedText.trim()) {
+    if (!generatedText.trim() || !platform || !scheduleDate || !scheduleTime) {
       toast({
-        title: "No content to schedule",
-        description: "Please generate content first.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!platform) {
-      toast({
-        title: "No platform selected",
-        description: "Please select a platform to schedule for.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!connectionStatus[platform as Platform]) {
-      toast({
-        title: "Platform not connected",
-        description: `Please connect to ${platform} first.`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!scheduleDate || !scheduleTime) {
-      toast({
-        title: "Schedule incomplete",
-        description: "Please select both date and time for scheduling.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to schedule content.",
+        title: "Missing information",
+        description: "Please fill in all required fields for scheduling.",
         variant: "destructive",
       });
       return;
@@ -349,26 +521,6 @@ Anyone else following developments in this space? Would love to discuss!`
 
     setIsPosting(true);
     try {
-      const scheduledDateTime = new Date(scheduleDate);
-      const [hours, minutes] = scheduleTime.split(':');
-      scheduledDateTime.setHours(parseInt(hours), parseInt(minutes));
-
-      // Check if scheduled time is in the future
-      if (scheduledDateTime <= new Date()) {
-        throw new Error('Scheduled time must be in the future');
-      }
-
-      console.log(`📅 Scheduling post for ${platform} at ${format(scheduledDateTime, "PPP 'at' p")}...`);
-
-      // For now, we'll post immediately since the scheduling API needs to be implemented
-      // In a real implementation, you would save this to a database and use a cron job
-      toast({
-        title: "Scheduling not yet implemented",
-        description: "Posting immediately instead. Scheduling feature coming soon!",
-        variant: "default",
-      });
-
-      // Use the real social media posting API
       const result = await postToSocial({
         content: generatedText,
         platform: platform as Platform,
@@ -381,8 +533,6 @@ Anyone else following developments in this space? Would love to discuss!`
           title: "Posted successfully!",
           description: `Your content has been posted to ${platform}. (Scheduled posting coming soon!)`,
         });
-
-        // Clear the form after successful post
         setGeneratedText('');
         setPrompt('');
         setPlatform('');
@@ -392,9 +542,7 @@ Anyone else following developments in this space? Would love to discuss!`
       } else {
         throw new Error(result.error || 'Unknown error occurred');
       }
-
-    } catch (error) {
-      console.error('Scheduling error:', error);
+    } catch (error: any) {
       toast({
         title: "Scheduling failed",
         description: error.message || "There was an error scheduling your content. Please try again.",
@@ -407,17 +555,16 @@ Anyone else following developments in this space? Would love to discuss!`
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Professional Navigation Header */}
+      {/* ContentStudio-like Header */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-full mx-auto px-6">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                 <Sparkles className="w-5 h-5 text-white" />
               </div>
               <div>
-                <span className="text-xl font-semibold text-gray-900">ScribeSchedule</span>
-                <span className="ml-2 text-sm text-gray-500">Content Creator</span>
+                <span className="text-xl font-semibold text-gray-900">Create new</span>
               </div>
             </div>
             
@@ -430,494 +577,704 @@ Anyone else following developments in this space? Would love to discuss!`
                 <ArrowLeft className="w-4 h-4" />
                 <span>Dashboard</span>
               </Button>
-              <Button
-                variant="ghost"
-                onClick={() => navigate('/')}
-                className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 px-3 py-2"
-              >
-                <Home className="w-4 h-4" />
-                <span>Home</span>
-              </Button>
             </div>
           </div>
         </div>
       </nav>
 
-      {/* Professional Header Section */}
-      <section className="pt-20 pb-8 bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-xl mb-6">
-              <Wand2 className="w-8 h-8 text-blue-600" />
-            </div>
-            
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">
-              Create Professional Content
-            </h1>
-            
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
-              Generate engaging social media content with AI assistance. 
-              Professional, authentic, and optimized for your audience.
-            </p>
-            
-            {/* Professional Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mt-12">
-              {[
-                { number: "50K+", label: "Posts Created" },
-                { number: "5", label: "Platforms" },
-                { number: "99%", label: "Success Rate" },
-                { number: "24/7", label: "AI Available" }
-              ].map((stat, index) => (
-                <div key={index} className="text-center">
-                  <div className="text-3xl font-bold text-gray-900 mb-1">
-                    {stat.number}
-                  </div>
-                  <div className="text-sm text-gray-500 font-medium">
-                    {stat.label}
-                  </div>
+      {/* ContentStudio-like Main Layout */}
+      <div className="pt-16 flex min-h-screen bg-gray-50">
+        {/* Sidebar Navigation */}
+        <div className="w-64 bg-white border-r border-gray-200 fixed left-0 top-16 bottom-0 overflow-y-auto">
+          <div className="p-6">
+            <div className="space-y-6">
+              {/* Search */}
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Filter by Name"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <div className="absolute left-3 top-2.5 text-gray-400">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
                 </div>
-              ))}
+              </div>
+
+              {/* Categories */}
+              <div className="space-y-2">
+                <div className="flex items-center space-x-3 px-3 py-2 rounded-lg bg-blue-50 text-blue-700 cursor-pointer">
+                  <span className="text-lg">⭐</span>
+                  <span className="font-medium">Popular</span>
+                </div>
+                <div className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <span className="text-lg">🧠</span>
+                  <span className="text-gray-700">Brainstorm</span>
+                </div>
+                <div className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <span className="text-lg">❤️</span>
+                  <span className="text-gray-700">Social Media</span>
+                </div>
+                <div className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <span className="text-lg">📝</span>
+                  <span className="text-gray-700">Blog/SEO</span>
+                </div>
+                <div className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <span className="text-lg">📧</span>
+                  <span className="text-gray-700">Newsletter</span>
+                </div>
+                <div className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <span className="text-lg">👤</span>
+                  <span className="text-gray-700">My Templates</span>
+                </div>
+                <div className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <span className="text-lg">🔄</span>
+                  <span className="text-gray-700">Recently Used</span>
+                </div>
+                <div className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <span className="text-lg">📋</span>
+                  <span className="text-gray-700">All Templates</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </section>
 
-      {/* Main Content Section */}
-      <section className="py-12 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Content Creation Panel - Takes 2 columns */}
-            <div className="lg:col-span-2">
-              <Card className="bg-white border border-gray-200 shadow-sm rounded-lg">
-                {/* Professional Header */}
-                <div className="border-b border-gray-200 px-6 py-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <Sparkles className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">Content Generator</h3>
-                        <p className="text-sm text-gray-500">
-                          Create professional social media content
-                        </p>
-                      </div>
-                    </div>
-                    
-                    {/* Usage Counter */}
-                    {usageCount > 0 && (
-                      <div className="bg-gray-50 rounded-lg px-3 py-2 border border-gray-200">
-                        <div className="text-xs text-gray-500 font-medium">Generated Today</div>
-                        <div className="text-lg font-semibold text-gray-900">{usageCount}</div>
-                      </div>
-                    )}
-                  </div>
-                </div>
+        {/* Main Content Area */}
+        <div className="flex-1 ml-64 p-6">
+          <div className="max-w-6xl mx-auto">
+            {/* Header */}
+            <div className="mb-8">
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">What Social Media content do you want to make?</h1>
+              <div className="flex items-center space-x-4 text-sm text-gray-600">
+                <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full">✨ New Beta Feature: Create Posts out of a webpage</span>
+              </div>
+            </div>
 
-                <CardContent className="p-6 space-y-6">
-                  {/* Content Prompt Section */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="prompt" className="text-sm font-medium text-gray-900">
-                        Content Description
-                      </Label>
-                      <span className="text-xs text-gray-500">{prompt.length}/500</span>
-                    </div>
-                    
-                    <Textarea
-                      id="prompt"
-                      placeholder="Describe your content idea... e.g., 'Create a motivational LinkedIn post about productivity tips for remote workers'"
-                      value={prompt}
-                      onChange={(e) => setPrompt(e.target.value)}
-                      className="min-h-[120px] resize-none border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg p-4 text-sm transition-all duration-200 bg-white"
-                    />
+            {/* Platform Selection Cards */}
+            <div className="mb-8">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Platform</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {platforms.map((p) => {
+                  const IconComponent = p.icon === 'linkedin' ? FaLinkedin :
+                                      p.icon === 'twitter' ? FaTwitter :
+                                      p.icon === 'instagram' ? FaInstagram :
+                                      p.icon === 'facebook' ? FaFacebook : FaReddit;
+                  const isConnected = connectionStatus[p.value as Platform];
+                  const isSelected = platform === p.value;
+                  const platformColors = {
+                    linkedin: '#0077B5',
+                    twitter: '#1DA1F2',
+                    instagram: '#E4405F',
+                    facebook: '#1877F2',
+                    reddit: '#FF4500'
+                  };
 
-                    {/* Professional Quick Templates */}
-                    <div className="space-y-4">
-                      <Label className="text-sm font-medium text-gray-900">Quick Templates</Label>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {[
-                          { emoji: "💼", text: "Professional LinkedIn post", category: "Business" },
-                          { emoji: "🌱", text: "Lifestyle Instagram post", category: "Lifestyle" },
-                          { emoji: "🚀", text: "Tech Twitter thread", category: "Technology" },
-                          { emoji: "📈", text: "Business growth tips", category: "Growth" }
-                        ].map((template, index) => (
-                          <button
-                            key={index}
-                            type="button"
-                            onClick={() => setPrompt(template.text)}
-                            className="p-4 text-left border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-all duration-200"
-                          >
-                            <div className="flex items-center space-x-3">
-                              <span className="text-lg">{template.emoji}</span>
-                              <div className="flex-1">
-                                <div className="text-xs text-gray-500 font-medium uppercase tracking-wide">{template.category}</div>
-                                <div className="text-sm font-medium text-gray-900">{template.text}</div>
-                              </div>
+                  return (
+                    <div
+                      key={p.value}
+                      onClick={() => setPlatform(p.value)}
+                      className={`relative p-6 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
+                        isSelected
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-md'
+                      }`}
+                    >
+                      <div className="text-center">
+                        <div className="flex justify-center mb-3">
+                          <IconComponent
+                            size={32}
+                            color={platformColors[p.icon as keyof typeof platformColors]}
+                          />
+                        </div>
+                        <h3 className="font-medium text-gray-900 mb-1">{p.label}</h3>
+                        <p className="text-xs text-gray-500">Posts and Galleries</p>
+
+                        {/* Connection Status */}
+                        <div className="mt-3">
+                          {isConnected ? (
+                            <div className="flex items-center justify-center space-x-1 text-green-600">
+                              <CheckCircle className="w-4 h-4" />
+                              <span className="text-xs font-medium">Connected</span>
                             </div>
-                          </button>
-                        ))}
+                          ) : (
+                            <Button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleConnectPlatform(p.value);
+                              }}
+                              disabled={isConnecting[p.value as Platform]}
+                              size="sm"
+                              variant="outline"
+                              className="text-xs h-7 px-3"
+                            >
+                              {isConnecting[p.value as Platform] ? (
+                                <>
+                                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                  Connecting...
+                                </>
+                              ) : (
+                                'Connect'
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {isSelected && (
+                        <div className="absolute top-2 right-2">
+                          <CheckCircle className="w-5 h-5 text-blue-500" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Content Creation Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Left Column - Content Input */}
+              <div className="space-y-6">
+                <Card className="bg-white border border-gray-200 shadow-sm rounded-lg">
+                  <div className="p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Describe the topic of your post</h3>
+
+                    <div className="space-y-4">
+                      <Textarea
+                        placeholder="Give as much detail to get the best output. More context = better results."
+                        value={prompt}
+                        onChange={(e) => setPrompt(e.target.value)}
+                        className="min-h-[120px] resize-none border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg p-4 text-sm transition-all duration-200 bg-white"
+                      />
+
+                      <div className="text-right">
+                        <span className="text-xs text-gray-500">{prompt.length}/500</span>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Platform Selection */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-medium text-gray-900">Select Platform</Label>
-                      <Button
-                        onClick={refreshConnectionStatus}
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 px-2 text-xs text-gray-500 hover:text-gray-700"
-                      >
-                        <RefreshCw className="h-3 w-3 mr-1" />
-                        Refresh Status
-                      </Button>
+                    {/* Tone Selection */}
+                    <div className="mt-6">
+                      <Label className="text-sm font-medium text-gray-900 mb-3 block">Tone</Label>
+                      <Select value={tone} onValueChange={setTone}>
+                        <SelectTrigger className="w-full h-12 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                          <SelectValue placeholder="Select tone for your content" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {tones.map((t) => (
+                            <SelectItem key={t.value} value={t.value}>
+                              {t.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-3">
-                      {platforms.map((p) => {
-                        const IconComponent = p.icon === 'linkedin' ? FaLinkedin :
-                                            p.icon === 'twitter' ? FaTwitter :
-                                            p.icon === 'instagram' ? FaInstagram :
-                                            p.icon === 'facebook' ? FaFacebook : FaReddit;
-                        const isConnected = connectionStatus[p.value as Platform];
-                        const platformColors = {
-                          linkedin: '#0077B5',
-                          twitter: '#1DA1F2',
-                          instagram: '#E4405F',
-                          facebook: '#1877F2',
-                          reddit: '#FF4500'
-                        };
-
-                        return (
-                          <div key={p.value} className="space-y-2">
-                            <Button
-                              variant="outline"
-                              onClick={() => setPlatform(p.value)}
-                              className={`w-full h-16 p-4 border transition-all duration-200 rounded-lg ${
-                                platform === p.value
-                                  ? 'border-blue-500 bg-blue-50 shadow-sm'
-                                  : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                              }`}
-                            >
-                              <div className="flex items-center space-x-4 w-full">
-                                <div className="p-2 rounded-lg bg-white border border-gray-200">
-                                  <IconComponent
-                                    className="h-6 w-6"
-                                    style={{ color: platformColors[p.icon as keyof typeof platformColors] }}
-                                  />
-                                </div>
-                                <div className="flex-1 text-left">
-                                  <div className="font-medium text-gray-900">{p.label}</div>
-                                  <div className={`text-xs ${
-                                    isConnected ? 'text-green-600' : 'text-gray-500'
-                                  }`}>
-                                    {isConnected ? (
-                                      <span className="flex items-center space-x-1">
-                                        <CheckCircle className="w-3 h-3" />
-                                        <span>Connected</span>
-                                      </span>
-                                    ) : (
-                                      <span className="flex items-center space-x-1">
-                                        <AlertCircle className="w-3 h-3" />
-                                        <span>Not Connected</span>
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                                {platform === p.value && (
-                                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                                )}
-                              </div>
-                            </Button>
-                            
-                            {/* Connect Button for unconnected platforms */}
-                            {!isConnected && (
-                              <Button
-                                onClick={() => handleConnectPlatform(p.value)}
-                                disabled={isConnecting[p.value as Platform]}
-                                variant="outline"
-                                size="sm"
-                                className="w-full text-xs border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                              >
-                                {isConnecting[p.value as Platform] ? (
-                                  <>
-                                    <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                                    Connecting...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Settings className="h-3 w-3 mr-2" />
-                                    Connect {p.label}
-                                  </>
-                                )}
-                              </Button>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Tone Selection */}
-                  <div className="space-y-4">
-                    <Label className="text-sm font-medium text-gray-900">Content Tone</Label>
-
-                    <Select value={tone} onValueChange={setTone}>
-                      <SelectTrigger className="h-12 border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg transition-all duration-200 bg-white">
-                        <SelectValue placeholder="Choose content tone" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-lg shadow-lg border border-gray-200 bg-white">
-                        {tones.map((t) => (
-                          <SelectItem key={t.value} value={t.value} className="rounded-md p-3 hover:bg-gray-50 transition-all duration-200">
-                            <div className="font-medium text-gray-900">{t.label}</div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Generate Button */}
-                  <div className="pt-6">
+                    {/* Generate Button */}
                     <Button
                       onClick={generatePost}
                       disabled={isGenerating || !prompt.trim() || !platform || !tone}
-                      className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full mt-6 h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isGenerating ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Generating Content...
+                          Generating...
                         </>
                       ) : (
                         <>
-                          <Sparkles className="h-4 w-4 mr-2" />
+                          <Wand2 className="h-4 w-4 mr-2" />
                           Generate Content
                         </>
                       )}
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+                </Card>
+              </div>
 
-            {/* Preview Section */}
-            <div className="lg:col-span-1">
-              <Card className="sticky top-24 bg-white border border-gray-200 shadow-sm rounded-lg">
-                {/* Professional Header */}
-                <div className="border-b border-gray-200 px-6 py-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                        <Eye className="h-5 w-5 text-gray-600" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">Preview</h3>
-                        <p className="text-sm text-gray-500">
-                          Content preview
-                        </p>
+              {/* Right Column - Generated Content & Publishing */}
+              <div className="space-y-6">
+                {/* Generated Content Preview */}
+                {generatedText && (
+                  <Card className="bg-white border border-gray-200 shadow-lg rounded-xl overflow-hidden">
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                            <span className="text-white text-sm font-semibold">📱</span>
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-semibold text-gray-900">Preview</h3>
+                            <p className="text-sm text-gray-600">How your post will appear on {platform}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            onClick={copyToClipboard}
+                            variant="outline"
+                            size="sm"
+                            className="h-8 px-3 text-xs bg-white hover:bg-gray-50"
+                          >
+                            <Copy className="w-3 h-3 mr-1" />
+                            Copy
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                    
-                    {/* Preview Status */}
-                    <div className="bg-gray-50 rounded-lg px-3 py-2 border border-gray-200">
-                      <div className="text-xs text-gray-500 font-medium">Status</div>
-                      <div className="text-sm font-semibold text-gray-900">
-                        {generatedText ? 'Ready' : 'Pending'}
+
+                    <div className="p-6 bg-gray-50">{/* Preview container with better background */}
+
+                      {/* Platform-specific preview */}
+                      {platform === 'linkedin' && (
+                        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden max-w-lg mx-auto">
+                          {/* LinkedIn Header */}
+                          <div className="p-4 bg-white">
+                            <div className="flex items-start space-x-3">
+                              <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-sm">
+                                JD
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center space-x-1">
+                                  <h4 className="font-semibold text-gray-900 text-sm">John Doe</h4>
+                                  <span className="text-blue-600 text-sm">• 1st</span>
+                                </div>
+                                <p className="text-xs text-gray-600 leading-tight">Marketing Professional | Content Creator</p>
+                                <div className="flex items-center space-x-1 mt-1">
+                                  <p className="text-xs text-gray-500">2h</p>
+                                  <span className="text-xs text-gray-400">•</span>
+                                  <svg className="w-3 h-3 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.332 8.027a6.012 6.012 0 011.912-2.706C6.512 5.73 6.974 6 7.5 6A1.5 1.5 0 019 7.5V8a2 2 0 004 0 2 2 0 011.523-1.943A5.977 5.977 0 0116 10c0 .34-.028.675-.083 1H15a2 2 0 00-2 2v2.197A5.973 5.973 0 0110 16v-2a2 2 0 00-2-2 2 2 0 01-2-2 2 2 0 00-1.668-1.973z" clipRule="evenodd" />
+                                  </svg>
+                                </div>
+                              </div>
+                              <button className="text-gray-400 hover:text-gray-600 p-1">
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* LinkedIn Content */}
+                          <div className="px-4 pb-3">
+                            <div className="w-full text-sm leading-relaxed text-gray-900 whitespace-pre-wrap">
+                              {generatedText || "Your content will appear here..."}
+                            </div>
+                          </div>
+
+                          {/* LinkedIn Engagement Stats */}
+                          <div className="px-4 py-2 border-t border-gray-100">
+                            <div className="flex items-center justify-between text-xs text-gray-500">
+                              <div className="flex items-center space-x-1">
+                                <div className="flex -space-x-1">
+                                  <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                                    <span className="text-white text-xs">👍</span>
+                                  </div>
+                                  <div className="w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+                                    <span className="text-white text-xs">❤️</span>
+                                  </div>
+                                  <div className="w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
+                                    <span className="text-white text-xs">💡</span>
+                                  </div>
+                                </div>
+                                <span className="ml-2">24</span>
+                              </div>
+                              <div className="flex items-center space-x-3">
+                                <span>8 comments</span>
+                                <span>2 reposts</span>
+                                <span className={`text-xs ${getCharacterStatus(generatedText, 'linkedin') === 'error' ? 'text-red-500' : getCharacterStatus(generatedText, 'linkedin') === 'warning' ? 'text-yellow-500' : 'text-gray-400'}`}>
+                                  {generatedText.length}/3,000
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* LinkedIn Actions */}
+                          <div className="px-2 py-1 border-t border-gray-100 bg-gray-50">
+                            <div className="flex items-center justify-around">
+                              <button className="flex items-center space-x-2 text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-lg transition-colors">
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z" />
+                                </svg>
+                                <span className="text-xs font-medium">Like</span>
+                              </button>
+                              <button className="flex items-center space-x-2 text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-lg transition-colors">
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
+                                </svg>
+                                <span className="text-xs font-medium">Comment</span>
+                              </button>
+                              <button className="flex items-center space-x-2 text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-lg transition-colors">
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
+                                </svg>
+                                <span className="text-xs font-medium">Repost</span>
+                              </button>
+                              <button className="flex items-center space-x-2 text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-lg transition-colors">
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
+                                </svg>
+                                <span className="text-xs font-medium">Send</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {platform === 'twitter' && (
+                        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden max-w-lg mx-auto">
+                          {/* Twitter Header */}
+                          <div className="p-4">
+                            <div className="flex items-start space-x-3">
+                              <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-sm">
+                                JD
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center space-x-1">
+                                  <h4 className="font-bold text-gray-900 text-sm">John Doe</h4>
+                                  <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                  </svg>
+                                  <span className="text-gray-500 text-sm">@johndoe</span>
+                                  <span className="text-gray-400 text-sm">·</span>
+                                  <span className="text-gray-500 text-sm">2h</span>
+                                </div>
+
+                                {/* Twitter Content */}
+                                <div className="mt-3">
+                                  <div className="w-full text-sm leading-relaxed text-gray-900 whitespace-pre-wrap">
+                                    {generatedText || "Your tweet will appear here..."}
+                                  </div>
+                                </div>
+
+                                {/* Character count for Twitter */}
+                                <div className="mt-2 text-right">
+                                  <span className={`text-xs ${getCharacterStatus(generatedText, 'twitter') === 'error' ? 'text-red-500' : getCharacterStatus(generatedText, 'twitter') === 'warning' ? 'text-yellow-500' : 'text-gray-400'}`}>
+                                    {generatedText.length}/280
+                                  </span>
+                                </div>
+
+                                {/* Twitter Actions */}
+                                <div className="flex items-center justify-between mt-4 max-w-xs">
+                                  <button className="flex items-center space-x-1 text-gray-500 hover:text-blue-500 hover:bg-blue-50 p-2 rounded-full transition-colors">
+                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
+                                    </svg>
+                                    <span className="text-xs">24</span>
+                                  </button>
+                                  <button className="flex items-center space-x-1 text-gray-500 hover:text-green-500 hover:bg-green-50 p-2 rounded-full transition-colors">
+                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                      <path d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" />
+                                    </svg>
+                                    <span className="text-xs">12</span>
+                                  </button>
+                                  <button className="flex items-center space-x-1 text-gray-500 hover:text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors">
+                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+                                    </svg>
+                                    <span className="text-xs">89</span>
+                                  </button>
+                                  <button className="flex items-center space-x-1 text-gray-500 hover:text-blue-500 hover:bg-blue-50 p-2 rounded-full transition-colors">
+                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                      <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              </div>
+
+                              <button className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1 rounded-full transition-colors">
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {platform === 'facebook' && (
+                        <div className="bg-white border border-gray-300 rounded-lg overflow-hidden">
+                          {/* Facebook Header */}
+                          <div className="p-4">
+                            <div className="flex items-start space-x-3">
+                              <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
+                                JD
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-2">
+                                  <h4 className="font-semibold text-gray-900">John Doe</h4>
+                                </div>
+                                <p className="text-xs text-gray-500">2 hours ago • 🌍</p>
+                              </div>
+                              <button className="text-gray-400 hover:text-gray-600">
+                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                                </svg>
+                              </button>
+                            </div>
+
+                            {/* Facebook Content */}
+                            <div className="mt-3">
+                              <div className="w-full text-sm leading-relaxed whitespace-pre-wrap">
+                                {generatedText || "Your content will appear here..."}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Facebook Actions */}
+                          <div className="border-t border-gray-200">
+                            <div className="flex items-center justify-around py-2">
+                              <button className="flex items-center space-x-2 text-gray-600 hover:bg-gray-50 px-4 py-2 rounded flex-1 justify-center">
+                                <span className="text-blue-500">👍</span>
+                                <span className="text-sm font-medium">Like</span>
+                              </button>
+                              <button className="flex items-center space-x-2 text-gray-600 hover:bg-gray-50 px-4 py-2 rounded flex-1 justify-center">
+                                <span className="text-gray-500">💬</span>
+                                <span className="text-sm font-medium">Comment</span>
+                              </button>
+                              <button className="flex items-center space-x-2 text-gray-600 hover:bg-gray-50 px-4 py-2 rounded flex-1 justify-center">
+                                <span className="text-gray-500">📤</span>
+                                <span className="text-sm font-medium">Share</span>
+                              </button>
+                            </div>
+                            <div className="px-4 py-2 border-t border-gray-100 text-right">
+                              <span className={`text-xs ${getCharacterStatus(generatedText, 'facebook') === 'error' ? 'text-red-500' : getCharacterStatus(generatedText, 'facebook') === 'warning' ? 'text-yellow-500' : 'text-gray-400'}`}>
+                                {generatedText.length}/63,206
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {platform === 'instagram' && (
+                        <div className="bg-white border border-gray-300 rounded-lg overflow-hidden max-w-sm mx-auto">
+                          {/* Instagram Header */}
+                          <div className="p-3 border-b border-gray-200">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
+                                JD
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="font-semibold text-sm">johndoe</h4>
+                                <p className="text-xs text-gray-500">Location</p>
+                              </div>
+                              <button className="text-gray-400">
+                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Instagram Image Placeholder */}
+                          <div className="bg-gray-100 aspect-square flex items-center justify-center">
+                            <span className="text-gray-400 text-sm">📷 Image</span>
+                          </div>
+
+                          {/* Instagram Actions */}
+                          <div className="p-3">
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center space-x-4">
+                                <button className="text-gray-700">❤️</button>
+                                <button className="text-gray-700">💬</button>
+                                <button className="text-gray-700">📤</button>
+                              </div>
+                              <button className="text-gray-700">🔖</button>
+                            </div>
+
+                            <div className="text-sm">
+                              <p className="font-semibold mb-1">24 likes</p>
+                              <div>
+                                <span className="font-semibold">johndoe</span>
+                                <span className="text-sm ml-1 whitespace-pre-wrap">
+                                  {generatedText || "Your caption will appear here..."}
+                                </span>
+                              </div>
+                              <p className="text-gray-500 text-xs mt-1">2 HOURS AGO</p>
+                              <div className="mt-2 text-right">
+                                <span className={`text-xs ${getCharacterStatus(generatedText, 'instagram') === 'error' ? 'text-red-500' : getCharacterStatus(generatedText, 'instagram') === 'warning' ? 'text-yellow-500' : 'text-gray-400'}`}>
+                                  {generatedText.length}/2,200
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {platform === 'reddit' && (
+                        <div className="bg-white border border-gray-300 rounded-lg overflow-hidden">
+                          {/* Reddit Header */}
+                          <div className="p-3 bg-gray-50 border-b border-gray-200">
+                            <div className="flex items-center space-x-2 text-xs text-gray-600">
+                              <span className="font-semibold">r/SampleSubreddit</span>
+                              <span>•</span>
+                              <span>Posted by u/johndoe</span>
+                              <span>2 hours ago</span>
+                            </div>
+                          </div>
+
+                          {/* Reddit Content */}
+                          <div className="p-4">
+                            <h3 className="font-semibold text-gray-900 mb-2">Post Title</h3>
+                            <div className="w-full text-sm leading-relaxed whitespace-pre-wrap">
+                              {generatedText || "Your content will appear here..."}
+                            </div>
+                          </div>
+
+                          {/* Reddit Actions */}
+                          <div className="px-4 pb-3">
+                            <div className="flex items-center space-x-4 text-xs text-gray-600">
+                              <div className="flex items-center space-x-1">
+                                <button className="text-orange-500">⬆️</button>
+                                <span className="font-semibold">24</span>
+                                <button className="text-blue-500">⬇️</button>
+                              </div>
+                              <button className="flex items-center space-x-1">
+                                <span>💬</span>
+                                <span>8 Comments</span>
+                              </button>
+                              <button className="flex items-center space-x-1">
+                                <span>📤</span>
+                                <span>Share</span>
+                              </button>
+                              <button className="flex items-center space-x-1">
+                                <span>🔖</span>
+                                <span>Save</span>
+                              </button>
+                              <span className={`text-xs ${getCharacterStatus(generatedText, 'reddit') === 'error' ? 'text-red-500' : getCharacterStatus(generatedText, 'reddit') === 'warning' ? 'text-yellow-500' : 'text-gray-400'}`}>
+                                {generatedText.length}/40,000
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Default preview for other platforms */}
+                      {!['linkedin', 'twitter', 'facebook', 'instagram', 'reddit'].includes(platform) && (
+                        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 max-w-lg mx-auto">
+                          <div className="mb-4">
+                            <h4 className="text-sm font-medium text-gray-700 mb-2">Content Preview</h4>
+                            <div className="w-full text-sm leading-relaxed whitespace-pre-wrap p-3 border border-gray-200 rounded-lg bg-gray-50">
+                              {generatedText || "Your content will appear here..."}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Character count and stats */}
+                      <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center space-x-4">
+                            <span className="text-gray-600">
+                              <span className="font-medium">{generatedText.length}</span> characters
+                            </span>
+                            {platform && (
+                              <span className={`${getCharacterStatus(generatedText, platform) === 'error' ? 'text-red-600' : getCharacterStatus(generatedText, platform) === 'warning' ? 'text-yellow-600' : 'text-green-600'}`}>
+                                {getCharacterLimit(platform) - generatedText.length} remaining
+                              </span>
+                            )}
+                            {platform && (
+                              <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded-full border">
+                                {platform.charAt(0).toUpperCase() + platform.slice(1)} limit: {getCharacterLimit(platform).toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded-full border">
+                              {platform ? platform.charAt(0).toUpperCase() + platform.slice(1) : 'Platform'} optimized
+                            </span>
+                          </div>
+                        </div>
                       </div>
+                    </div>
+                  </Card>
+                )}
+
+                {/* Publishing Section */}
+                <Card className="bg-white border border-gray-200 shadow-sm rounded-lg">
+                  <div className="p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Publish Content</h3>
+
+                    {/* Scheduling */}
+                    <div className="space-y-4 mb-6">
+                      <Label className="text-sm font-medium text-gray-900">Schedule (Optional)</Label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className="w-full h-10 justify-start text-left font-normal border-gray-200 hover:border-gray-300"
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {scheduleDate ? format(scheduleDate, "PPP") : "Pick a date"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0 rounded-lg shadow-lg border border-gray-200">
+                            <Calendar
+                              mode="single"
+                              selected={scheduleDate}
+                              onSelect={setScheduleDate}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+
+                        <Input
+                          type="time"
+                          value={scheduleTime}
+                          onChange={(e) => setScheduleTime(e.target.value)}
+                          className="h-10 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="space-y-3">
+                      <Button
+                        onClick={handlePostNow}
+                        disabled={isPosting || socialMediaLoading || !generatedText.trim() || !platform || !connectionStatus[platform as Platform]}
+                        className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {(isPosting || socialMediaLoading) ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Posting...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="h-4 w-4 mr-2" />
+                            Post Now
+                          </>
+                        )}
+                      </Button>
+
+                      <Button
+                        onClick={handleSchedulePost}
+                        disabled={isPosting || socialMediaLoading || !generatedText.trim() || !platform || !connectionStatus[platform as Platform] || !scheduleDate || !scheduleTime}
+                        variant="outline"
+                        className="w-full h-12 border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {(isPosting || socialMediaLoading) ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Scheduling...
+                          </>
+                        ) : (
+                          <>
+                            <CalendarDays className="h-4 w-4 mr-2" />
+                            Schedule Post
+                          </>
+                        )}
+                      </Button>
                     </div>
                   </div>
-                </div>
-
-                <CardContent className="p-6">
-                  {generatedText ? (
-                    <div className="space-y-6">
-                      {/* Professional Content Display */}
-                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 min-h-[300px]">
-                        {/* Header */}
-                        <div className="flex items-center justify-between mb-4">
-                          {platform && (
-                            <div className="px-2 py-1 bg-white border border-gray-200 rounded text-xs font-medium text-gray-700">
-                              {platform}
-                            </div>
-                          )}
-                          <div className="flex items-center space-x-1 px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
-                            <Sparkles className="w-3 h-3" />
-                            <span>AI Generated</span>
-                          </div>
-                        </div>
-                        
-                        {/* Content */}
-                        <div className="mb-6">
-                          <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">
-                            {generatedText}
-                          </p>
-                        </div>
-                        
-                        {/* Mock Social Engagement */}
-                        <div className="flex space-x-4 text-gray-400 text-xs">
-                          <div className="flex items-center space-x-1">
-                            <span>❤️</span>
-                            <span>234</span>
-                          </div>
-                          <div className="flex items-center space-x-1">
-                            <span>🔄</span>
-                            <span>12</span>
-                          </div>
-                          <div className="flex items-center space-x-1">
-                            <span>👁️</span>
-                            <span>1.2k</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <Button
-                          onClick={copyToClipboard}
-                          variant="outline"
-                          size="sm"
-                          className="border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                        >
-                          <Copy className="h-4 w-4 mr-2" />
-                          Copy
-                        </Button>
-                        <Button
-                          onClick={regeneratePost}
-                          variant="outline"
-                          size="sm"
-                          className="border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                        >
-                          <RefreshCw className="h-4 w-4 mr-2" />
-                          Regenerate
-                        </Button>
-                      </div>
-                      
-                      {/* Schedule Section */}
-                      <div className="pt-4 border-t border-gray-200">
-                        <Label className="text-sm font-medium text-gray-900 mb-3 block">Schedule for Later</Label>
-                        
-                        <div className="space-y-3">
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                className="w-full h-10 justify-start text-left font-normal border-gray-200 hover:border-gray-300"
-                              >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {scheduleDate ? format(scheduleDate, "PPP") : "Pick a date"}
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0 rounded-lg shadow-lg border border-gray-200">
-                              <Calendar
-                                mode="single"
-                                selected={scheduleDate}
-                                onSelect={setScheduleDate}
-                                initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
-                          
-                          <Input
-                            type="time"
-                            value={scheduleTime}
-                            onChange={(e) => setScheduleTime(e.target.value)}
-                            className="h-10 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Post Actions Section */}
-                      <div className="pt-6 border-t border-gray-200">
-                        <Label className="text-sm font-medium text-gray-900 mb-4 block">Publish Content</Label>
-
-                        <div className="space-y-3">
-                          {/* Post Now Button */}
-                          <Button
-                            onClick={handlePostNow}
-                            disabled={isPosting || socialMediaLoading || !generatedText.trim() || !platform || !connectionStatus[platform as Platform]}
-                            className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {(isPosting || socialMediaLoading) ? (
-                              <>
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                Posting...
-                              </>
-                            ) : (
-                              <>
-                                <Send className="h-4 w-4 mr-2" />
-                                Post Now
-                              </>
-                            )}
-                          </Button>
-
-                          {/* Schedule Post Button */}
-                          <Button
-                            onClick={handleSchedulePost}
-                            disabled={isPosting || socialMediaLoading || !generatedText.trim() || !platform || !connectionStatus[platform as Platform] || !scheduleDate || !scheduleTime}
-                            variant="outline"
-                            className="w-full h-12 border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {(isPosting || socialMediaLoading) ? (
-                              <>
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                Scheduling...
-                              </>
-                            ) : (
-                              <>
-                                <CalendarDays className="h-4 w-4 mr-2" />
-                                Schedule Post
-                              </>
-                            )}
-                          </Button>
-
-                          {/* Post Requirements Info */}
-                          <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                            <div className="text-xs text-gray-600 space-y-1">
-                              <div className="font-medium text-gray-700 mb-2">Requirements to post:</div>
-                              <div className={`flex items-center space-x-2 ${generatedText.trim() ? 'text-green-600' : 'text-gray-500'}`}>
-                                <CheckCircle className={`w-3 h-3 ${generatedText.trim() ? 'text-green-500' : 'text-gray-400'}`} />
-                                <span>Content generated</span>
-                              </div>
-                              <div className={`flex items-center space-x-2 ${platform ? 'text-green-600' : 'text-gray-500'}`}>
-                                <CheckCircle className={`w-3 h-3 ${platform ? 'text-green-500' : 'text-gray-400'}`} />
-                                <span>Platform selected</span>
-                              </div>
-                              <div className={`flex items-center space-x-2 ${platform && connectionStatus[platform as Platform] ? 'text-green-600' : 'text-gray-500'}`}>
-                                <CheckCircle className={`w-3 h-3 ${platform && connectionStatus[platform as Platform] ? 'text-green-500' : 'text-gray-400'}`} />
-                                <span>Platform connected</span>
-                              </div>
-                              <div className={`flex items-center space-x-2 ${scheduleDate && scheduleTime ? 'text-green-600' : 'text-gray-500'}`}>
-                                <CheckCircle className={`w-3 h-3 ${scheduleDate && scheduleTime ? 'text-green-500' : 'text-gray-400'}`} />
-                                <span>Schedule set (for scheduled posts)</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-16 text-center">
-                      <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center mb-4">
-                        <Target className="h-8 w-8 text-gray-400" />
-                      </div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                        Content Preview
-                      </h3>
-                      <p className="text-gray-500 text-sm max-w-sm">
-                        Fill out the form to generate your content. 
-                        Your AI-generated post will appear here.
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                </Card>
+              </div>
             </div>
           </div>
         </div>
-      </section>
+      </div>
     </div>
   );
 };
