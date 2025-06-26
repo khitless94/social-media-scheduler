@@ -21,6 +21,7 @@ import {
   Eye,
   EyeOff
 } from "lucide-react";
+import { FaGoogle } from "react-icons/fa";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -116,12 +117,12 @@ const AuthModal = ({ isOpen, onClose, mode }: AuthModalProps) => {
           setError("Passwords don't match");
           return;
         }
-        
+
         const { error } = await supabase.auth.signUp({
           email,
           password,
         });
-        
+
         if (error) throw error;
         setSuccess("Check your email for the confirmation link!");
       } else {
@@ -142,6 +143,33 @@ const AuthModal = ({ isOpen, onClose, mode }: AuthModalProps) => {
     } catch (error: any) {
       setError(error.message);
     } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleAuth = async () => {
+    setLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        }
+      });
+
+      if (error) throw error;
+
+      // The redirect will happen automatically
+      setSuccess("Redirecting to Google...");
+    } catch (error: any) {
+      setError(error.message);
       setLoading(false);
     }
   };
@@ -293,8 +321,35 @@ const AuthModal = ({ isOpen, onClose, mode }: AuthModalProps) => {
           )}
 
           {!user ? (
-            <form onSubmit={handleAuth} className="space-y-6 mt-6">
-              <div className="space-y-4">
+            <div className="space-y-6 mt-6">
+              {/* Google Sign-In Button */}
+              <Button
+                onClick={handleGoogleAuth}
+                disabled={loading}
+                className="w-full h-12 bg-white border-2 border-gray-200 text-gray-700 font-semibold rounded-xl shadow-sm hover:shadow-md hover:bg-gray-50 transition-all duration-200 flex items-center justify-center gap-3"
+              >
+                {loading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <FaGoogle className="w-5 h-5 text-red-500" />
+                    Continue with Google
+                  </>
+                )}
+              </Button>
+
+              {/* Divider */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-4 bg-white text-gray-500 font-medium">or continue with email</span>
+                </div>
+              </div>
+
+              {/* Email/Password Form */}
+              <form onSubmit={handleAuth} className="space-y-4">
                 <div>
                   <Label htmlFor="email" className="text-sm font-semibold text-gray-700">Email Address</Label>
                   <Input
@@ -356,9 +411,8 @@ const AuthModal = ({ isOpen, onClose, mode }: AuthModalProps) => {
                     </div>
                   </div>
                 )}
-              </div>
 
-              <Button
+                <Button
                 type="submit"
                 className="w-full h-12 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]"
                 style={{
@@ -379,21 +433,22 @@ const AuthModal = ({ isOpen, onClose, mode }: AuthModalProps) => {
                     {currentMode === 'signin' ? '🚀 Sign In' : '✨ Create Account'}
                   </>
                 )}
-              </Button>
+                </Button>
 
-              <div className="text-center pt-4 border-t border-gray-200">
-                <button
-                  type="button"
-                  className="text-sm font-medium text-purple-600 hover:text-purple-700 hover:underline transition-colors duration-200"
-                  onClick={() => setCurrentMode(currentMode === 'signin' ? 'signup' : 'signin')}
-                  disabled={loading}
-                >
-                  {currentMode === 'signin'
-                    ? "Don't have an account? Sign up for free"
-                    : "Already have an account? Sign in"}
-                </button>
-              </div>
-            </form>
+                <div className="text-center pt-4 border-t border-gray-200">
+                  <button
+                    type="button"
+                    className="text-sm font-medium text-purple-600 hover:text-purple-700 hover:underline transition-colors duration-200"
+                    onClick={() => setCurrentMode(currentMode === 'signin' ? 'signup' : 'signin')}
+                    disabled={loading}
+                  >
+                    {currentMode === 'signin'
+                      ? "Don't have an account? Sign up for free"
+                      : "Already have an account? Sign in"}
+                  </button>
+                </div>
+              </form>
+            </div>
           ) : (
             <div className="space-y-6 mt-6">
               <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-white/40">
