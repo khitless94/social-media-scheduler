@@ -22,7 +22,8 @@ import {
   CalendarIcon,
   Send,
   CalendarDays,
-  ExternalLink
+  ExternalLink,
+  Settings as SettingsIcon
 } from 'lucide-react';
 import { FaLinkedin, FaTwitter, FaInstagram, FaFacebook, FaReddit } from 'react-icons/fa';
 import { format } from 'date-fns';
@@ -760,106 +761,103 @@ Create the post now:`;
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* ContentStudio-like Header */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm">
+    <>
+      <div className="min-h-screen bg-gray-50">
+        {/* Enhanced Interactive Header */}
+        <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-full mx-auto px-6">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-white" />
+            {/* Left Section - Logo and Title */}
+            <div className="flex items-center space-x-6">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <Sparkles className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900">Social Media Scheduler</h1>
+                  <p className="text-xs text-gray-500">Create & Schedule Posts</p>
+                </div>
               </div>
-              <div>
-                <span className="text-xl font-semibold text-gray-900">Create new</span>
+
+              {/* Quick Stats */}
+              <div className="hidden md:flex items-center space-x-4 pl-6 border-l border-gray-200">
+                <div className="text-center">
+                  <div className="text-lg font-bold text-blue-600">{Object.values(connectionStatus).filter(Boolean).length}</div>
+                  <div className="text-xs text-gray-500">Connected</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-green-600">5</div>
+                  <div className="text-xs text-gray-500">Platforms</div>
+                </div>
               </div>
             </div>
-            
-            <div className="flex items-center space-x-4">
+
+            {/* Right Section - Actions */}
+            <div className="flex items-center space-x-3">
+              {/* Platform Status Indicators */}
+              <div className="hidden lg:flex items-center space-x-2">
+                {platforms.map((p) => {
+                  const isConnected = connectionStatus[p.value as Platform];
+                  const IconComponent = p.icon === 'linkedin' ? FaLinkedin :
+                                      p.icon === 'twitter' ? FaTwitter :
+                                      p.icon === 'instagram' ? FaInstagram :
+                                      p.icon === 'facebook' ? FaFacebook : FaReddit;
+                  return (
+                    <div
+                      key={p.value}
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                        isConnected ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'
+                      }`}
+                      title={`${p.label} - ${isConnected ? 'Connected' : 'Not Connected'}`}
+                    >
+                      <IconComponent className="w-4 h-4" />
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Action Buttons */}
               <Button
-                variant="ghost"
+                variant="outline"
+                size="sm"
                 onClick={() => navigate('/dashboard')}
-                className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 px-3 py-2"
+                className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>Dashboard</span>
+                <span className="hidden sm:inline">Dashboard</span>
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/settings')}
+                className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+              >
+                <SettingsIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">Settings</span>
               </Button>
             </div>
           </div>
         </div>
       </nav>
 
-      {/* ContentStudio-like Main Layout */}
-      <div className="pt-16 flex min-h-screen bg-gray-50">
-        {/* Sidebar Navigation */}
-        <div className="w-64 bg-white border-r border-gray-200 fixed left-0 top-16 bottom-0 overflow-y-auto">
-          <div className="p-6">
-            <div className="space-y-6">
-              {/* Search */}
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Filter by Name"
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <div className="absolute left-3 top-2.5 text-gray-400">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-              </div>
-
-              {/* Categories */}
-              <div className="space-y-2">
-                <div className="flex items-center space-x-3 px-3 py-2 rounded-lg bg-blue-50 text-blue-700 cursor-pointer">
-                  <span className="text-lg">⭐</span>
-                  <span className="font-medium">Popular</span>
-                </div>
-                <div className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-50 cursor-pointer">
-                  <span className="text-lg">🧠</span>
-                  <span className="text-gray-700">Brainstorm</span>
-                </div>
-                <div className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-50 cursor-pointer">
-                  <span className="text-lg">❤️</span>
-                  <span className="text-gray-700">Social Media</span>
-                </div>
-                <div className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-50 cursor-pointer">
-                  <span className="text-lg">📝</span>
-                  <span className="text-gray-700">Blog/SEO</span>
-                </div>
-                <div className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-50 cursor-pointer">
-                  <span className="text-lg">📧</span>
-                  <span className="text-gray-700">Newsletter</span>
-                </div>
-                <div className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-50 cursor-pointer">
-                  <span className="text-lg">👤</span>
-                  <span className="text-gray-700">My Templates</span>
-                </div>
-                <div className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-50 cursor-pointer">
-                  <span className="text-lg">🔄</span>
-                  <span className="text-gray-700">Recently Used</span>
-                </div>
-                <div className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-50 cursor-pointer">
-                  <span className="text-lg">📋</span>
-                  <span className="text-gray-700">All Templates</span>
-                </div>
-              </div>
+      {/* Main Content Layout */}
+      <div className="pt-16">
+        {/* Main Content Area */}
+        <div className="max-w-7xl mx-auto p-6">
+          {/* Content Header */}
+          <div className="mb-8 text-center">
+            <h1 className="text-3xl font-bold text-gray-900 mb-3">Create Amazing Social Media Content</h1>
+            <p className="text-lg text-gray-600 mb-4">Generate engaging posts with AI and schedule them across all your platforms</p>
+            <div className="flex justify-center">
+              <span className="bg-gradient-to-r from-blue-100 to-purple-100 text-blue-700 px-4 py-2 rounded-full text-sm font-medium">
+                ✨ AI-Powered Content Generation
+              </span>
             </div>
           </div>
-        </div>
 
-        {/* Main Content Area */}
-        <div className="flex-1 ml-64 p-6">
-          <div className="max-w-6xl mx-auto">
-            {/* Header */}
-            <div className="mb-8">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">What Social Media content do you want to make?</h1>
-              <div className="flex items-center space-x-4 text-sm text-gray-600">
-                <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full">✨ New Beta Feature: Create Posts out of a webpage</span>
-              </div>
-            </div>
-
-            {/* Platform Selection Cards */}
-            <div className="mb-8">
+          {/* Platform Selection Cards */}
+          <div className="mb-8">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Platform</h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {platforms.map((p) => {
@@ -1810,7 +1808,7 @@ Create the post now:`;
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
