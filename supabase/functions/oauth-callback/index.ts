@@ -40,6 +40,13 @@ const tokenConfigs = {
     clientId: Deno.env.get('FACEBOOK_CLIENT_ID') || '772026995163778',
     clientSecret: Deno.env.get('FACEBOOK_CLIENT_SECRET'),
     grantType: 'authorization_code'
+  },
+  google: {
+    tokenUrl: 'https://oauth2.googleapis.com/token',
+    clientId: Deno.env.get('GOOGLE_CLIENT_ID') || 'PASTE_YOUR_GOOGLE_CLIENT_ID_HERE',
+    clientSecret: Deno.env.get('GOOGLE_CLIENT_SECRET'),
+    grantType: 'authorization_code',
+    requiresFormEncoding: true
   }
 };
 

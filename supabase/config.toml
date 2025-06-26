@@ -53,3 +53,5 @@ verify_jwt = false
 # - FACEBOOK_CLIENT_SECRET = "your_facebook_client_secret_here"
 # - INSTAGRAM_CLIENT_ID = "2249146282214303"
 # - INSTAGRAM_CLIENT_SECRET = "your_instagram_client_secret_here"
+# - GOOGLE_CLIENT_ID = "your_google_client_id_here"
+# - GOOGLE_CLIENT_SECRET = "your_google_client_secret_here"

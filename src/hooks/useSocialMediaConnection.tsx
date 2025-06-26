@@ -78,7 +78,8 @@ const formatPlatformName = (platform: string): string => {
     'linkedin': 'LinkedIn',
     'facebook': 'Facebook',
     'instagram': 'Instagram',
-    'reddit': 'Reddit'
+    'reddit': 'Reddit',
+    'google': 'Google'
   };
 
   const normalized = platform.toLowerCase().trim();
@@ -93,7 +94,7 @@ const SUPABASE_URL = "https://eqiuukwwpdiyncahrdny.supabase.co";
 // Force re-render helper for immediate UI updates
 const forceUpdate = () => Math.random();
 
-type Platform = "twitter" | "reddit" | "linkedin" | "facebook" | "instagram";
+type Platform = "twitter" | "reddit" | "linkedin" | "facebook" | "instagram" | "google";
 type ConnectionStatus = Record<Platform, boolean>;
 
 // This helper function is defined outside the hook so it isn't recreated on every render.
@@ -170,7 +171,7 @@ export const useSocialMediaConnection = (
         fetch(`${supabaseUrl}/rest/v1/social_tokens?select=platform&user_id=eq.${user.id}`, { headers })
       ]);
 
-      const newStatus: ConnectionStatus = { twitter: false, linkedin: false, instagram: false, facebook: false, reddit: false };
+      const newStatus: ConnectionStatus = { twitter: false, linkedin: false, instagram: false, facebook: false, reddit: false, google: false };
       const allCredentials: any[] = [];
 
       // Process oauth_credentials response
@@ -230,9 +231,9 @@ export const useSocialMediaConnection = (
       console.log('📭 No localStorage data found, checking individual platform keys');
 
       // Check individual platform connection keys directly
-      const platforms: Platform[] = ['twitter', 'linkedin', 'reddit', 'facebook', 'instagram'];
+      const platforms: Platform[] = ['twitter', 'linkedin', 'reddit', 'facebook', 'instagram', 'google'];
       const directStatus: ConnectionStatus = {
-        twitter: false, linkedin: false, instagram: false, facebook: false, reddit: false,
+        twitter: false, linkedin: false, instagram: false, facebook: false, reddit: false, google: false,
       };
 
       let hasAnyConnection = false;
@@ -266,9 +267,9 @@ export const useSocialMediaConnection = (
     if (!user) return null;
 
     try {
-      const platforms: Platform[] = ['twitter', 'linkedin', 'reddit', 'facebook', 'instagram'];
+      const platforms: Platform[] = ['twitter', 'linkedin', 'reddit', 'facebook', 'instagram', 'google'];
       const status: ConnectionStatus = {
-        twitter: false, linkedin: false, instagram: false, facebook: false, reddit: false,
+        twitter: false, linkedin: false, instagram: false, facebook: false, reddit: false, google: false,
       };
 
       let hasAnyConnection = false;
@@ -386,7 +387,7 @@ export const useSocialMediaConnection = (
         }
 
         // Also check individual platform flags AND direct connection status
-        const platforms: Platform[] = ['twitter', 'linkedin', 'reddit', 'facebook', 'instagram'];
+        const platforms: Platform[] = ['twitter', 'linkedin', 'reddit', 'facebook', 'instagram', 'google'];
         platforms.forEach(platform => {
           const successKey = `oauth_success_${platform}`;
           const completeKey = `oauth_complete_${platform}`;

@@ -25,5 +25,10 @@ export const AppConfig = {
   instagram: {
     // Instagram OAuth uses the main Facebook App ID, not the Instagram-specific ID
     clientId: "772026995163778"
+  },
+  google: {
+    // Google OAuth 2.0 Client ID for Google My Business, YouTube, Gmail integration
+    // This will need to be configured in Google Cloud Console
+    clientId: "PASTE_YOUR_GOOGLE_CLIENT_ID_HERE"
   }
 };
