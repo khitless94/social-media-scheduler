@@ -193,66 +193,113 @@ async function createHmacSha1Signature(baseString: string, signingKey: string): 
 
 // Old Twitter functions removed - now using twitter-api-v2 library
 
-// Manual Twitter image upload function (Deno-compatible)
-async function uploadImageToTwitter(base64Image: string, userCredentials: any): Promise<string | null> {
+// Twitter posting function using proper OAuth 1.0a (following guidelines)
+async function postToTwitter(content: string, image?: string, credentials?: any) {
+  try {
+    console.log('[Twitter] Starting Twitter post process...');
+    console.log('[Twitter] Content preview:', content.substring(0, 50) + '...');
+    console.log('[Twitter] Has image:', !!image);
+
+    // Validate Twitter OAuth 1.0a credentials
+    const twitterCredentials = {
+      appKey: Deno.env.get('TWITTER_API_KEY')!,
+      appSecret: Deno.env.get('TWITTER_API_SECRET')!,
+      accessToken: credentials?.access_token,
+      accessSecret: credentials?.access_token_secret,
+    };
+
+    console.log('[Twitter] OAuth 1.0a credentials check:', {
+      appKey: !!twitterCredentials.appKey,
+      appSecret: !!twitterCredentials.appSecret,
+      accessToken: !!twitterCredentials.accessToken,
+      accessSecret: !!twitterCredentials.accessSecret,
+    });
+
+    // Check if we have proper OAuth 1.0a credentials
+    if (!twitterCredentials.accessToken || !twitterCredentials.accessSecret) {
+      console.warn('[Twitter] ⚠️ Missing OAuth 1.0a credentials (access_token_secret required)');
+      console.warn('[Twitter] Current credentials appear to be OAuth 2.0 Bearer tokens');
+
+      return {
+        platform: "twitter",
+        success: false,
+        error: "Twitter posting requires OAuth 1.0a credentials. Please reconnect your Twitter account with proper OAuth 1.0a flow.",
+        needsReconnection: true
+      };
+    }
+
+    let mediaId = null;
+
+    // Step 1: Upload image if provided (following guidelines)
+    if (image) {
+      try {
+        console.log('[Twitter] 🖼️ Starting image upload process...');
+        console.log('[Twitter] 🔗 Image URL:', image);
+
+        // Download the image from Supabase (following guidelines)
+        console.log('[Twitter] 📥 Downloading image from Supabase...');
+        const imageResponse = await fetch(image);
+        if (!imageResponse.ok) {
+          throw new Error(`Failed to download image: ${imageResponse.status} ${imageResponse.statusText}`);
+        }
+
+        const imageBuffer = await imageResponse.arrayBuffer();
+        const imageSizeMB = (imageBuffer.byteLength / (1024 * 1024)).toFixed(2);
+        console.log('[Twitter] ✅ Image downloaded successfully, size:', imageSizeMB, 'MB');
+
+        // Validate image size (Twitter limit: 5MB for photos)
+        if (imageBuffer.byteLength > 5 * 1024 * 1024) {
+          throw new Error(`Image too large: ${imageSizeMB}MB (Twitter limit: 5MB)`);
+        }
+
+        // Upload image to Twitter using OAuth 1.0a
+        mediaId = await uploadImageToTwitterOAuth1a(imageBuffer, twitterCredentials);
+
+        if (mediaId) {
+          console.log('[Twitter] ✅ Image uploaded successfully, media_id:', mediaId);
+        } else {
+          throw new Error('Failed to upload image to Twitter');
+        }
+
+      } catch (imageError) {
+        console.error('[Twitter] Image upload error:', imageError);
+        console.log('[Twitter] Continuing with text-only post...');
+        mediaId = null;
+      }
+    }
+
+    // Step 2: Post tweet using OAuth 1.0a (following guidelines)
+    console.log('[Twitter] 🚀 Posting tweet...');
+
+    // Validate content length (Twitter limit is 280 characters)
+    if (content.length > 280) {
+      console.warn('[Twitter] Content exceeds 280 characters, truncating...');
+      content = content.substring(0, 277) + '...';
+    }
+
+    const tweetResult = await postTweetOAuth1a(content, mediaId, twitterCredentials);
+    return tweetResult;
+
+  } catch (error) {
+    console.error('[Twitter] ❌ Twitter posting failed:', error);
+    return {
+      platform: "twitter",
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+// Helper function to upload image using OAuth 1.0a (following guidelines)
+async function uploadImageToTwitterOAuth1a(imageBuffer: ArrayBuffer, credentials: any): Promise<string | null> {
   try {
     const apiUrl = 'https://upload.twitter.com/1.1/media/upload.json';
 
-    // Use user's OAuth credentials instead of hardcoded environment variables
-    const credentials = {
-      consumer_key: Deno.env.get('TWITTER_API_KEY')!,
-      consumer_secret: Deno.env.get('TWITTER_API_SECRET')!,
-      token: userCredentials.access_token,
-      token_secret: userCredentials.access_token_secret,
-    };
+    // Convert to base64 for upload
+    const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
 
-    console.log('[Twitter] Credentials check:', {
-      consumer_key: !!credentials.consumer_key,
-      consumer_secret: !!credentials.consumer_secret,
-      token: !!credentials.token,
-      token_secret: !!credentials.token_secret,
-    });
-
-    // Validate all required credentials are present
-    if (!credentials.consumer_key || !credentials.consumer_secret || !credentials.token || !credentials.token_secret) {
-      throw new Error('Missing required Twitter OAuth credentials for image upload');
-    }
-
-    // Generate OAuth 1.0a signature
-    const timestamp = Math.floor(Date.now() / 1000).toString();
-    const nonce = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-
-    const oauthParams = {
-      oauth_consumer_key: credentials.consumer_key,
-      oauth_nonce: nonce,
-      oauth_signature_method: 'HMAC-SHA1',
-      oauth_timestamp: timestamp,
-      oauth_token: credentials.token,
-      oauth_version: '1.0'
-    };
-
-    // Create parameter string for signature
-    const paramString = Object.keys(oauthParams)
-      .sort()
-      .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(oauthParams[key])}`)
-      .join('&');
-
-    // Create signature base string
-    const baseString = `POST&${encodeURIComponent(apiUrl)}&${encodeURIComponent(paramString)}`;
-
-    // Create signing key
-    const signingKey = `${encodeURIComponent(credentials.consumer_secret)}&${encodeURIComponent(credentials.token_secret)}`;
-
-    // Generate signature
-    const signature = await createHmacSha1Signature(baseString, signingKey);
-    oauthParams['oauth_signature'] = signature;
-
-    // Create OAuth authorization header
-    const oauthHeader = 'OAuth ' + Object.keys(oauthParams)
-      .map(key => `${key}="${encodeURIComponent(oauthParams[key])}"`)
-      .join(', ');
-
-    console.log('[Twitter] OAuth header generated');
+    // Create OAuth 1.0a signature for media upload
+    const oauthHeader = await createTwitterOAuth1aHeader('POST', apiUrl, credentials, {});
 
     // Prepare form data
     const formData = new URLSearchParams();
@@ -275,15 +322,6 @@ async function uploadImageToTwitter(base64Image: string, userCredentials: any): 
     } else {
       const errorText = await response.text();
       console.error('[Twitter] ❌ Image upload failed:', response.status, errorText);
-
-      // Handle rate limiting for image upload
-      if (response.status === 429) {
-        const resetTime = response.headers.get('x-rate-limit-reset');
-        const resetDate = resetTime ? new Date(parseInt(resetTime) * 1000) : null;
-        const waitMinutes = resetDate ? Math.ceil((resetDate.getTime() - Date.now()) / 60000) : 15;
-        console.log('[Twitter] Image upload rate limit exceeded. Wait time:', waitMinutes, 'minutes');
-      }
-
       return null;
     }
 
@@ -293,86 +331,10 @@ async function uploadImageToTwitter(base64Image: string, userCredentials: any): 
   }
 }
 
-// Twitter posting function - Using manual API calls (Deno-compatible)
-async function postToTwitter(content: string, image?: string, credentials?: any) {
+// Helper function to post tweet using OAuth 1.0a (following guidelines)
+async function postTweetOAuth1a(content: string, mediaId: string | null, credentials: any) {
   try {
-    console.log('[Twitter] Starting Twitter post process...');
-    console.log('[Twitter] Content preview:', content.substring(0, 50) + '...');
-    console.log('[Twitter] Has image:', !!image);
-    console.log('[Twitter] Credentials available:', {
-      access_token: !!credentials?.access_token,
-      access_token_secret: !!credentials?.access_token_secret,
-      refresh_token: !!credentials?.refresh_token,
-      token_type: credentials?.token_type
-    });
-
-    let mediaId = null;
-
-    // Upload image if provided - Using manual API calls (Deno-compatible)
-    if (image) {
-      try {
-        console.log('[Twitter] 🖼️ Starting image upload process...');
-        console.log('[Twitter] 🔗 Image URL:', image);
-
-        // Check if we have OAuth 1.0a credentials required for media upload
-        if (!credentials?.access_token_secret) {
-          console.warn('[Twitter] ⚠️ OAuth 1.0a credentials required for image upload');
-          console.warn('[Twitter] Current token type appears to be OAuth 2.0 Bearer token');
-          console.warn('[Twitter] Skipping image upload and posting text-only tweet');
-          console.warn('[Twitter] To enable image uploads, please reconnect Twitter with OAuth 1.0a');
-          mediaId = null;
-        } else {
-
-        // Step 1: Download image from Supabase storage URL
-        console.log('[Twitter] 📥 Downloading image from Supabase...');
-        const imageResponse = await fetch(image);
-        if (!imageResponse.ok) {
-          throw new Error(`Failed to download image: ${imageResponse.status} ${imageResponse.statusText}`);
-        }
-
-        const imageBuffer = await imageResponse.arrayBuffer();
-        const imageSizeMB = (imageBuffer.byteLength / (1024 * 1024)).toFixed(2);
-        console.log('[Twitter] ✅ Image downloaded successfully, size:', imageSizeMB, 'MB');
-
-        // Validate image size (Twitter limit: 5MB for photos)
-        if (imageBuffer.byteLength > 5 * 1024 * 1024) {
-          throw new Error(`Image too large: ${imageSizeMB}MB (Twitter limit: 5MB)`);
-        }
-
-        // Step 2: Convert to Base64 and upload using manual API call
-        console.log('[Twitter] 🔐 Converting to Base64 and uploading...');
-
-        // Convert ArrayBuffer to Base64 (Deno-compatible approach)
-        const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
-        console.log('[Twitter] Image converted to Base64, length:', base64Image.length);
-
-        // Upload using manual API call (bypasses twitter-api-v2 compatibility issues)
-        mediaId = await uploadImageToTwitter(base64Image, credentials);
-
-        if (mediaId) {
-          console.log('[Twitter] ✅ Image uploaded successfully, media_id:', mediaId);
-        } else {
-          throw new Error('Failed to upload image to Twitter');
-        }
-
-        } // End of OAuth 1.0a credentials check
-
-      } catch (imageError) {
-        console.error('[Twitter] Image upload error:', imageError);
-        console.log('[Twitter] Continuing with text-only post...');
-        // Continue without image
-        mediaId = null;
-      }
-    }
-
-    // Step 3: Post tweet with or without media using Twitter v2 API directly
-    console.log('[Twitter] Creating tweet with content length:', content.length);
-
-    // Validate content length (Twitter limit is 280 characters)
-    if (content.length > 280) {
-      console.warn('[Twitter] Content exceeds 280 characters, truncating...');
-      content = content.substring(0, 277) + '...';
-    }
+    const apiUrl = 'https://api.twitter.com/2/tweets';
 
     // Prepare tweet data
     const tweetData: any = {
@@ -387,87 +349,112 @@ async function postToTwitter(content: string, image?: string, credentials?: any)
       console.log('[Twitter] 📎 Tweet will include media_id:', mediaId);
     }
 
-    console.log('[Twitter] 🚀 Posting tweet using Twitter v2 API...');
+    // Create OAuth 1.0a signature for tweet posting
+    const oauthHeader = await createTwitterOAuth1aHeader('POST', apiUrl, credentials, {});
 
-    try {
-      // Get OAuth 2.0 Bearer token from credentials (for v2 API)
-      const accessToken = credentials?.access_token;
-      if (!accessToken) {
-        throw new Error('No Twitter access token found for v2 API');
-      }
+    console.log('[Twitter] 🚀 Posting tweet using OAuth 1.0a...');
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': oauthHeader,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(tweetData)
+    });
 
-      // Post tweet using Twitter v2 API directly
-      const response = await fetch('https://api.twitter.com/2/tweets', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(tweetData)
-      });
+    if (response.ok) {
+      const result = await response.json();
+      console.log('[Twitter] ✅ Tweet posted successfully');
+      console.log('[Twitter] Tweet ID:', result.data.id);
 
-      if (response.ok) {
-        const result = await response.json();
-        console.log('[Twitter] ✅ Tweet posted successfully');
-        console.log('[Twitter] Tweet ID:', result.data.id);
+      let message = mediaId ? "Tweet with image posted successfully" : "Text-only tweet posted successfully";
 
-        let message = mediaId ? "Tweet with image posted successfully" : "Text-only tweet posted successfully";
+      return {
+        platform: "twitter",
+        success: true,
+        data: result.data,
+        message: message
+      };
+    } else {
+      const errorText = await response.text();
+      console.error('[Twitter] ❌ Tweet posting failed:', response.status, errorText);
 
-        // Add note about image upload limitations if image was provided but not uploaded
-        if (image && !mediaId && !credentials?.access_token_secret) {
-          message += " (Note: Image upload requires OAuth 1.0a credentials. Please reconnect Twitter account for image support.)";
-        }
-
-        return {
-          platform: "twitter",
-          success: true,
-          data: result.data,
-          message: message
-        };
-      } else {
-        const errorText = await response.text();
-        console.error('[Twitter] ❌ Tweet posting failed:', response.status, errorText);
-
-        // Handle rate limiting specifically
-        if (response.status === 429) {
-          const resetTime = response.headers.get('x-rate-limit-reset');
-          const resetDate = resetTime ? new Date(parseInt(resetTime) * 1000) : null;
-          const waitMinutes = resetDate ? Math.ceil((resetDate.getTime() - Date.now()) / 60000) : 15;
-
-          console.log('[Twitter] Rate limit exceeded. Reset time:', resetDate?.toISOString());
-          console.log('[Twitter] Estimated wait time:', waitMinutes, 'minutes');
-
-          return {
-            platform: "twitter",
-            success: false,
-            error: `Rate limit exceeded. Please wait ${waitMinutes} minutes before trying again.`,
-            retryAfter: waitMinutes
-          };
-        }
+      // Handle rate limiting specifically
+      if (response.status === 429) {
+        const resetTime = response.headers.get('x-rate-limit-reset');
+        const resetDate = resetTime ? new Date(parseInt(resetTime) * 1000) : null;
+        const waitMinutes = resetDate ? Math.ceil((resetDate.getTime() - Date.now()) / 60000) : 15;
 
         return {
           platform: "twitter",
           success: false,
-          error: `HTTP ${response.status}: ${errorText}`
+          error: `Rate limit exceeded. Please wait ${waitMinutes} minutes before trying again.`,
+          retryAfter: waitMinutes
         };
       }
 
-    } catch (tweetError) {
-      console.error('[Twitter] ❌ Tweet posting failed:', tweetError);
       return {
         platform: "twitter",
         success: false,
-        error: tweetError.message || 'Failed to post tweet'
+        error: `HTTP ${response.status}: ${errorText}`
       };
     }
 
   } catch (error) {
-    console.error('[Twitter] ❌ Error in postToTwitter:', error);
+    console.error('[Twitter] ❌ Tweet posting failed:', error);
     return {
       platform: "twitter",
       success: false,
       error: error.message
     };
+  }
+}
+
+// Helper function to create OAuth 1.0a authorization header (following guidelines)
+async function createTwitterOAuth1aHeader(method: string, url: string, credentials: any, params: any = {}): Promise<string> {
+  try {
+    // Generate OAuth 1.0a parameters
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const nonce = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+
+    const oauthParams = {
+      oauth_consumer_key: credentials.appKey,
+      oauth_nonce: nonce,
+      oauth_signature_method: 'HMAC-SHA1',
+      oauth_timestamp: timestamp,
+      oauth_token: credentials.accessToken,
+      oauth_version: '1.0'
+    };
+
+    // Combine OAuth params with request params
+    const allParams = { ...oauthParams, ...params };
+
+    // Create parameter string for signature
+    const paramString = Object.keys(allParams)
+      .sort()
+      .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(allParams[key])}`)
+      .join('&');
+
+    // Create signature base string
+    const baseString = `${method}&${encodeURIComponent(url)}&${encodeURIComponent(paramString)}`;
+
+    // Create signing key
+    const signingKey = `${encodeURIComponent(credentials.appSecret)}&${encodeURIComponent(credentials.accessSecret)}`;
+
+    // Generate signature using HMAC-SHA1
+    const signature = await createHmacSha1Signature(baseString, signingKey);
+    oauthParams['oauth_signature'] = signature;
+
+    // Create OAuth authorization header
+    const oauthHeader = 'OAuth ' + Object.keys(oauthParams)
+      .map(key => `${key}="${encodeURIComponent(oauthParams[key])}"`)
+      .join(', ');
+
+    return oauthHeader;
+
+  } catch (error) {
+    console.error('[Twitter] OAuth 1.0a header generation failed:', error);
+    throw error;
   }
 }
 
