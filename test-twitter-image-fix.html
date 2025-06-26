@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twitter Image Upload Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #28a745;
+            color: #155724;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border-color: #ffc107;
+            color: #856404;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #dc3545;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border-color: #17a2b8;
+            color: #0c5460;
+        }
+        .code {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin: 10px 0;
+            border: 1px solid #e9ecef;
+        }
+        button {
+            background-color: #1da1f2;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background-color: #1991db;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        h3 {
+            color: #1da1f2;
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐦 Twitter Image Upload Fix Test</h1>
+
+        <div class="status info">
+            <strong>Fix Applied:</strong> Updated Twitter image upload to handle OAuth credential mismatch
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 What Was Fixed</h3>
+            <ul>
+                <li>✅ <strong>OAuth Credential Validation</strong>: Now checks for OAuth 1.0a vs OAuth 2.0 tokens</li>
+                <li>✅ <strong>Graceful Fallback</strong>: Posts text-only when image upload isn't possible</li>
+                <li>✅ <strong>Clear Error Messages</strong>: Explains why image upload was skipped</li>
+                <li>✅ <strong>User Credentials</strong>: Uses actual user OAuth tokens instead of hardcoded values</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 Current Issue Analysis</h3>
+            <div class="status warning">
+                <strong>Root Cause:</strong> Twitter's media upload API (v1.1) requires OAuth 1.0a authentication,
+                but the current OAuth flow provides OAuth 2.0 Bearer tokens.
+            </div>
+
+            <div class="code">
+                <strong>OAuth 1.0a Required for Media Upload:</strong><br>
+                - access_token<br>
+                - access_token_secret<br>
+                - consumer_key<br>
+                - consumer_secret<br><br>
+
+                <strong>OAuth 2.0 Available (Current):</strong><br>
+                - access_token (Bearer token)<br>
+                - refresh_token<br>
+                - token_type: "bearer"
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🚀 Expected Behavior After Fix</h3>
+            <div class="status success">
+                <strong>Text-Only Posts:</strong> Will work normally with OAuth 2.0 tokens
+            </div>
+            <div class="status warning">
+                <strong>Posts with Images:</strong> Will post text-only with helpful message about image upload limitations
+            </div>
+            <div class="status info">
+                <strong>User Message:</strong> "Text-only tweet posted successfully (Note: Image upload requires OAuth 1.0a credentials. Please reconnect Twitter account for image support.)"
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔄 How to Enable Full Image Support</h3>
+            <ol>
+                <li><strong>Update OAuth Flow:</strong> Modify Twitter OAuth to use OAuth 1.0a instead of OAuth 2.0</li>
+                <li><strong>Update Credentials Storage:</strong> Store access_token_secret in addition to access_token</li>
+                <li><strong>Update Frontend:</strong> Handle the OAuth 1.0a callback flow</li>
+            </ol>
+
+            <div class="status info">
+                <strong>Alternative:</strong> Use Twitter API v2 media upload endpoints (if available) that support OAuth 2.0
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>📝 Testing Instructions</h3>
+            <ol>
+                <li>Deploy the updated function to Supabase</li>
+                <li>Try posting a tweet with an image</li>
+                <li>Verify that:
+                    <ul>
+                        <li>Text is posted successfully</li>
+                        <li>User receives clear message about image limitations</li>
+                        <li>No errors are thrown</li>
+                        <li>Logs show OAuth credential type detection</li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+
+        <div class="status success">
+            <strong>✅ Fix Status:</strong> Code updated and ready for deployment.
+            Twitter will now post text successfully and provide clear feedback about image upload limitations.
+        </div>
+    </div>
+</body>
+</html>

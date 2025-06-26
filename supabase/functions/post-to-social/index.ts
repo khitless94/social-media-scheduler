@@ -194,15 +194,16 @@ async function createHmacSha1Signature(baseString: string, signingKey: string): 
 // Old Twitter functions removed - now using twitter-api-v2 library
 
 // Manual Twitter image upload function (Deno-compatible)
-async function uploadImageToTwitter(base64Image: string): Promise<string | null> {
+async function uploadImageToTwitter(base64Image: string, userCredentials: any): Promise<string | null> {
   try {
     const apiUrl = 'https://upload.twitter.com/1.1/media/upload.json';
 
+    // Use user's OAuth credentials instead of hardcoded environment variables
     const credentials = {
       consumer_key: Deno.env.get('TWITTER_API_KEY')!,
       consumer_secret: Deno.env.get('TWITTER_API_SECRET')!,
-      token: Deno.env.get('TWITTER_ACCESS_TOKEN')!,
-      token_secret: Deno.env.get('TWITTER_ACCESS_TOKEN_SECRET')!,
+      token: userCredentials.access_token,
+      token_secret: userCredentials.access_token_secret,
     };
 
     console.log('[Twitter] Credentials check:', {
@@ -211,6 +212,11 @@ async function uploadImageToTwitter(base64Image: string): Promise<string | null>
       token: !!credentials.token,
       token_secret: !!credentials.token_secret,
     });
+
+    // Validate all required credentials are present
+    if (!credentials.consumer_key || !credentials.consumer_secret || !credentials.token || !credentials.token_secret) {
+      throw new Error('Missing required Twitter OAuth credentials for image upload');
+    }
 
     // Generate OAuth 1.0a signature
     const timestamp = Math.floor(Date.now() / 1000).toString();
@@ -293,6 +299,12 @@ async function postToTwitter(content: string, image?: string, credentials?: any)
     console.log('[Twitter] Starting Twitter post process...');
     console.log('[Twitter] Content preview:', content.substring(0, 50) + '...');
     console.log('[Twitter] Has image:', !!image);
+    console.log('[Twitter] Credentials available:', {
+      access_token: !!credentials?.access_token,
+      access_token_secret: !!credentials?.access_token_secret,
+      refresh_token: !!credentials?.refresh_token,
+      token_type: credentials?.token_type
+    });
 
     let mediaId = null;
 
@@ -301,6 +313,15 @@ async function postToTwitter(content: string, image?: string, credentials?: any)
       try {
         console.log('[Twitter] 🖼️ Starting image upload process...');
         console.log('[Twitter] 🔗 Image URL:', image);
+
+        // Check if we have OAuth 1.0a credentials required for media upload
+        if (!credentials?.access_token_secret) {
+          console.warn('[Twitter] ⚠️ OAuth 1.0a credentials required for image upload');
+          console.warn('[Twitter] Current token type appears to be OAuth 2.0 Bearer token');
+          console.warn('[Twitter] Skipping image upload and posting text-only tweet');
+          console.warn('[Twitter] To enable image uploads, please reconnect Twitter with OAuth 1.0a');
+          mediaId = null;
+        } else {
 
         // Step 1: Download image from Supabase storage URL
         console.log('[Twitter] 📥 Downloading image from Supabase...');
@@ -326,13 +347,15 @@ async function postToTwitter(content: string, image?: string, credentials?: any)
         console.log('[Twitter] Image converted to Base64, length:', base64Image.length);
 
         // Upload using manual API call (bypasses twitter-api-v2 compatibility issues)
-        mediaId = await uploadImageToTwitter(base64Image);
+        mediaId = await uploadImageToTwitter(base64Image, credentials);
 
         if (mediaId) {
           console.log('[Twitter] ✅ Image uploaded successfully, media_id:', mediaId);
         } else {
           throw new Error('Failed to upload image to Twitter');
         }
+
+        } // End of OAuth 1.0a credentials check
 
       } catch (imageError) {
         console.error('[Twitter] Image upload error:', imageError);
@@ -388,11 +411,18 @@ async function postToTwitter(content: string, image?: string, credentials?: any)
         console.log('[Twitter] ✅ Tweet posted successfully');
         console.log('[Twitter] Tweet ID:', result.data.id);
 
+        let message = mediaId ? "Tweet with image posted successfully" : "Text-only tweet posted successfully";
+
+        // Add note about image upload limitations if image was provided but not uploaded
+        if (image && !mediaId && !credentials?.access_token_secret) {
+          message += " (Note: Image upload requires OAuth 1.0a credentials. Please reconnect Twitter account for image support.)";
+        }
+
         return {
           platform: "twitter",
           success: true,
           data: result.data,
-          message: mediaId ? "Tweet with image posted successfully" : "Text-only tweet posted successfully"
+          message: message
         };
       } else {
         const errorText = await response.text();
