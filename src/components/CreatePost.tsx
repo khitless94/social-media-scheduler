@@ -24,7 +24,7 @@ import {
   CalendarDays,
   ExternalLink
 } from 'lucide-react';
-import { FaLinkedin, FaTwitter, FaInstagram, FaFacebook, FaReddit, FaGoogle } from 'react-icons/fa';
+import { FaLinkedin, FaTwitter, FaInstagram, FaFacebook, FaReddit } from 'react-icons/fa';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { ensureAuthenticated, authenticatedStorageOperation } from '@/utils/authenticatedRequest';
@@ -71,8 +71,7 @@ const CreatePost: React.FC = () => {
     { value: 'twitter', label: 'Twitter', icon: 'twitter' as const },
     { value: 'instagram', label: 'Instagram', icon: 'instagram' as const },
     { value: 'facebook', label: 'Facebook', icon: 'facebook' as const },
-    { value: 'reddit', label: 'Reddit', icon: 'reddit' as const },
-    { value: 'google', label: 'Google', icon: 'google' as const }
+    { value: 'reddit', label: 'Reddit', icon: 'reddit' as const }
   ];
 
   const tones = [
@@ -867,8 +866,7 @@ Create the post now:`;
                   const IconComponent = p.icon === 'linkedin' ? FaLinkedin :
                                       p.icon === 'twitter' ? FaTwitter :
                                       p.icon === 'instagram' ? FaInstagram :
-                                      p.icon === 'facebook' ? FaFacebook :
-                                      p.icon === 'google' ? FaGoogle : FaReddit;
+                                      p.icon === 'facebook' ? FaFacebook : FaReddit;
                   const isConnected = connectionStatus[p.value as Platform];
                   const isSelected = platform === p.value;
                   const platformColors = {
@@ -876,8 +874,7 @@ Create the post now:`;
                     twitter: '#1DA1F2',
                     instagram: '#E4405F',
                     facebook: '#1877F2',
-                    reddit: '#FF4500',
-                    google: '#4285F4'
+                    reddit: '#FF4500'
                   };
 
                   return (

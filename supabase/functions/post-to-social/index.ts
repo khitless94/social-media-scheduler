@@ -1059,61 +1059,6 @@ async function postToReddit(content: string, image?: string, credentials?: any) 
   }
 }
 
-// Google posting function (Google My Business, YouTube, Gmail)
-async function postToGoogle(content: string, image?: string, credentials?: any) {
-  try {
-    console.log('[Google] Starting Google post process...');
-    console.log('[Google] Content preview:', content.substring(0, 50) + '...');
-    console.log('[Google] Has image:', !!image);
-
-    const accessToken = credentials?.access_token;
-    if (!accessToken) {
-      throw new Error('No Google access token found');
-    }
-
-    // For now, we'll implement Google My Business posting
-    // Later can be extended to YouTube and Gmail
-
-    // Get user's Google My Business locations
-    console.log('[Google] Fetching Google My Business locations...');
-    const locationsResponse = await fetch('https://mybusinessbusinessinformation.googleapis.com/v1/accounts', {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      }
-    });
-
-    if (!locationsResponse.ok) {
-      const errorText = await locationsResponse.text();
-      console.error('[Google] Failed to fetch locations:', errorText);
-      throw new Error(`Failed to access Google My Business: ${locationsResponse.status}`);
-    }
-
-    const locationsData = await locationsResponse.json();
-    console.log('[Google] Locations data:', locationsData);
-
-    // For now, we'll return a success message indicating Google integration is ready
-    // Full implementation would require selecting a specific location and posting
-
-    return {
-      platform: "google",
-      success: true,
-      message: "Google integration ready. Google My Business posting requires location selection.",
-      data: {
-        availableServices: ['Google My Business', 'YouTube', 'Gmail'],
-        locationsFound: locationsData?.accounts?.length || 0
-      }
-    };
-
-  } catch (error) {
-    console.error('[Google] Error:', error);
-    return {
-      platform: "google",
-      success: false,
-      error: error.message
-    };
-  }
-}
 
 async function postToSocialMedia(platform: string, content: string, image?: string, credentials?: any) {
   // Optimize content for the specific platform
@@ -1134,8 +1079,6 @@ async function postToSocialMedia(platform: string, content: string, image?: stri
       return await postToInstagram(optimizedContent, image, credentials);
     case "reddit":
       return await postToReddit(optimizedContent, image, credentials);
-    case "google":
-      return await postToGoogle(optimizedContent, image, credentials);
     default:
       return { platform, success: false, error: `Unsupported platform: ${platform}` };
   }

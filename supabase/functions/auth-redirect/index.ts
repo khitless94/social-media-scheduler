@@ -47,15 +47,6 @@ const oauthConfigs = {
     responseType: "code",
     requiresPKCE: false,
   },
-  google: {
-    authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
-    clientId: Deno.env.get("GOOGLE_CLIENT_ID") || "PASTE_YOUR_GOOGLE_CLIENT_ID_HERE",
-    scope: "openid email profile https://www.googleapis.com/auth/business.manage https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/gmail.send",
-    responseType: "code",
-    requiresPKCE: false,
-    accessType: "offline", // For refresh tokens
-    prompt: "consent", // Force consent screen to get refresh token
-  },
 };
 
 function generateRandomString(length = 32): string {
