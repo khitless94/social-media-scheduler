@@ -69,6 +69,7 @@ import {
 import { Facebook, Instagram, Twitter, Linkedin } from "lucide-react";
 import CreatePostModal from "./CreatePostModal";
 import SettingsPage from "./pages/SettingsPage";
+import MyPostsPage from "./pages/MyPostsPage";
 import { useSocialMediaConnection } from "@/hooks/useSocialMediaConnection";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -214,7 +215,7 @@ const ProfessionalDashboard = () => {
       items: [
         { id: "overview", label: "Overview", icon: Home, shortcut: "⌘1" },
         { id: "create", label: "Create", icon: Wand2, shortcut: "⌘N", action: () => navigate('/create') },
-        { id: "posts", label: "Posts", icon: FileText, shortcut: "⌘2", badge: "24" },
+        { id: "posts", label: "Posts", icon: FileText, shortcut: "⌘2", badge: "24", action: () => navigate('/posts') },
         { id: "calendar", label: "Calendar", icon: Calendar, shortcut: "⌘3" },
         { id: "analytics", label: "Analytics", icon: BarChart3, shortcut: "⌘4" }
       ]
@@ -591,7 +592,7 @@ const ProfessionalDashboard = () => {
                           <p className="text-sm text-gray-500 mt-1">Your latest posts and interactions</p>
                         </div>
                         <Button
-                          onClick={() => setActiveTab("posts")}
+                          onClick={() => navigate('/posts')}
                           variant="outline"
                           size="sm"
                           className="text-gray-600"
@@ -758,27 +759,8 @@ const ProfessionalDashboard = () => {
 
             {/* Other Tabs - Professional Empty States */}
             {activeTab === "posts" && (
-              <div className="text-center py-16">
-                <div className="w-16 h-16 bg-gradient-to-r from-violet-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                  <FileText className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Content Library</h3>
-                <p className="text-gray-500 mb-6 max-w-md mx-auto">
-                  Manage all your social media posts, drafts, and scheduled content in one place.
-                </p>
-                <div className="flex items-center justify-center space-x-3">
-                  <Button
-                    onClick={() => navigate('/create')}
-                    className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create First Post
-                  </Button>
-                  <Button variant="outline">
-                    <Upload className="w-4 h-4 mr-2" />
-                    Import Content
-                  </Button>
-                </div>
+              <div className="-m-6">
+                <MyPostsPage />
               </div>
             )}
 

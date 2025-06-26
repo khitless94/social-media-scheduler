@@ -1,70 +1,141 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  FileText, 
-  Clock, 
-  CheckCircle, 
-  Search, 
-  Filter, 
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  FileText,
+  Clock,
+  CheckCircle,
+  Search,
+  Filter,
   Plus,
   Edit,
   Trash2,
   Eye,
   Share2,
   Calendar,
-  MoreHorizontal
+  MoreHorizontal,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
+  ArrowLeft,
+  Sparkles,
+  BarChart3,
+  ExternalLink
 } from "lucide-react";
+import { usePosts } from "@/hooks/usePosts";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const MyPostsPage = () => {
+  console.log('🚀 [MyPostsPage] Component is rendering!');
+
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [platformFilter, setPlatformFilter] = useState("all");
 
-  // Mock data - replace with actual data fetching
-  const posts = [
-    {
-      id: 1,
-      content: "🚀 Excited to share our latest product update! New features that will revolutionize your workflow. Check it out and let us know what you think! #ProductUpdate #Innovation",
-      platform: "Twitter",
-      status: "published",
-      scheduledFor: "2024-01-15 10:00 AM",
-      engagement: { likes: 45, shares: 12, comments: 8 },
-      createdAt: "2024-01-14"
-    },
-    {
-      id: 2,
-      content: "Behind the scenes of our amazing team working on innovative solutions for the future. Teamwork makes the dream work! 💪",
-      platform: "LinkedIn",
-      status: "scheduled",
-      scheduledFor: "2024-01-16 9:00 AM",
-      engagement: { likes: 0, shares: 0, comments: 0 },
-      createdAt: "2024-01-14"
-    },
-    {
-      id: 3,
-      content: "Check out this stunning visual representation of our growth journey! 📈 From startup to success story.",
-      platform: "Instagram",
-      status: "draft",
-      scheduledFor: null,
-      engagement: { likes: 0, shares: 0, comments: 0 },
-      createdAt: "2024-01-13"
-    }
-  ];
-
-  const filteredPosts = posts.filter(post => {
-    const matchesSearch = post.content.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || post.status === statusFilter;
-    const matchesPlatform = platformFilter === "all" || post.platform.toLowerCase() === platformFilter;
-    return matchesSearch && matchesStatus && matchesPlatform;
+  // Use real data from Supabase
+  console.log('🔍 [MyPostsPage] About to call usePosts with filters:', {
+    status: statusFilter,
+    platform: platformFilter,
+    search: searchTerm
   });
+
+  const {
+    posts,
+    loading,
+    error,
+    deletePost,
+    refreshPosts,
+    stats
+  } = usePosts({
+    status: statusFilter,
+    platform: platformFilter,
+    search: searchTerm
+  });
+
+  console.log('🔍 [MyPostsPage] usePosts returned:', {
+    posts: posts?.length || 0,
+    loading,
+    error,
+    stats
+  });
+
+  // Add a test button to create a sample post for debugging
+  const createTestPost = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.log('❌ No user found for test post creation');
+        return;
+      }
+
+      console.log('🧪 Creating test post for user:', user.id);
+
+      const { data, error } = await supabase
+        .from('posts')
+        .insert([
+          {
+            user_id: user.id,
+            content: 'This is a test post created on ' + new Date().toLocaleString(),
+            platform: 'twitter',
+            status: 'draft',
+            platform_post_ids: {},
+            engagement_stats: {},
+            generated_by_ai: false,
+            retry_count: 0
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('❌ Error creating test post:', error);
+      } else {
+        console.log('✅ Test post created:', data);
+        refreshPosts(); // Refresh the posts list
+      }
+    } catch (err) {
+      console.error('❌ Exception creating test post:', err);
+    }
+  };
+
+  // Debug logging
+  console.log('🔍 [MyPostsPage] Render state:', {
+    posts: posts?.length || 0,
+    loading,
+    error,
+    statusFilter,
+    platformFilter,
+    searchTerm
+  });
+
+  const handleDeletePost = async (id: string) => {
+    try {
+      await deletePost(id);
+      toast.success("Post deleted successfully");
+    } catch (error) {
+      toast.error("Failed to delete post");
+      console.error("Delete error:", error);
+    }
+  };
+
+  const handleRefresh = () => {
+    refreshPosts();
+    toast.success("Posts refreshed");
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "published": return "bg-green-100 text-green-700 border-green-200";
       case "scheduled": return "bg-orange-100 text-orange-700 border-orange-200";
       case "draft": return "bg-gray-100 text-gray-700 border-gray-200";
+      case "failed": return "bg-red-100 text-red-700 border-red-200";
       default: return "bg-gray-100 text-gray-700 border-gray-200";
     }
   };
@@ -75,33 +146,99 @@ const MyPostsPage = () => {
       case "linkedin": return "text-blue-600";
       case "instagram": return "text-pink-600";
       case "facebook": return "text-blue-700";
+      case "reddit": return "text-orange-600";
       default: return "text-gray-600";
     }
   };
 
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const formatPlatform = (platform: string) => {
+    return platform.charAt(0).toUpperCase() + platform.slice(1);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      <div className="max-w-7xl mx-auto p-6 space-y-8">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="p-3 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl shadow-lg">
-              <FileText className="h-8 w-8 text-white" />
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm">
+        <div className="max-w-full mx-auto px-6">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-4">
+              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                <FileText className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <span className="text-xl font-semibold text-gray-900">Content Library</span>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">My Posts</h1>
-              <p className="text-gray-600">Manage and track your content across all platforms</p>
+
+            <div className="flex items-center space-x-4">
+              <Button
+                variant="ghost"
+                onClick={() => navigate('/dashboard')}
+                className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 px-3 py-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Back to Dashboard</span>
+              </Button>
+
+              <Button
+                onClick={createTestPost}
+                variant="outline"
+                className="px-4 py-2 rounded-lg flex items-center space-x-2"
+              >
+                <span>🧪 Create Test Post</span>
+              </Button>
+
+              <Button
+                onClick={() => navigate('/create')}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Create Post</span>
+              </Button>
             </div>
           </div>
-          
-          <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl">
-            <Plus className="h-5 w-5 mr-2" />
-            Create Post
-          </Button>
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <div className="pt-16">
+        <div className="max-w-7xl mx-auto p-6 space-y-8">
+          {/* Page Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Your Posts</h1>
+              <p className="text-gray-600">Manage all your social media posts, drafts, and scheduled content</p>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <Button
+                variant="outline"
+                onClick={handleRefresh}
+                disabled={loading}
+                className="px-4 py-2"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl">
+              <Plus className="h-5 w-5 mr-2" />
+              Create Post
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all">
             <div className="flex items-center justify-between mb-4">
               <div className="p-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl">
@@ -109,7 +246,7 @@ const MyPostsPage = () => {
               </div>
               <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">Total</span>
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-1">{posts.length}</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-1">{loading ? '...' : stats.total}</h3>
             <p className="text-sm text-gray-600">All Posts</p>
           </div>
 
@@ -120,7 +257,7 @@ const MyPostsPage = () => {
               </div>
               <span className="text-xs font-medium text-gray-600 bg-gray-50 px-2 py-1 rounded-full">Draft</span>
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-1">{posts.filter(p => p.status === 'draft').length}</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-1">{loading ? '...' : stats.drafts}</h3>
             <p className="text-sm text-gray-600">Drafts</p>
           </div>
 
@@ -131,7 +268,7 @@ const MyPostsPage = () => {
               </div>
               <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded-full">Queue</span>
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-1">{posts.filter(p => p.status === 'scheduled').length}</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-1">{loading ? '...' : stats.scheduled}</h3>
             <p className="text-sm text-gray-600">Scheduled</p>
           </div>
 
@@ -142,8 +279,19 @@ const MyPostsPage = () => {
               </div>
               <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">Live</span>
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-1">{posts.filter(p => p.status === 'published').length}</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-1">{loading ? '...' : stats.published}</h3>
             <p className="text-sm text-gray-600">Published</p>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-gradient-to-r from-red-500 to-red-600 rounded-xl">
+                <AlertCircle className="h-6 w-6 text-white" />
+              </div>
+              <span className="text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded-full">Failed</span>
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-1">{loading ? '...' : stats.failed}</h3>
+            <p className="text-sm text-gray-600">Failed</p>
           </div>
         </div>
 
@@ -171,6 +319,7 @@ const MyPostsPage = () => {
                 <option value="draft">Draft</option>
                 <option value="scheduled">Scheduled</option>
                 <option value="published">Published</option>
+                <option value="failed">Failed</option>
               </select>
               
               <select
@@ -183,6 +332,7 @@ const MyPostsPage = () => {
                 <option value="linkedin">LinkedIn</option>
                 <option value="instagram">Instagram</option>
                 <option value="facebook">Facebook</option>
+                <option value="reddit">Reddit</option>
               </select>
             </div>
           </div>
@@ -193,7 +343,7 @@ const MyPostsPage = () => {
           <Tabs defaultValue="all" value={statusFilter} onValueChange={setStatusFilter} className="w-full">
             {/* Tab Navigation */}
             <div className="border-b border-gray-100 bg-gray-50/50">
-              <TabsList className="grid w-full grid-cols-4 bg-transparent p-0 h-auto">
+              <TabsList className="grid w-full grid-cols-5 bg-transparent p-0 h-auto">
                 <TabsTrigger
                   value="all"
                   className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 data-[state=active]:shadow-none py-4 px-6 font-semibold transition-all"
@@ -218,13 +368,37 @@ const MyPostsPage = () => {
                 >
                   Published
                 </TabsTrigger>
+                <TabsTrigger
+                  value="failed"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-red-500 data-[state=active]:bg-transparent data-[state=active]:text-red-600 data-[state=active]:shadow-none py-4 px-6 font-semibold transition-all"
+                >
+                  Failed
+                </TabsTrigger>
               </TabsList>
             </div>
 
             {/* Tab Content */}
             <div className="p-6">
               <TabsContent value={statusFilter} className="mt-0">
-                {filteredPosts.length === 0 ? (
+                {error ? (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <AlertCircle className="h-8 w-8 text-red-500" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Error loading posts</h3>
+                    <p className="text-gray-600 mb-4">{error}</p>
+                    <Button onClick={handleRefresh} variant="outline">
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Try Again
+                    </Button>
+                  </div>
+                ) : loading ? (
+                  <div className="text-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-indigo-600" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Loading posts...</h3>
+                    <p className="text-gray-600">Please wait while we fetch your content</p>
+                  </div>
+                ) : posts.length === 0 ? (
                   <div className="text-center py-12">
                     <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                       <FileText className="h-8 w-8 text-gray-400" />
@@ -238,7 +412,7 @@ const MyPostsPage = () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {filteredPosts.map((post) => (
+                    {posts.map((post) => (
                       <div key={post.id} className="p-6 border border-gray-200 rounded-xl hover:bg-gray-50 transition-all group">
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex items-center space-x-3">
@@ -246,13 +420,19 @@ const MyPostsPage = () => {
                               {post.status === 'published' && <CheckCircle className="h-3 w-3 mr-1" />}
                               {post.status === 'scheduled' && <Clock className="h-3 w-3 mr-1" />}
                               {post.status === 'draft' && <Edit className="h-3 w-3 mr-1" />}
+                              {post.status === 'failed' && <AlertCircle className="h-3 w-3 mr-1" />}
                               {post.status.charAt(0).toUpperCase() + post.status.slice(1)}
                             </Badge>
                             <span className={`text-sm font-medium ${getPlatformColor(post.platform)}`}>
-                              {post.platform}
+                              {formatPlatform(post.platform)}
                             </span>
+                            {post.generated_by_ai && (
+                              <Badge variant="secondary" className="text-xs">
+                                AI Generated
+                              </Badge>
+                            )}
                           </div>
-                          
+
                           <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                               <Eye className="h-4 w-4" />
@@ -260,7 +440,12 @@ const MyPostsPage = () => {
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-600 hover:text-red-700">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                              onClick={() => handleDeletePost(post.id)}
+                            >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -268,31 +453,65 @@ const MyPostsPage = () => {
                             </Button>
                           </div>
                         </div>
-                        
+
+                        {post.image_url && (
+                          <div className="mb-4">
+                            <img
+                              src={post.image_url}
+                              alt="Post image"
+                              className="w-full max-w-md h-48 object-cover rounded-lg border border-gray-200"
+                            />
+                          </div>
+                        )}
+
                         <p className="text-gray-700 mb-4 line-clamp-3">{post.content}</p>
-                        
+
+                        {post.error_message && (
+                          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                            <p className="text-sm text-red-700">
+                              <AlertCircle className="h-4 w-4 inline mr-1" />
+                              {post.error_message}
+                            </p>
+                          </div>
+                        )}
+
                         <div className="flex items-center justify-between text-sm text-gray-500">
                           <div className="flex items-center space-x-4">
-                            {post.status === 'scheduled' && post.scheduledFor && (
+                            {post.status === 'scheduled' && post.scheduled_at && (
                               <div className="flex items-center space-x-1">
                                 <Calendar className="h-4 w-4" />
-                                <span>Scheduled for {post.scheduledFor}</span>
+                                <span>Scheduled for {formatDate(post.scheduled_at)}</span>
                               </div>
                             )}
-                            {post.status === 'published' && (
+                            {post.status === 'published' && post.published_at && (
+                              <div className="flex items-center space-x-1">
+                                <CheckCircle className="h-4 w-4" />
+                                <span>Published {formatDate(post.published_at)}</span>
+                              </div>
+                            )}
+                            {post.status === 'published' && Object.keys(post.engagement_stats).length > 0 && (
                               <div className="flex items-center space-x-4">
-                                <span className="flex items-center space-x-1">
-                                  <Eye className="h-4 w-4" />
-                                  <span>{post.engagement.likes}</span>
-                                </span>
-                                <span className="flex items-center space-x-1">
-                                  <Share2 className="h-4 w-4" />
-                                  <span>{post.engagement.shares}</span>
-                                </span>
+                                {Object.entries(post.engagement_stats).map(([platform, stats]: [string, any]) => (
+                                  <div key={platform} className="flex items-center space-x-2">
+                                    <span className="text-xs text-gray-400">{platform}:</span>
+                                    {stats.likes && (
+                                      <span className="flex items-center space-x-1">
+                                        <Eye className="h-3 w-3" />
+                                        <span>{stats.likes}</span>
+                                      </span>
+                                    )}
+                                    {stats.shares && (
+                                      <span className="flex items-center space-x-1">
+                                        <Share2 className="h-3 w-3" />
+                                        <span>{stats.shares}</span>
+                                      </span>
+                                    )}
+                                  </div>
+                                ))}
                               </div>
                             )}
                           </div>
-                          <span>Created {post.createdAt}</span>
+                          <span>Created {formatDate(post.created_at)}</span>
                         </div>
                       </div>
                     ))}
@@ -301,6 +520,7 @@ const MyPostsPage = () => {
               </TabsContent>
             </div>
           </Tabs>
+        </div>
         </div>
       </div>
     </div>

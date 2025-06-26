@@ -20,4 +20,15 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  define: {
+    // Ensure production URLs are used in production builds
+    __PRODUCTION_URL__: mode === 'production'
+      ? '"https://scribe-schedule-labs.vercel.app"'
+      : '"http://localhost:8080"',
+  },
+  build: {
+    // Optimize for production
+    minify: mode === 'production',
+    sourcemap: mode !== 'production',
+  },
 }));

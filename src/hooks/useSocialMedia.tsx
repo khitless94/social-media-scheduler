@@ -142,6 +142,55 @@ export const useSocialMedia = () => {
     }
   };
 
+  // Function to save post to database
+  const savePostToDatabase = async (
+    content: string,
+    platforms: string[],
+    status: 'draft' | 'scheduled' | 'published' | 'failed',
+    image?: string,
+    scheduledFor?: string,
+    platformPostIds?: Record<string, string>,
+    errorMessage?: string,
+    generatedByAI?: boolean,
+    aiPrompt?: string
+  ) => {
+    if (!user?.id) return null;
+
+    try {
+      const { data, error } = await supabase
+        .from('posts')
+        .insert([
+          {
+            user_id: user.id,
+            content,
+            platforms,
+            status,
+            image_url: image,
+            scheduled_for: scheduledFor,
+            published_at: status === 'published' ? new Date().toISOString() : null,
+            platform_post_ids: platformPostIds || {},
+            engagement_stats: {},
+            generated_by_ai: generatedByAI || false,
+            ai_prompt: aiPrompt,
+            error_message: errorMessage,
+            retry_count: 0
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error saving post to database:', error);
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error saving post to database:', error);
+      return null;
+    }
+  };
+
   // Post to a single social media platform
   const postToSocial = async ({ content, platform, subreddit, image }: PostToSocialParams): Promise<PostResponse> => {
     try {
@@ -210,8 +259,21 @@ export const useSocialMedia = () => {
         console.log(`[useSocialMedia] Found result for ${platform}:`, result);
 
         if (result.success) {
-          // Skip database logging for testing
           console.log(`[useSocialMedia] Success: ${platform} post completed`);
+
+          // Save successful post to database
+          const platformPostIds = result.postId ? { [platform]: result.postId } : {};
+          await savePostToDatabase(
+            content,
+            [platform],
+            'published',
+            image,
+            undefined, // scheduledFor
+            platformPostIds,
+            undefined, // errorMessage
+            false, // generatedByAI
+            undefined // aiPrompt
+          );
 
           return {
             success: true,
@@ -220,8 +282,20 @@ export const useSocialMedia = () => {
             platform
           };
         } else {
-          // Skip database logging for testing
           console.log(`[useSocialMedia] Failed: ${platform} post failed - ${result.error}`);
+
+          // Save failed post to database
+          await savePostToDatabase(
+            content,
+            [platform],
+            'failed',
+            image,
+            undefined, // scheduledFor
+            {}, // platformPostIds
+            result.error || 'Failed to post', // errorMessage
+            false, // generatedByAI
+            undefined // aiPrompt
+          );
 
           return {
             success: false,
@@ -296,6 +370,58 @@ export const useSocialMedia = () => {
 
       // The edge function returns { success: true, results: [...] }
       if (data.success && data.results && Array.isArray(data.results)) {
+        // Save posts to database for each platform
+        const platformPostIds: Record<string, string> = {};
+        const successfulPlatforms: string[] = [];
+        const failedPlatforms: string[] = [];
+        let hasErrors = false;
+        let errorMessages: string[] = [];
+
+        data.results.forEach((result: any) => {
+          if (result.success) {
+            successfulPlatforms.push(result.platform);
+            if (result.postId) {
+              platformPostIds[result.platform] = result.postId;
+            }
+          } else {
+            failedPlatforms.push(result.platform);
+            hasErrors = true;
+            if (result.error) {
+              errorMessages.push(`${result.platform}: ${result.error}`);
+            }
+          }
+        });
+
+        // Save successful posts
+        if (successfulPlatforms.length > 0) {
+          await savePostToDatabase(
+            content,
+            successfulPlatforms,
+            'published',
+            image,
+            undefined, // scheduledFor
+            platformPostIds,
+            undefined, // errorMessage
+            false, // generatedByAI
+            undefined // aiPrompt
+          );
+        }
+
+        // Save failed posts
+        if (failedPlatforms.length > 0) {
+          await savePostToDatabase(
+            content,
+            failedPlatforms,
+            'failed',
+            image,
+            undefined, // scheduledFor
+            {}, // platformPostIds
+            errorMessages.join('; '), // errorMessage
+            false, // generatedByAI
+            undefined // aiPrompt
+          );
+        }
+
         return data.results.map((result: any) => ({
           success: result.success,
           message: result.message || (result.success ? `Successfully posted to ${result.platform}` : 'Failed to post'),
@@ -405,6 +531,7 @@ export const useSocialMedia = () => {
     getConnectedPlatforms,
     isPlatformConnected,
     getPlatformsNeedingReconnection,
-    checkUser
+    checkUser,
+    savePostToDatabase
   };
 };

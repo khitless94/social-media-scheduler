@@ -230,7 +230,7 @@ const OAuthCallback = () => {
               window.opener.postMessage({
                 type: "oauth_success",
                 platform: activePlatform
-              }, "https://socialscheduler.vercel.app");
+              }, "https://scribe-schedule-labs.vercel.app");
 
               // Trigger custom refresh event in opener
               try {
@@ -462,7 +462,7 @@ Please check your Twitter app configuration and try again.`;
                     `${baseOrigin}:8082`,
                     `${baseOrigin}:8083`,
                     `${baseOrigin}:8084`,
-                    'https://social-media-scheduler-khitless94s-projects.vercel.app'
+                    'https://scribe-schedule-labs.vercel.app'
                   ];
                   const message = {
                     type: "oauth_success",

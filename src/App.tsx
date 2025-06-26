@@ -12,6 +12,7 @@ import LandingPage from '@/components/LandingPage';
 import UnifiedDashboard from '@/components/UnifiedDashboard';
 import CreatePost from '@/components/CreatePost';
 import OAuthCallback from '@/components/OAuthCallback';
+import MyPostsPage from '@/components/pages/MyPostsPage';
 
 
 
@@ -58,7 +59,7 @@ function App() {
         path="/posts"
         element={
           <ProtectedRoute>
-            <UnifiedDashboard />
+            <MyPostsPage />
           </ProtectedRoute>
         }
       />
