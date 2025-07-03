@@ -230,7 +230,7 @@ const OAuthCallback = () => {
               window.opener.postMessage({
                 type: "oauth_success",
                 platform: activePlatform
-              }, "https://scribe-schedule-labs.vercel.app");
+              }, "https://social-media-scheduler-gamma.vercel.app");
 
               // Trigger custom refresh event in opener
               try {
