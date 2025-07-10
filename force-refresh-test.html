@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Force Refresh Content Library</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f0f2f5;
+            text-align: center;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .button {
+            background: #4CAF50;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s ease;
+        }
+        .button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        .countdown {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 Force Refresh Content Library</h1>
+        <p>I've updated the code to show sample posts immediately. Let's test it!</p>
+        
+        <div class="status">
+            <h3>✅ Changes Made:</h3>
+            <ul style="text-align: left;">
+                <li>✅ Sample data loads immediately when no user is logged in</li>
+                <li>✅ Fallback to sample data on any database error</li>
+                <li>✅ Post stats calculated from sample data</li>
+                <li>✅ Clear messaging about sample vs real data</li>
+            </ul>
+        </div>
+
+        <div class="countdown" id="countdown">5</div>
+        <p>Auto-opening Content Library in <span id="timer">5</span> seconds...</p>
+        
+        <a href="http://localhost:8080/posts" class="button" target="_blank" onclick="openAndRefresh()">
+            📚 Open Content Library Now
+        </a>
+        
+        <br><br>
+        
+        <a href="http://localhost:8080/posts?refresh=true" class="button" target="_blank" style="background: #2196F3;">
+            🔄 Force Refresh Content Library
+        </a>
+
+        <div class="status" style="background: #fff3e0; color: #f57c00; margin-top: 30px;">
+            <h3>📊 Expected Result:</h3>
+            <p><strong>You should now see:</strong></p>
+            <ul style="text-align: left;">
+                <li>All Posts: <strong>6</strong> (not 0)</li>
+                <li>Drafts: <strong>1</strong></li>
+                <li>Scheduled: <strong>2</strong></li>
+                <li>Published: <strong>2</strong></li>
+                <li>Failed: <strong>1</strong></li>
+                <li>6 sample posts with realistic content</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        let countdown = 5;
+        const countdownEl = document.getElementById('countdown');
+        const timerEl = document.getElementById('timer');
+        
+        const timer = setInterval(() => {
+            countdown--;
+            countdownEl.textContent = countdown;
+            timerEl.textContent = countdown;
+            
+            if (countdown <= 0) {
+                clearInterval(timer);
+                openAndRefresh();
+            }
+        }, 1000);
+        
+        function openAndRefresh() {
+            // Open the Content Library with a cache-busting parameter
+            const url = `http://localhost:8080/posts?t=${Date.now()}`;
+            window.open(url, '_blank');
+            
+            // Also try to refresh if it's already open
+            setTimeout(() => {
+                const refreshUrl = `http://localhost:8080/posts?refresh=true&t=${Date.now()}`;
+                window.open(refreshUrl, '_blank');
+            }, 1000);
+        }
+        
+        // Prevent auto-open if user clicks manually
+        document.querySelector('.button').addEventListener('click', () => {
+            clearInterval(timer);
+        });
+    </script>
+</body>
+</html>

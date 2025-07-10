@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth Callback Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        .test-button {
+            background: #4CAF50;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+            transition: all 0.3s ease;
+            display: inline-block;
+            text-decoration: none;
+        }
+        .test-button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .success { background: rgba(76, 175, 80, 0.3); }
+        .error { background: rgba(244, 67, 54, 0.3); }
+        .info { background: rgba(33, 150, 243, 0.3); }
+        .warning { background: rgba(255, 152, 0, 0.3); }
+        .code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin: 10px 0;
+            word-break: break-all;
+        }
+        .url-comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        @media (max-width: 768px) {
+            .url-comparison {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 OAuth Callback URL Fix Test</h1>
+        <p>Testing the hardcoded localhost fix for OAuth callback URLs.</p>
+        
+        <div class="status warning">
+            <h3>⚠️ Issue Identified:</h3>
+            <p>The Supabase environment variable <code>YOUR_FRONTEND_URL</code> was overriding our localhost default with a Vercel URL.</p>
+            <p><strong>Solution:</strong> Hardcoded <code>http://localhost:8080</code> in the function to bypass environment variables.</p>
+        </div>
+
+        <div class="url-comparison">
+            <div class="status error">
+                <h4>❌ Before Fix:</h4>
+                <div class="code">
+                    https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/social-media-scheduler-ycrvmbec0-khitless94s-projects.vercel.app/oauth/callback?success=true&platform=twitter
+                </div>
+            </div>
+            <div class="status success">
+                <h4>✅ After Fix:</h4>
+                <div class="code">
+                    http://localhost:8080/oauth/callback?success=true&platform=twitter
+                </div>
+            </div>
+        </div>
+
+        <div class="status info">
+            <h3>🚀 Function Redeployed:</h3>
+            <ul>
+                <li>✅ Hardcoded localhost URL in oauth-callback function</li>
+                <li>✅ Bypasses any environment variable overrides</li>
+                <li>✅ Script size: 83.95kB (deployed successfully)</li>
+                <li>✅ All three redirect locations updated</li>
+            </ul>
+        </div>
+
+        <h3>🧪 Test OAuth Flow:</h3>
+        <p>Click a button below to test the OAuth flow. The callback should now redirect to localhost:8080.</p>
+        
+        <a href="https://www.reddit.com/api/v1/authorize?response_type=code&client_id=kBrkkv-sRC-3jE9RIUt6-g&redirect_uri=https%3A%2F%2Feqiuukwwpdiyncahrdny.supabase.co%2Ffunctions%2Fv1%2Foauth-callback&scope=identity%20read%20submit&state=test_reddit_fix&duration=permanent" 
+           class="test-button" target="_blank">
+           🔴 Test Reddit OAuth
+        </a>
+        
+        <a href="https://x.com/i/oauth2/authorize?response_type=code&client_id=cElLTnFibUhINUJpblBRTTA2aFA6MTpjaQ&redirect_uri=https%3A%2F%2Feqiuukwwpdiyncahrdny.supabase.co%2Ffunctions%2Fv1%2Foauth-callback&scope=tweet.read%20tweet.write%20users.read%20offline.access&state=test_twitter_fix&code_challenge=test&code_challenge_method=S256" 
+           class="test-button" target="_blank">
+           🐦 Test Twitter OAuth
+        </a>
+        
+        <a href="https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=78yhh9neso7awt&redirect_uri=https%3A%2F%2Feqiuukwwpdiyncahrdny.supabase.co%2Ffunctions%2Fv1%2Foauth-callback&scope=openid%20profile%20email%20w_member_social&state=test_linkedin_fix" 
+           class="test-button" target="_blank">
+           💼 Test LinkedIn OAuth
+        </a>
+
+        <div class="status">
+            <h3>📋 Expected Behavior:</h3>
+            <ol>
+                <li>Click a test button above</li>
+                <li>Authorize on the platform (Reddit/Twitter/LinkedIn)</li>
+                <li>Get redirected to: <code>http://localhost:8080/oauth/callback?success=true&platform=[platform]</code></li>
+                <li><strong>NO MORE VERCEL URLs!</strong></li>
+            </ol>
+        </div>
+
+        <div class="status info">
+            <h3>🔍 Technical Details:</h3>
+            <p><strong>Changes Made:</strong></p>
+            <ul>
+                <li>Line 290-291: Hardcoded localhost for error redirects</li>
+                <li>Line 533-534: Hardcoded localhost for success redirects</li>
+                <li>Line 550-551: Hardcoded localhost for exception handling</li>
+            </ul>
+            <p><strong>Function URL:</strong> <code>https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback</code></p>
+            <p><strong>Redirect Target:</strong> <code>http://localhost:8080/oauth/callback</code></p>
+        </div>
+
+        <div class="status success">
+            <h3>✅ Fix Status:</h3>
+            <p>The OAuth callback function has been updated and redeployed with hardcoded localhost URLs. This bypasses any environment variable issues and ensures all OAuth flows redirect to your local development server.</p>
+        </div>
+    </div>
+
+    <script>
+        // Check if we're on the callback page and show results
+        if (window.location.pathname === '/oauth/callback') {
+            const urlParams = new URLSearchParams(window.location.search);
+            const success = urlParams.get('success');
+            const platform = urlParams.get('platform');
+            const error = urlParams.get('error');
+            
+            const container = document.querySelector('.container');
+            
+            if (success === 'true') {
+                container.insertAdjacentHTML('afterbegin', `
+                    <div class="status success">
+                        <h2>🎉 OAuth Fix Successful!</h2>
+                        <p><strong>${platform}</strong> OAuth completed successfully!</p>
+                        <p>✅ Redirected to localhost:8080 as expected</p>
+                        <p>✅ No Vercel URLs in the redirect chain</p>
+                    </div>
+                `);
+            } else if (error) {
+                container.insertAdjacentHTML('afterbegin', `
+                    <div class="status error">
+                        <h2>❌ OAuth Error</h2>
+                        <p><strong>Platform:</strong> ${platform}</p>
+                        <p><strong>Error:</strong> ${error}</p>
+                        <p>But at least it redirected to localhost:8080! 🎯</p>
+                    </div>
+                `);
+            }
+        }
+        
+        // Log current URL for debugging
+        console.log('Current URL:', window.location.href);
+        console.log('Expected pattern: http://localhost:8080/oauth/callback?...');
+    </script>
+</body>
+</html>

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Real Test Posts to Database</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        .button {
+            background: #4CAF50;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+            transition: all 0.3s ease;
+            display: inline-block;
+            text-decoration: none;
+        }
+        .button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        .button.secondary {
+            background: #2196F3;
+        }
+        .button.secondary:hover {
+            background: #1976D2;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .success { background: rgba(76, 175, 80, 0.3); }
+        .error { background: rgba(244, 67, 54, 0.3); }
+        .info { background: rgba(33, 150, 243, 0.3); }
+        .warning { background: rgba(255, 152, 0, 0.3); }
+        .code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin: 10px 0;
+            word-break: break-all;
+        }
+        #results {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Setup Real Database for Content Library</h1>
+        <p>Now let's set up the real database and add test posts so your Content Library shows actual data from Supabase.</p>
+        
+        <div class="status warning">
+            <h3>⚠️ Current Status:</h3>
+            <p>The Content Library is now configured to use real database data instead of sample data. You need to:</p>
+            <ol>
+                <li>Create the posts table in Supabase</li>
+                <li>Add some test posts to see them in the Content Library</li>
+                <li>Log in to your app to see your posts</li>
+            </ol>
+        </div>
+
+        <h3>🚀 Step-by-Step Setup:</h3>
+        
+        <div class="status info">
+            <h4>Step 1: Create Database Tables</h4>
+            <p>Run the complete database setup script in Supabase SQL Editor:</p>
+            <button class="button secondary" onclick="openSupabaseSQL()">
+                📊 Open Supabase SQL Editor
+            </button>
+            <p><small>Copy and paste the contents of <code>complete-database-setup.sql</code></small></p>
+        </div>
+
+        <div class="status info">
+            <h4>Step 2: Add Test Posts</h4>
+            <p>Make sure you're logged in to your app, then add some test posts:</p>
+            <button class="button" onclick="addTestPosts()">
+                📝 Add Real Test Posts
+            </button>
+        </div>
+
+        <div class="status info">
+            <h4>Step 3: View Content Library</h4>
+            <p>Check if the posts appear in your Content Library:</p>
+            <button class="button secondary" onclick="openContentLibrary()">
+                📚 Open Content Library
+            </button>
+        </div>
+
+        <div id="results"></div>
+
+        <div class="status">
+            <h3>📋 What the real test posts will include:</h3>
+            <ul>
+                <li>✅ <strong>Published posts</strong> - Twitter & LinkedIn with engagement stats</li>
+                <li>⏰ <strong>Scheduled posts</strong> - Instagram & Reddit for future publishing</li>
+                <li>📝 <strong>Draft posts</strong> - Facebook post ready for editing</li>
+                <li>❌ <strong>Failed posts</strong> - Twitter post that failed due to rate limits</li>
+                <li>🤖 <strong>AI-generated</strong> - Some posts created with AI prompts</li>
+                <li>👤 <strong>Manual posts</strong> - Some posts created manually</li>
+            </ul>
+        </div>
+
+        <div class="status success">
+            <h3>✅ Expected Result:</h3>
+            <p>After completing these steps, your Content Library will show:</p>
+            <ul>
+                <li><strong>All Posts: 6</strong> (real posts from database)</li>
+                <li><strong>Drafts: 1</strong></li>
+                <li><strong>Scheduled: 2</strong></li>
+                <li><strong>Published: 2</strong></li>
+                <li><strong>Failed: 1</strong></li>
+                <li>Real post content stored in Supabase</li>
+                <li>Proper filtering and search functionality</li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const SUPABASE_URL = "https://eqiuukwwpdiyncahrdny.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaXV1a3d3cGRpeW5jYWhyZG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxOTA5MzcsImV4cCI6MjA2NDc2NjkzN30.sgwl7oP2fJD7rh64w59XWdfMCS0XQcNjD4Qr_WGILGs";
+        
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        function showResult(message, type = 'info') {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = `<div class="status ${type}"><p>${message}</p></div>`;
+        }
+
+        function openSupabaseSQL() {
+            window.open('https://supabase.com/dashboard/project/eqiuukwwpdiyncahrdny/sql/new', '_blank');
+            showResult('📊 Opened Supabase SQL Editor. Copy and paste the contents of "complete-database-setup.sql" and run it.', 'info');
+        }
+
+        function openContentLibrary() {
+            window.open('http://localhost:8080/posts', '_blank');
+            showResult('📚 Opened Content Library. Check if real posts from database are now visible!', 'info');
+        }
+
+        async function addTestPosts() {
+            showResult('🔄 Adding real test posts to database...', 'info');
+            
+            try {
+                // Get current user
+                const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+                
+                if (userError || !user) {
+                    showResult('❌ Please log in to your app first at http://localhost:8080/, then try again.', 'error');
+                    return;
+                }
+
+                // Real test posts data
+                const testPosts = [
+                    {
+                        user_id: user.id,
+                        content: "🚀 Just launched my new social media scheduler! Excited to share content across all platforms seamlessly. #productivity #socialmedia #tech",
+                        platform: "twitter",
+                        status: "published",
+                        published_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+                        platform_post_ids: { twitter: "1234567890" },
+                        engagement_stats: { twitter: { likes: 45, retweets: 12, replies: 8 } },
+                        generated_by_ai: false,
+                        retry_count: 0
+                    },
+                    {
+                        user_id: user.id,
+                        content: "Working on some exciting new features for content creators. AI-powered content generation is the future! 🤖✨ #AI #contentcreation #innovation",
+                        platform: "linkedin",
+                        status: "published",
+                        published_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+                        platform_post_ids: { linkedin: "activity-9876543210" },
+                        engagement_stats: { linkedin: { likes: 78, comments: 15, shares: 23 } },
+                        generated_by_ai: true,
+                        ai_prompt: "Create a professional post about AI in content creation",
+                        retry_count: 0
+                    },
+                    {
+                        user_id: user.id,
+                        content: "Beautiful sunset from my office window today 🌅 Sometimes you need to pause and appreciate the simple moments. #sunset #mindfulness #worklife",
+                        platform: "instagram",
+                        status: "scheduled",
+                        scheduled_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+                        platform_post_ids: {},
+                        engagement_stats: {},
+                        generated_by_ai: false,
+                        retry_count: 0
+                    },
+                    {
+                        user_id: user.id,
+                        content: "Draft post about the importance of consistent social media presence. Need to add more statistics and examples before publishing.",
+                        platform: "facebook",
+                        status: "draft",
+                        platform_post_ids: {},
+                        engagement_stats: {},
+                        generated_by_ai: false,
+                        retry_count: 0
+                    },
+                    {
+                        user_id: user.id,
+                        content: "TIL: The best time to post on social media varies by platform and audience. Here's what I've learned from analyzing engagement data... 📊",
+                        platform: "reddit",
+                        status: "scheduled",
+                        scheduled_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                        platform_post_ids: {},
+                        engagement_stats: {},
+                        generated_by_ai: true,
+                        ai_prompt: "Create an educational post about social media timing",
+                        retry_count: 0
+                    },
+                    {
+                        user_id: user.id,
+                        content: "Failed to post this earlier due to API limits. Will retry later. Content about the latest social media trends and predictions for 2024.",
+                        platform: "twitter",
+                        status: "failed",
+                        error_message: "Rate limit exceeded",
+                        platform_post_ids: {},
+                        engagement_stats: {},
+                        generated_by_ai: false,
+                        retry_count: 2
+                    }
+                ];
+
+                const { data, error } = await supabaseClient
+                    .from('posts')
+                    .insert(testPosts)
+                    .select();
+
+                if (error) {
+                    throw error;
+                }
+
+                showResult(`✅ Success! Added ${testPosts.length} real test posts to the database. Open the Content Library to see them!`, 'success');
+                
+            } catch (error) {
+                console.error('Error adding test posts:', error);
+                if (error.message?.includes('relation "posts" does not exist')) {
+                    showResult(`❌ Posts table doesn't exist yet. Please run the database setup script first.`, 'error');
+                } else {
+                    showResult(`❌ Error: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        // Show initial instructions
+        showResult('👋 Follow the steps above to set up real database data for your Content Library.', 'info');
+    </script>
+</body>
+</html>

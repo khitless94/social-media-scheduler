@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Real Supabase Database</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        .button {
+            background: #4CAF50;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+            transition: all 0.3s ease;
+            display: inline-block;
+            text-decoration: none;
+        }
+        .button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        .button.secondary {
+            background: #2196F3;
+        }
+        .button.secondary:hover {
+            background: #1976D2;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .success { background: rgba(76, 175, 80, 0.3); }
+        .error { background: rgba(244, 67, 54, 0.3); }
+        .info { background: rgba(33, 150, 243, 0.3); }
+        .warning { background: rgba(255, 152, 0, 0.3); }
+        .sql-box {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            margin: 15px 0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .step {
+            margin: 25px 0;
+            padding: 20px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-left: 4px solid #4CAF50;
+        }
+        .step h3 {
+            margin-top: 0;
+            color: #4CAF50;
+        }
+        #results {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Create Real Supabase Database</h1>
+        <p>Let's set up your real database tables so the Content Library shows actual data from Supabase instead of dummy data.</p>
+        
+        <div class="status success">
+            <h3>✅ Ready to Create Real Database</h3>
+            <p>I've prepared everything you need to create the real database tables. Follow the steps below:</p>
+        </div>
+
+        <div class="step">
+            <h3>Step 1: Open Supabase SQL Editor</h3>
+            <p>Click the button below to open the Supabase SQL Editor in a new tab:</p>
+            <button class="button" onclick="openSupabaseSQL()">
+                📊 Open Supabase SQL Editor
+            </button>
+        </div>
+
+        <div class="step">
+            <h3>Step 2: Copy the SQL Script</h3>
+            <p>Copy the SQL script below and paste it into the Supabase SQL Editor:</p>
+            <button class="button secondary" onclick="copySQL()">
+                📋 Copy SQL Script
+            </button>
+            <div class="sql-box" id="sql-script">-- Create posts table for social media scheduler
+CREATE TABLE IF NOT EXISTS posts (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  platform TEXT NOT NULL CHECK (platform IN ('twitter', 'linkedin', 'instagram', 'facebook', 'reddit')),
+  status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'scheduled', 'published', 'failed')),
+  scheduled_at TIMESTAMP WITH TIME ZONE,
+  published_at TIMESTAMP WITH TIME ZONE,
+  image_url TEXT,
+  platform_post_ids JSONB DEFAULT '{}',
+  engagement_stats JSONB DEFAULT '{}',
+  generated_by_ai BOOLEAN DEFAULT false,
+  ai_prompt TEXT,
+  error_message TEXT,
+  retry_count INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable Row Level Security
+ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view their own posts" ON posts;
+DROP POLICY IF EXISTS "Users can insert their own posts" ON posts;
+DROP POLICY IF EXISTS "Users can update their own posts" ON posts;
+DROP POLICY IF EXISTS "Users can delete their own posts" ON posts;
+
+-- Create RLS policies for posts
+CREATE POLICY "Users can view their own posts" ON posts
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own posts" ON posts
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own posts" ON posts
+  FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own posts" ON posts
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts(user_id);
+CREATE INDEX IF NOT EXISTS idx_posts_status ON posts(status);
+CREATE INDEX IF NOT EXISTS idx_posts_platform ON posts(platform);
+CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts(created_at);
+
+-- Create updated_at trigger function
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Create trigger for automatic updated_at
+DROP TRIGGER IF EXISTS update_posts_updated_at ON posts;
+CREATE TRIGGER update_posts_updated_at
+    BEFORE UPDATE ON posts
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Success message
+SELECT 'Posts table created successfully!' as result;</div>
+        </div>
+
+        <div class="step">
+            <h3>Step 3: Run the SQL Script</h3>
+            <p>In the Supabase SQL Editor:</p>
+            <ol>
+                <li>Paste the copied SQL script</li>
+                <li>Click the <strong>"Run"</strong> button</li>
+                <li>Wait for the success message</li>
+            </ol>
+        </div>
+
+        <div class="step">
+            <h3>Step 4: Add Real Test Posts</h3>
+            <p>After creating the table, add some real test posts to your database:</p>
+            <button class="button" onclick="addRealPosts()">
+                📝 Add Real Test Posts
+            </button>
+            <div id="posts-result"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 5: Remove Sample Data Fallback</h3>
+            <p>Once real data is working, remove the sample data fallback from the code:</p>
+            <button class="button secondary" onclick="removeSampleData()">
+                🗑️ Remove Sample Data
+            </button>
+            <div id="remove-result"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 6: Test Content Library</h3>
+            <p>Check if your Content Library now shows real data from Supabase:</p>
+            <button class="button" onclick="openContentLibrary()">
+                📚 Open Content Library
+            </button>
+        </div>
+
+        <div id="results"></div>
+
+        <div class="status info">
+            <h3>📋 What This Creates:</h3>
+            <ul>
+                <li><strong>posts table:</strong> Stores your social media posts with content, platform, status, engagement stats</li>
+                <li><strong>RLS policies:</strong> Ensures users can only see their own posts</li>
+                <li><strong>Indexes:</strong> Fast queries by user_id, status, platform, created_at</li>
+                <li><strong>Triggers:</strong> Automatic updated_at timestamps when posts are modified</li>
+                <li><strong>Constraints:</strong> Valid platform and status values only</li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const SUPABASE_URL = "https://eqiuukwwpdiyncahrdny.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaXV1a3d3cGRpeW5jYWhyZG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxOTA5MzcsImV4cCI6MjA2NDc2NjkzN30.sgwl7oP2fJD7rh64w59XWdfMCS0XQcNjD4Qr_WGILGs";
+        
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status ${type}"><p>${message}</p></div>`;
+        }
+
+        function openSupabaseSQL() {
+            window.open('https://supabase.com/dashboard/project/eqiuukwwpdiyncahrdny/sql/new', '_blank');
+        }
+
+        function copySQL() {
+            const sqlScript = document.getElementById('sql-script').textContent;
+            navigator.clipboard.writeText(sqlScript).then(() => {
+                alert('✅ SQL script copied to clipboard! Now paste it in Supabase SQL Editor.');
+            }).catch(() => {
+                alert('❌ Failed to copy. Please manually select and copy the SQL script.');
+            });
+        }
+
+        async function addRealPosts() {
+            showResult('posts-result', '🔄 Adding real test posts...', 'info');
+            
+            try {
+                // Get current user
+                const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+                
+                if (userError || !user) {
+                    showResult('posts-result', '❌ Please log in to your app first at http://localhost:8080/', 'error');
+                    return;
+                }
+
+                // Real test posts
+                const testPosts = [
+                    {
+                        user_id: user.id,
+                        content: "🚀 Just launched my new social media scheduler! Excited to share content across all platforms seamlessly. #productivity #socialmedia #tech",
+                        platform: "twitter",
+                        status: "published",
+                        published_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+                        platform_post_ids: { twitter: "1234567890" },
+                        engagement_stats: { twitter: { likes: 45, retweets: 12, replies: 8 } },
+                        generated_by_ai: false,
+                        retry_count: 0
+                    },
+                    {
+                        user_id: user.id,
+                        content: "Working on some exciting new features for content creators. AI-powered content generation is the future! 🤖✨ #AI #contentcreation",
+                        platform: "linkedin",
+                        status: "published",
+                        published_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+                        platform_post_ids: { linkedin: "activity-9876543210" },
+                        engagement_stats: { linkedin: { likes: 78, comments: 15, shares: 23 } },
+                        generated_by_ai: true,
+                        ai_prompt: "Create a professional post about AI in content creation",
+                        retry_count: 0
+                    },
+                    {
+                        user_id: user.id,
+                        content: "Beautiful sunset from my office window today 🌅 Sometimes you need to pause and appreciate the simple moments. #sunset #mindfulness",
+                        platform: "instagram",
+                        status: "scheduled",
+                        scheduled_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+                        platform_post_ids: {},
+                        engagement_stats: {},
+                        generated_by_ai: false,
+                        retry_count: 0
+                    },
+                    {
+                        user_id: user.id,
+                        content: "Draft post about the importance of consistent social media presence. Need to add more statistics and examples before publishing.",
+                        platform: "facebook",
+                        status: "draft",
+                        platform_post_ids: {},
+                        engagement_stats: {},
+                        generated_by_ai: false,
+                        retry_count: 0
+                    }
+                ];
+
+                const { data, error } = await supabaseClient
+                    .from('posts')
+                    .insert(testPosts)
+                    .select();
+
+                if (error) {
+                    throw error;
+                }
+
+                showResult('posts-result', `✅ Added ${testPosts.length} real test posts to database! Refresh Content Library to see them.`, 'success');
+                
+            } catch (error) {
+                showResult('posts-result', `❌ Error: ${error.message}. Make sure you created the posts table first.`, 'error');
+            }
+        }
+
+        function removeSampleData() {
+            showResult('remove-result', '🔄 Removing sample data fallback...', 'info');
+            
+            const instructions = `
+To remove sample data fallback:
+1. Edit src/components/pages/MyPostsPage.tsx
+2. Remove the lines with displayPosts and displayStats
+3. Change back to using posts and stats directly
+4. Remove the getSamplePosts() and getSampleStats() functions
+5. Save the file and refresh the app
+            `;
+            
+            showResult('remove-result', instructions, 'warning');
+        }
+
+        function openContentLibrary() {
+            window.open('http://localhost:8080/posts', '_blank');
+        }
+
+        // Auto-instructions
+        setTimeout(() => {
+            alert('📋 Ready to create real database!\n\n1. Click "Open Supabase SQL Editor"\n2. Click "Copy SQL Script"\n3. Paste and run in Supabase\n4. Add test posts\n5. Check Content Library');
+        }, 2000);
+    </script>
+</body>
+</html>

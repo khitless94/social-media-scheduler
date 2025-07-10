@@ -287,7 +287,8 @@ serve(async (req) => {
 
     if (error) {
       console.error(`[OAuth Callback] OAuth error: ${error} - ${errorDescription}`);
-      const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'https://scribe-schedule-labs.vercel.app';
+      // Force localhost for development - ignore any environment variable
+      const frontendUrl = 'http://localhost:8080';
       return new Response(null, {
         status: 302,
         headers: {
@@ -529,7 +530,8 @@ serve(async (req) => {
       });
     } else {
       // Redirect for GET requests (browser redirects)
-      const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'https://scribe-schedule-labs.vercel.app';
+      // Force localhost for development - ignore any environment variable
+      const frontendUrl = 'http://localhost:8080';
       const successUrl = `${frontendUrl}/oauth/callback?success=true&platform=${platform}`;
       console.log(`[OAuth Callback] Redirecting to success URL: ${successUrl}`);
 
@@ -545,7 +547,8 @@ serve(async (req) => {
     console.error('[OAuth Callback] Error:', error.message);
     console.error('[OAuth Callback] Stack trace:', error.stack);
 
-    const frontendUrl = Deno.env.get('YOUR_FRONTEND_URL') || 'https://scribe-schedule-labs.vercel.app';
+    // Force localhost for development - ignore any environment variable
+    const frontendUrl = 'http://localhost:8080';
 
     // Try to get platform from URL or session data for better error reporting
     const url = new URL(req.url);

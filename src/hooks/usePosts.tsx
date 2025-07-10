@@ -27,11 +27,118 @@ export interface PostFilters {
   search?: string;
 }
 
+// Sample posts for fallback when database is not available
+const getSamplePosts = (userId: string): Post[] => {
+  const now = new Date();
+  const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+  const oneDayAgo = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000);
+  const twoHoursLater = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+  return [
+    {
+      id: 'sample-1',
+      user_id: userId,
+      content: "🚀 Just launched my new social media scheduler! Excited to share content across all platforms seamlessly. #productivity #socialmedia #tech",
+      platform: "twitter",
+      status: "published" as const,
+      published_at: twoDaysAgo.toISOString(),
+      platform_post_ids: { twitter: "1234567890" },
+      engagement_stats: { twitter: { likes: 45, retweets: 12, replies: 8 } },
+      created_at: twoDaysAgo.toISOString(),
+      updated_at: twoDaysAgo.toISOString(),
+      generated_by_ai: false,
+      retry_count: 0
+    },
+    {
+      id: 'sample-2',
+      user_id: userId,
+      content: "Working on some exciting new features for content creators. AI-powered content generation is the future! 🤖✨ #AI #contentcreation #innovation",
+      platform: "linkedin",
+      status: "published" as const,
+      published_at: oneDayAgo.toISOString(),
+      platform_post_ids: { linkedin: "activity-9876543210" },
+      engagement_stats: { linkedin: { likes: 78, comments: 15, shares: 23 } },
+      created_at: oneDayAgo.toISOString(),
+      updated_at: oneDayAgo.toISOString(),
+      generated_by_ai: true,
+      ai_prompt: "Create a professional post about AI in content creation",
+      retry_count: 0
+    },
+    {
+      id: 'sample-3',
+      user_id: userId,
+      content: "Beautiful sunset from my office window today 🌅 Sometimes you need to pause and appreciate the simple moments. #sunset #mindfulness #worklife",
+      platform: "instagram",
+      status: "scheduled" as const,
+      scheduled_at: twoHoursLater.toISOString(),
+      platform_post_ids: {},
+      engagement_stats: {},
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+      generated_by_ai: false,
+      retry_count: 0
+    },
+    {
+      id: 'sample-4',
+      user_id: userId,
+      content: "Draft post about the importance of consistent social media presence. Need to add more statistics and examples before publishing.",
+      platform: "facebook",
+      status: "draft" as const,
+      platform_post_ids: {},
+      engagement_stats: {},
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+      generated_by_ai: false,
+      retry_count: 0
+    },
+    {
+      id: 'sample-5',
+      user_id: userId,
+      content: "TIL: The best time to post on social media varies by platform and audience. Here's what I've learned from analyzing engagement data... 📊",
+      platform: "reddit",
+      status: "scheduled" as const,
+      scheduled_at: tomorrow.toISOString(),
+      platform_post_ids: {},
+      engagement_stats: {},
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+      generated_by_ai: true,
+      ai_prompt: "Create an educational post about social media timing",
+      retry_count: 0
+    },
+    {
+      id: 'sample-6',
+      user_id: userId,
+      content: "Failed to post this earlier due to API limits. Will retry later. Content about the latest social media trends and predictions for 2024.",
+      platform: "twitter",
+      status: "failed" as const,
+      error_message: "Rate limit exceeded",
+      platform_post_ids: {},
+      engagement_stats: {},
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+      generated_by_ai: false,
+      retry_count: 2
+    }
+  ];
+};
+
 export const usePosts = (filters: PostFilters = {}) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user, session } = useAuth();
+
+  // Only fetch real data when user is available
+  useEffect(() => {
+    if (!user?.id) {
+      console.log('🔍 [usePosts] No user yet, waiting for authentication');
+      setPosts([]);
+      setError(null);
+      setLoading(false);
+    }
+  }, [user]);
 
   const fetchPosts = async () => {
     console.log('🔍 [usePosts] fetchPosts called');
@@ -39,7 +146,9 @@ export const usePosts = (filters: PostFilters = {}) => {
     console.log('🔍 [usePosts] user.id:', user?.id);
 
     if (!user?.id) {
-      console.log('❌ [usePosts] No user ID, stopping fetch');
+      console.log('❌ [usePosts] No user ID, cannot fetch posts');
+      setPosts([]);
+      setError('Please log in to see your posts.');
       setLoading(false);
       return;
     }
@@ -78,13 +187,29 @@ export const usePosts = (filters: PostFilters = {}) => {
 
       if (fetchError) {
         console.error('❌ [usePosts] Fetch error:', fetchError);
-        throw fetchError;
-      }
 
-      console.log('✅ [usePosts] Setting posts:', data);
-      setPosts(data || []);
+        // Handle specific database errors gracefully
+        if (fetchError.code === '42P01' || fetchError.message?.includes('relation "posts" does not exist')) {
+          console.log('📝 Posts table does not exist');
+          setPosts([]);
+          setError('Posts table not found. Please run the database setup script in Supabase.');
+        } else if (fetchError.code === 'PGRST116') {
+          console.log('📭 No posts found, setting empty array');
+          setPosts([]);
+          setError(null);
+        } else {
+          console.warn('Database error:', fetchError);
+          setPosts([]);
+          setError(`Database error: ${fetchError.message}`);
+        }
+      } else {
+        console.log('✅ [usePosts] Setting posts:', data);
+        setPosts(data || []);
+        setError(null);
+      }
     } catch (err) {
       console.error('❌ [usePosts] Error fetching posts:', err);
+      setPosts([]);
       setError(err instanceof Error ? err.message : 'Failed to fetch posts');
     } finally {
       setLoading(false);

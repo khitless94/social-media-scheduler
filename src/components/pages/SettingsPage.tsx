@@ -103,28 +103,40 @@ const SettingsPage = () => {
         .eq('user_id', user.id)
         .single();
 
-      if (error && error.code !== 'PGRST116') {
-        // Check if table doesn't exist
-        if (error.message?.includes('relation "profiles" does not exist') || error.code === '42P01') {
-          console.log("Profiles table doesn't exist, checking localStorage");
-
-          // Check localStorage as fallback
-          const localProfile = localStorage.getItem(`profile_${user.id}`);
-          if (localProfile) {
-            try {
-              const parsed = JSON.parse(localProfile);
-              setProfileData({
-                ...parsed,
-                email: user.email || ""
-              });
-              return;
-            } catch (e) {
-              console.log("Failed to parse local profile");
-            }
-          }
+      if (error) {
+        // Handle all database errors gracefully
+        if (error.code === '42P01' || error.message?.includes('relation "profiles" does not exist')) {
+          console.log("Profiles table doesn't exist, using localStorage fallback");
+        } else if (error.code === 'PGRST116') {
+          console.log("No profile found, using defaults");
         } else {
-          throw error;
+          console.warn("Profile fetch error (non-critical):", error);
         }
+
+        // Check localStorage as fallback
+        const localProfile = localStorage.getItem(`profile_${user.id}`);
+        if (localProfile) {
+          try {
+            const parsed = JSON.parse(localProfile);
+            setProfileData({
+              ...parsed,
+              email: user.email || ""
+            });
+            return;
+          } catch (e) {
+            console.log("Failed to parse local profile");
+          }
+        }
+        // Use default profile data if no localStorage
+        setProfileData({
+          full_name: "",
+          email: user.email || "",
+          country: "",
+          gender: "",
+          mobile_number: "",
+          profile_picture: ""
+        });
+        return;
       }
 
       if (data) {
@@ -203,6 +215,15 @@ const SettingsPage = () => {
           security_notifications: data.security_notifications
         });
         return;
+      } else if (error) {
+        // Handle database errors gracefully
+        if (error.code === '42P01' || error.message?.includes('relation "user_preferences" does not exist')) {
+          console.log("User preferences table doesn't exist, using localStorage fallback");
+        } else if (error.code === 'PGRST116') {
+          console.log("No user preferences found, using defaults");
+        } else {
+          console.warn("User preferences fetch error (non-critical):", error);
+        }
       }
     } catch (error) {
       console.log("Failed to fetch notifications from database, trying localStorage");

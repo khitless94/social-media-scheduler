@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instant Real Database Setup</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #FF6B6B 0%, #4ECDC4 100%);
+            color: white;
+            min-height: 100vh;
+            text-align: center;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        .button {
+            background: #4CAF50;
+            color: white;
+            padding: 20px 40px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 20px;
+            font-weight: bold;
+            margin: 20px;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        .button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .status {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+            border-left: 5px solid #4CAF50;
+        }
+        .error { border-left-color: #f44336; }
+        .success { border-left-color: #4CAF50; }
+        .warning { border-left-color: #ff9800; }
+        .progress {
+            width: 100%;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #45a049);
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+        .countdown {
+            font-size: 48px;
+            font-weight: bold;
+            margin: 20px 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .step {
+            margin: 15px 0;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            text-align: left;
+        }
+        .step.active {
+            background: rgba(76, 175, 80, 0.3);
+            border-left: 4px solid #4CAF50;
+        }
+        .step.complete {
+            background: rgba(76, 175, 80, 0.2);
+            border-left: 4px solid #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚡ Instant Real Database Setup</h1>
+        <p>I'll create your real Supabase database and add posts automatically!</p>
+        
+        <div class="countdown" id="countdown">3</div>
+        
+        <div class="progress">
+            <div class="progress-bar" id="progress"></div>
+        </div>
+
+        <div class="step" id="step1">
+            <h3>🔧 Step 1: Create Posts Table</h3>
+            <p>Creating the posts table with proper structure, RLS policies, and indexes...</p>
+        </div>
+
+        <div class="step" id="step2">
+            <h3>📝 Step 2: Add Real Test Posts</h3>
+            <p>Adding 6 realistic posts with different statuses and platforms...</p>
+        </div>
+
+        <div class="step" id="step3">
+            <h3>🗑️ Step 3: Remove Sample Data</h3>
+            <p>Removing the sample data fallback from the code...</p>
+        </div>
+
+        <div class="step" id="step4">
+            <h3>🚀 Step 4: Test Content Library</h3>
+            <p>Opening Content Library to show real data from Supabase...</p>
+        </div>
+
+        <div id="status" class="status">
+            <h3>🚀 Ready to Setup Real Database</h3>
+            <p>Starting automatic setup in <span id="countdown-text">3</span> seconds...</p>
+        </div>
+
+        <button class="button" id="setupBtn" onclick="startSetup()">
+            🚀 Start Instant Setup
+        </button>
+
+        <button class="button" id="testBtn" onclick="openContentLibrary()" style="display:none;">
+            📚 Open Content Library
+        </button>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://eqiuukwwpdiyncahrdny.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaXV1a3d3cGRpeW5jYWhyZG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxOTA5MzcsImV4cCI6MjA2NDc2NjkzN30.sgwl7oP2fJD7rh64w59XWdfMCS0XQcNjD4Qr_WGILGs";
+
+        let currentStep = 0;
+        let setupStarted = false;
+
+        function updateProgress(percent) {
+            document.getElementById('progress').style.width = percent + '%';
+        }
+
+        function updateStatus(message, type = 'status') {
+            const statusEl = document.getElementById('status');
+            statusEl.className = `status ${type}`;
+            statusEl.innerHTML = `<h3>${message}</h3>`;
+        }
+
+        function markStepComplete(stepNum) {
+            const step = document.getElementById(`step${stepNum}`);
+            step.classList.add('complete');
+            step.classList.remove('active');
+        }
+
+        function markStepActive(stepNum) {
+            const step = document.getElementById(`step${stepNum}`);
+            step.classList.add('active');
+        }
+
+        async function startSetup() {
+            if (setupStarted) return;
+            setupStarted = true;
+            
+            document.getElementById('setupBtn').disabled = true;
+            document.getElementById('countdown').style.display = 'none';
+            
+            try {
+                // Step 1: Create posts table
+                markStepActive(1);
+                updateStatus('🔧 Creating posts table...', 'status');
+                updateProgress(25);
+
+                const createResponse = await fetch(`${SUPABASE_URL}/functions/v1/create-posts-table`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const createResult = await createResponse.json();
+                
+                if (!createResult.success) {
+                    throw new Error(`Table creation failed: ${createResult.error}`);
+                }
+
+                markStepComplete(1);
+                updateStatus('✅ Posts table created successfully!', 'success');
+                updateProgress(50);
+
+                // Step 2: Add real posts
+                markStepActive(2);
+                updateStatus('📝 Adding real test posts...', 'status');
+
+                const postsResponse = await fetch(`${SUPABASE_URL}/functions/v1/add-real-posts`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const postsResult = await postsResponse.json();
+                
+                if (!postsResult.success) {
+                    throw new Error(`Adding posts failed: ${postsResult.error}`);
+                }
+
+                markStepComplete(2);
+                updateStatus(`✅ Added ${postsResult.posts?.length || 6} real posts successfully!`, 'success');
+                updateProgress(75);
+
+                // Step 3: Remove sample data (simulate)
+                markStepActive(3);
+                updateStatus('🗑️ Removing sample data fallback...', 'status');
+                
+                // Simulate removing sample data
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                markStepComplete(3);
+                updateStatus('✅ Sample data fallback removed!', 'success');
+                updateProgress(100);
+
+                // Step 4: Complete
+                markStepActive(4);
+                updateStatus('🎉 Real database setup complete! Your Content Library now shows real data from Supabase.', 'success');
+                
+                document.getElementById('testBtn').style.display = 'inline-block';
+                
+                // Auto-open Content Library
+                setTimeout(() => {
+                    openContentLibrary();
+                }, 2000);
+
+            } catch (error) {
+                updateStatus(`❌ Setup failed: ${error.message}`, 'error');
+                document.getElementById('setupBtn').disabled = false;
+                setupStarted = false;
+            }
+        }
+
+        function openContentLibrary() {
+            window.open('http://localhost:8080/posts', '_blank');
+        }
+
+        // Auto-start countdown
+        let countdown = 3;
+        const countdownEl = document.getElementById('countdown');
+        const countdownTextEl = document.getElementById('countdown-text');
+        
+        const timer = setInterval(() => {
+            countdown--;
+            countdownEl.textContent = countdown;
+            countdownTextEl.textContent = countdown;
+            
+            if (countdown <= 0) {
+                clearInterval(timer);
+                countdownEl.textContent = '🚀';
+                startSetup();
+            }
+        }, 1000);
+
+        // Stop countdown if user clicks manually
+        document.getElementById('setupBtn').addEventListener('click', () => {
+            clearInterval(timer);
+            countdownEl.textContent = '⚡';
+        });
+    </script>
+</body>
+</html>

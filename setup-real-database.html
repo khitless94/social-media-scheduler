@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup Real Supabase Database</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        .button {
+            background: #4CAF50;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+        .button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        .button.secondary {
+            background: #2196F3;
+        }
+        .button.secondary:hover {
+            background: #1976D2;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .success { background: rgba(76, 175, 80, 0.3); }
+        .error { background: rgba(244, 67, 54, 0.3); }
+        .info { background: rgba(33, 150, 243, 0.3); }
+        .warning { background: rgba(255, 152, 0, 0.3); }
+        .code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin: 10px 0;
+            word-break: break-all;
+        }
+        #results {
+            margin-top: 20px;
+        }
+        .step {
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-left: 4px solid #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Setup Real Supabase Database</h1>
+        <p>I've deployed a Supabase function to create the database tables. Let's set up your real database now!</p>
+        
+        <div class="status success">
+            <h3>✅ Database Function Deployed</h3>
+            <p>I've successfully deployed a <code>setup-database</code> function to your Supabase project that will:</p>
+            <ul>
+                <li>✅ Create the <strong>posts</strong> table with proper structure</li>
+                <li>✅ Create the <strong>profiles</strong> table for user data</li>
+                <li>✅ Set up <strong>Row Level Security (RLS)</strong> policies</li>
+                <li>✅ Create <strong>indexes</strong> for better performance</li>
+                <li>✅ Add <strong>triggers</strong> for automatic timestamps</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h3>Step 1: Create Database Tables</h3>
+            <p>Click the button below to create all the necessary database tables:</p>
+            <button class="button" onclick="setupDatabase()">
+                🛠️ Create Database Tables
+            </button>
+            <div id="setup-result"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 2: Add Test Posts</h3>
+            <p>After creating tables, add some real test posts to your database:</p>
+            <button class="button secondary" onclick="addRealPosts()">
+                📝 Add Real Test Posts
+            </button>
+            <div id="posts-result"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 3: Remove Sample Data</h3>
+            <p>Once real data is working, remove the sample data fallback:</p>
+            <button class="button secondary" onclick="removeSampleData()">
+                🗑️ Remove Sample Data Fallback
+            </button>
+            <div id="remove-result"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 4: Test Content Library</h3>
+            <p>Check if your Content Library now shows real data from Supabase:</p>
+            <button class="button" onclick="openContentLibrary()">
+                📚 Open Content Library
+            </button>
+        </div>
+
+        <div id="results"></div>
+
+        <div class="status info">
+            <h3>📋 What This Will Create:</h3>
+            <ul>
+                <li><strong>posts table:</strong> Store your social media posts with content, platform, status, etc.</li>
+                <li><strong>profiles table:</strong> Store user profile information</li>
+                <li><strong>RLS policies:</strong> Ensure users can only see their own data</li>
+                <li><strong>Indexes:</strong> Fast queries by user_id, status, platform, created_at</li>
+                <li><strong>Triggers:</strong> Automatic updated_at timestamps</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://eqiuukwwpdiyncahrdny.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaXV1a3d3cGRpeW5jYWhyZG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxOTA5MzcsImV4cCI6MjA2NDc2NjkzN30.sgwl7oP2fJD7rh64w59XWdfMCS0XQcNjD4Qr_WGILGs";
+
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status ${type}"><p>${message}</p></div>`;
+        }
+
+        async function setupDatabase() {
+            showResult('setup-result', '🔄 Creating database tables...', 'info');
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/setup-database`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showResult('setup-result', `✅ Database tables created successfully! Tables: ${result.tables.join(', ')}`, 'success');
+                } else {
+                    showResult('setup-result', `❌ Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showResult('setup-result', `❌ Failed to create tables: ${error.message}`, 'error');
+            }
+        }
+
+        async function addRealPosts() {
+            showResult('posts-result', '🔄 Adding real test posts...', 'info');
+            
+            try {
+                // Import Supabase client
+                const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+                const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+                // Get current user
+                const { data: { user }, error: userError } = await supabase.auth.getUser();
+                
+                if (userError || !user) {
+                    showResult('posts-result', '❌ Please log in to your app first at http://localhost:8080/', 'error');
+                    return;
+                }
+
+                // Real test posts
+                const testPosts = [
+                    {
+                        user_id: user.id,
+                        content: "🚀 Just launched my new social media scheduler! Excited to share content across all platforms seamlessly. #productivity #socialmedia #tech",
+                        platform: "twitter",
+                        status: "published",
+                        published_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+                        platform_post_ids: { twitter: "1234567890" },
+                        engagement_stats: { twitter: { likes: 45, retweets: 12, replies: 8 } },
+                        generated_by_ai: false,
+                        retry_count: 0
+                    },
+                    {
+                        user_id: user.id,
+                        content: "Working on some exciting new features for content creators. AI-powered content generation is the future! 🤖✨ #AI #contentcreation",
+                        platform: "linkedin",
+                        status: "published",
+                        published_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+                        platform_post_ids: { linkedin: "activity-9876543210" },
+                        engagement_stats: { linkedin: { likes: 78, comments: 15, shares: 23 } },
+                        generated_by_ai: true,
+                        ai_prompt: "Create a professional post about AI in content creation",
+                        retry_count: 0
+                    },
+                    {
+                        user_id: user.id,
+                        content: "Beautiful sunset from my office window today 🌅 Sometimes you need to pause and appreciate the simple moments. #sunset #mindfulness",
+                        platform: "instagram",
+                        status: "scheduled",
+                        scheduled_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+                        platform_post_ids: {},
+                        engagement_stats: {},
+                        generated_by_ai: false,
+                        retry_count: 0
+                    },
+                    {
+                        user_id: user.id,
+                        content: "Draft post about the importance of consistent social media presence. Need to add more statistics and examples before publishing.",
+                        platform: "facebook",
+                        status: "draft",
+                        platform_post_ids: {},
+                        engagement_stats: {},
+                        generated_by_ai: false,
+                        retry_count: 0
+                    }
+                ];
+
+                const { data, error } = await supabase
+                    .from('posts')
+                    .insert(testPosts)
+                    .select();
+
+                if (error) {
+                    throw error;
+                }
+
+                showResult('posts-result', `✅ Added ${testPosts.length} real test posts to database!`, 'success');
+                
+            } catch (error) {
+                showResult('posts-result', `❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        function removeSampleData() {
+            showResult('remove-result', '⚠️ To remove sample data fallback, you need to edit the MyPostsPage.tsx file and remove the displayPosts/displayStats logic.', 'warning');
+        }
+
+        function openContentLibrary() {
+            window.open('http://localhost:8080/posts', '_blank');
+        }
+
+        // Auto-setup on page load
+        setTimeout(() => {
+            if (confirm('Ready to create the database tables? This will set up your real Supabase database.')) {
+                setupDatabase();
+            }
+        }, 2000);
+    </script>
+</body>
+</html>

@@ -27,7 +27,7 @@ import {
   BarChart3,
   ExternalLink
 } from "lucide-react";
-import { usePosts } from "@/hooks/usePosts";
+import { usePosts, Post } from "@/hooks/usePosts";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -59,12 +59,20 @@ const MyPostsPage = () => {
     search: searchTerm
   });
 
+
+
   console.log('🔍 [MyPostsPage] usePosts returned:', {
     posts: posts?.length || 0,
     loading,
     error,
     stats
   });
+
+  // Use real data from Supabase
+  const displayPosts = posts;
+  const displayStats = stats;
+
+
 
   // Add a test button to create a sample post for debugging
   const createTestPost = async () => {
@@ -210,6 +218,8 @@ const MyPostsPage = () => {
         </div>
       </nav>
 
+
+
       {/* Main Content */}
       <div className="pt-16">
         <div className="max-w-7xl mx-auto p-6 space-y-8">
@@ -246,7 +256,7 @@ const MyPostsPage = () => {
               </div>
               <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">Total</span>
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-1">{loading ? '...' : stats.total}</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-1">{loading ? '...' : displayStats.total}</h3>
             <p className="text-sm text-gray-600">All Posts</p>
           </div>
 
@@ -257,7 +267,7 @@ const MyPostsPage = () => {
               </div>
               <span className="text-xs font-medium text-gray-600 bg-gray-50 px-2 py-1 rounded-full">Draft</span>
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-1">{loading ? '...' : stats.drafts}</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-1">{loading ? '...' : displayStats.drafts}</h3>
             <p className="text-sm text-gray-600">Drafts</p>
           </div>
 
@@ -268,7 +278,7 @@ const MyPostsPage = () => {
               </div>
               <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded-full">Queue</span>
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-1">{loading ? '...' : stats.scheduled}</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-1">{loading ? '...' : displayStats.scheduled}</h3>
             <p className="text-sm text-gray-600">Scheduled</p>
           </div>
 
@@ -279,7 +289,7 @@ const MyPostsPage = () => {
               </div>
               <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">Live</span>
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-1">{loading ? '...' : stats.published}</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-1">{loading ? '...' : displayStats.published}</h3>
             <p className="text-sm text-gray-600">Published</p>
           </div>
 
@@ -290,7 +300,7 @@ const MyPostsPage = () => {
               </div>
               <span className="text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded-full">Failed</span>
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-1">{loading ? '...' : stats.failed}</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-1">{loading ? '...' : displayStats.failed}</h3>
             <p className="text-sm text-gray-600">Failed</p>
           </div>
         </div>
@@ -398,7 +408,7 @@ const MyPostsPage = () => {
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">Loading posts...</h3>
                     <p className="text-gray-600">Please wait while we fetch your content</p>
                   </div>
-                ) : posts.length === 0 ? (
+                ) : displayPosts.length === 0 ? (
                   <div className="text-center py-12">
                     <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                       <FileText className="h-8 w-8 text-gray-400" />
@@ -412,7 +422,7 @@ const MyPostsPage = () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {posts.map((post) => (
+                    {displayPosts.map((post) => (
                       <div key={post.id} className="p-6 border border-gray-200 rounded-xl hover:bg-gray-50 transition-all group">
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex items-center space-x-3">

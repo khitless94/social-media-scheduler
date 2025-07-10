@@ -43,9 +43,17 @@ const Settings = () => {
         .eq('user_id', user?.id)
         .maybeSingle();
 
-      if (error) throw error;
-
-      if (data) {
+      if (error) {
+        // Handle common database errors gracefully
+        if (error.code === '42P01' || error.message?.includes('relation "profiles" does not exist')) {
+          console.log('Profiles table does not exist, using default values');
+        } else if (error.code === 'PGRST116') {
+          console.log('No profile found, using default values');
+        } else {
+          console.warn('Profile loading error (non-critical):', error);
+        }
+        // Don't throw error, just use default values
+      } else if (data) {
         setName(data.full_name || "");
         setCountry(data.country || "");
         setSex(data.sex || "");
@@ -53,12 +61,9 @@ const Settings = () => {
       }
       setEmail(user?.email || "");
     } catch (error: any) {
-      console.error('Error loading profile:', error);
-      toast({
-        title: "Error loading profile",
-        description: error.message,
-        variant: "destructive",
-      });
+      console.warn('Profile loading failed, using defaults:', error);
+      // Don't show error toast for profile loading issues
+      setEmail(user?.email || "");
     } finally {
       setLoading(false);
     }

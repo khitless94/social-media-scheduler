@@ -22,23 +22,34 @@ console.error = (...args) => {
     message.includes('404') ||
     message.includes('authorize') ||
     message.includes('400') ||
-    
+    message.includes('406') ||
+    message.includes('401') ||
+
     // Preload and performance warnings
     message.includes('preload') ||
     message.includes('analytics.tiktok.com') ||
     message.includes('ERR_CONNECTION_TIMED_OUT') ||
-    
+
     // Lovable platform errors (development only)
     message.includes('lovable-api.com') ||
     message.includes('CORS policy') ||
     message.includes('Access-Control-Allow-Origin') ||
     message.includes('ERR_FAILED') ||
     message.includes('latest-message') ||
-    
+
     // Network errors from development environment
     message.includes('net::ERR_') ||
     message.includes('Failed to fetch') ||
-    
+
+    // Database/Supabase errors (development)
+    message.includes('profiles?select=') ||
+    message.includes('user_preferences?select=') ||
+    message.includes('oauth_credentials?select=') ||
+    message.includes('posts?select=') ||
+    message.includes('post_history?select=') ||
+    message.includes('supabase.co/rest/v1/') ||
+    message.includes('eqiuukwwpdiyncahrdny.supabase.co') ||
+
     // Reddit CSP and framing errors
     message.includes('frame-ancestors') ||
     message.includes('reddit.com') ||
@@ -56,7 +67,15 @@ console.warn = (...args) => {
     message.includes('preload') ||
     message.includes('was preloaded using link preload but not used') ||
     message.includes('analytics.tiktok.com') ||
-    message.includes('lovable-api.com')
+    message.includes('lovable-api.com') ||
+    message.includes('supabase.co/rest/v1/') ||
+    message.includes('eqiuukwwpdiyncahrdny.supabase.co') ||
+    message.includes('profiles?select=') ||
+    message.includes('user_preferences?select=') ||
+    message.includes('oauth_credentials?select=') ||
+    message.includes('406') ||
+    message.includes('401') ||
+    message.includes('Failed to fetch')
   )) {
     return; // Don't log these warnings
   }

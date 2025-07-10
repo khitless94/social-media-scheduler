@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        .test-button {
+            background: #4CAF50;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+            transition: all 0.3s ease;
+        }
+        .test-button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .success { background: rgba(76, 175, 80, 0.3); }
+        .error { background: rgba(244, 67, 54, 0.3); }
+        .info { background: rgba(33, 150, 243, 0.3); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 OAuth Fix Verification</h1>
+        <p>Testing the OAuth callback URL fix. The callback should now redirect to <strong>localhost:8080</strong> instead of Vercel.</p>
+        
+        <div class="status info">
+            <h3>✅ Fixed Issues:</h3>
+            <ul>
+                <li>OAuth callback now redirects to <code>http://localhost:8080</code></li>
+                <li>Removed hardcoded Vercel URLs from Supabase functions</li>
+                <li>Functions deployed successfully to Supabase</li>
+            </ul>
+        </div>
+
+        <h3>Test OAuth Flow:</h3>
+        <button class="test-button" onclick="testRedditOAuth()">Test Reddit OAuth</button>
+        <button class="test-button" onclick="testTwitterOAuth()">Test Twitter OAuth</button>
+        <button class="test-button" onclick="testLinkedInOAuth()">Test LinkedIn OAuth</button>
+
+        <div id="test-results"></div>
+
+        <div class="status">
+            <h3>📋 What to Expect:</h3>
+            <ol>
+                <li>Click a test button to start OAuth flow</li>
+                <li>You'll be redirected to the platform's authorization page</li>
+                <li>After authorization, you should be redirected back to <strong>localhost:8080/oauth/callback</strong></li>
+                <li>No more Vercel URLs in the redirect chain!</li>
+            </ol>
+        </div>
+
+        <div class="status">
+            <h3>🔍 Debugging Info:</h3>
+            <p><strong>Supabase Project:</strong> eqiuukwwpdiyncahrdny</p>
+            <p><strong>OAuth Callback URL:</strong> https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback</p>
+            <p><strong>Frontend URL:</strong> http://localhost:8080</p>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://eqiuukwwpdiyncahrdny.supabase.co';
+        
+        function testRedditOAuth() {
+            const clientId = 'kBrkkv-sRC-3jE9RIUt6-g';
+            const redirectUri = `${SUPABASE_URL}/functions/v1/oauth-callback`;
+            const state = `test_reddit_${Date.now()}`;
+            
+            const params = new URLSearchParams({
+                response_type: 'code',
+                client_id: clientId,
+                redirect_uri: redirectUri,
+                scope: 'identity read submit',
+                state: state,
+                duration: 'permanent'
+            });
+            
+            const authUrl = `https://www.reddit.com/api/v1/authorize?${params.toString()}`;
+            
+            updateResults('Reddit OAuth URL generated. Opening in new window...', 'info');
+            window.open(authUrl, 'reddit-oauth', 'width=600,height=700');
+        }
+        
+        function testTwitterOAuth() {
+            const clientId = 'cElLTnFibUhINUJpblBRTTA2aFA6MTpjaQ';
+            const redirectUri = `${SUPABASE_URL}/functions/v1/oauth-callback`;
+            const state = `test_twitter_${Date.now()}`;
+            
+            const params = new URLSearchParams({
+                response_type: 'code',
+                client_id: clientId,
+                redirect_uri: redirectUri,
+                scope: 'tweet.read tweet.write users.read offline.access',
+                state: state,
+                code_challenge: 'test_challenge',
+                code_challenge_method: 'S256'
+            });
+            
+            const authUrl = `https://x.com/i/oauth2/authorize?${params.toString()}`;
+            
+            updateResults('Twitter OAuth URL generated. Opening in new window...', 'info');
+            window.open(authUrl, 'twitter-oauth', 'width=600,height=700');
+        }
+        
+        function testLinkedInOAuth() {
+            const clientId = '78yhh9neso7awt';
+            const redirectUri = `${SUPABASE_URL}/functions/v1/oauth-callback`;
+            const state = `test_linkedin_${Date.now()}`;
+            
+            const params = new URLSearchParams({
+                response_type: 'code',
+                client_id: clientId,
+                redirect_uri: redirectUri,
+                scope: 'openid profile email w_member_social',
+                state: state
+            });
+            
+            const authUrl = `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`;
+            
+            updateResults('LinkedIn OAuth URL generated. Opening in new window...', 'info');
+            window.open(authUrl, 'linkedin-oauth', 'width=600,height=700');
+        }
+        
+        function updateResults(message, type = 'info') {
+            const resultsDiv = document.getElementById('test-results');
+            resultsDiv.innerHTML = `<div class="status ${type}"><p>${message}</p></div>`;
+        }
+        
+        // Check if we're on the callback page
+        if (window.location.pathname === '/oauth/callback') {
+            const urlParams = new URLSearchParams(window.location.search);
+            const success = urlParams.get('success');
+            const platform = urlParams.get('platform');
+            const error = urlParams.get('error');
+            
+            if (success === 'true') {
+                updateResults(`✅ OAuth Success! ${platform} connected successfully.`, 'success');
+            } else if (error) {
+                updateResults(`❌ OAuth Error: ${error} for platform ${platform}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
