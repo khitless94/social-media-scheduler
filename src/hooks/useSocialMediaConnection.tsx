@@ -209,7 +209,7 @@ export const useSocialMediaConnection = (
     }
   }, [user, onConnectionStatusChange]);
 
-  const loadConnectionStatusFromDB = async () => {
+  const loadConnectionStatusFromDB = useCallback(async () => {
     if (!user) return;
 
     console.log('🔄 LOADING CONNECTION STATUS - Using localStorage as primary source');
@@ -259,7 +259,7 @@ export const useSocialMediaConnection = (
     }
 
     console.log('✅ Connection status loading complete');
-  };
+  }, [user, onConnectionStatusChange, forceRender]);
 
   // Load from localStorage
   const loadFromLocalStorage = (): ConnectionStatus | null => {
@@ -312,7 +312,7 @@ export const useSocialMediaConnection = (
 
   // Debounce mechanism to prevent excessive calls
   const lastLoadTime = useRef<number>(0);
-  const LOAD_DEBOUNCE_MS = 500; // Reduced to 500ms for faster updates
+  const LOAD_DEBOUNCE_MS = 2000; // Increased to 2 seconds to reduce calls
 
   const debouncedLoadConnectionStatus = useCallback(async (forceLoad = false) => {
     const now = Date.now();
@@ -323,7 +323,7 @@ export const useSocialMediaConnection = (
     lastLoadTime.current = now;
     console.log('🔄 LOADING CONNECTION STATUS - Force:', forceLoad);
     await loadConnectionStatusFromDB();
-  }, [user, onConnectionStatusChange]);
+  }, [loadConnectionStatusFromDB]);
 
   // LOAD CONNECTION STATUS ON MOUNT + POLLING FOR OAUTH SUCCESS
   useEffect(() => {
@@ -333,10 +333,10 @@ export const useSocialMediaConnection = (
       // Clean up old toast manager entries
       toastManager.cleanup();
 
-      // Load connection status without aggressive session checking
+      // Load connection status with reduced frequency
       setTimeout(() => {
         debouncedLoadConnectionStatus();
-      }, 300);
+      }, 1000);
     };
 
     // BULLETPROOF OAUTH SUCCESS DETECTION - POLLING METHOD
@@ -496,7 +496,7 @@ export const useSocialMediaConnection = (
             debouncedLoadConnectionStatus();
           }, 100);
         }
-      }, 250); // Poll every 250ms for even faster detection
+      }, 2000); // Poll every 2 seconds to reduce excessive calls
 
       return interval;
     };
@@ -562,13 +562,8 @@ export const useSocialMediaConnection = (
         forceRender();
       };
 
-      // Multiple immediate updates to ensure UI catches up
+      // Single immediate update to reduce excessive calls
       immediateUpdate(); // Immediate
-      setTimeout(immediateUpdate, 50);
-      setTimeout(immediateUpdate, 100);
-      setTimeout(immediateUpdate, 200);
-      setTimeout(immediateUpdate, 500);
-      setTimeout(immediateUpdate, 1000);
 
       // Trigger manual refresh to ensure UI updates (force load)
       setTimeout(() => {

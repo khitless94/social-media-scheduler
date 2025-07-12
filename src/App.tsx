@@ -11,6 +11,9 @@ import AuthGuard from '@/components/AuthGuard';
 import LandingPage from '@/components/LandingPage';
 import UnifiedDashboard from '@/components/UnifiedDashboard';
 import CreatePost from '@/components/CreatePost';
+import CreatePostMinimal from '@/components/CreatePostMinimal';
+import CreatePostTest from '@/components/CreatePostTest';
+import TestCreatePost from '@/components/TestCreatePost';
 import OAuthCallback from '@/components/OAuthCallback';
 import MyPostsPage from '@/components/pages/MyPostsPage';
 
@@ -52,6 +55,24 @@ function App() {
         element={
           <ProtectedRoute>
             <CreatePost />
+          </ProtectedRoute>
+        }
+      />
+      {/* Debug Create Page */}
+      <Route
+        path="/create-debug"
+        element={
+          <ProtectedRoute>
+            <CreatePostTest />
+          </ProtectedRoute>
+        }
+      />
+      {/* Test Create Page */}
+      <Route
+        path="/test-create"
+        element={
+          <ProtectedRoute>
+            <TestCreatePost />
           </ProtectedRoute>
         }
       />

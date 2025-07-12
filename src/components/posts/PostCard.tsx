@@ -1,18 +1,19 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, Calendar, Clock } from "lucide-react";
+import { Edit, Trash2, Calendar, Clock, Send } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 interface PostCardProps {
   post: any;
   onEdit: (post: any) => void;
   onDelete: (postId: string, isHistoryPost: boolean) => void;
+  onPublish?: (post: any) => void;
   getStatusColor: (status: string) => string;
   getPlatformColor: (platform: string) => string;
 }
 
-export const PostCard = ({ post, onEdit, onDelete, getStatusColor, getPlatformColor }: PostCardProps) => {
+export const PostCard = ({ post, onEdit, onDelete, onPublish, getStatusColor, getPlatformColor }: PostCardProps) => {
   const isHistoryPost = post.prompt === 'Manual Post';
 
   // Debug: Log post details when delete is attempted
@@ -41,10 +42,23 @@ export const PostCard = ({ post, onEdit, onDelete, getStatusColor, getPlatformCo
             </Badge>
           </div>
           <div className="flex space-x-2">
+            {/* Publish Draft Button */}
+            {post.status === 'draft' && onPublish && (
+              <Button
+                variant="ghost"
+                size="sm"
+                title="Publish draft"
+                onClick={() => onPublish(post)}
+                className="text-green-600 hover:text-green-700 hover:bg-green-50"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            )}
+
             {!isHistoryPost && post.status?.toLowerCase() !== 'posted' && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 title="Edit post"
                 onClick={() => onEdit(post)}
               >

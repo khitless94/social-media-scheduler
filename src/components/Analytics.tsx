@@ -3,10 +3,15 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { TrendingUp, Eye, Heart, Share, MessageCircle } from "lucide-react";
+import { TrendingUp, Eye, Heart, Share, MessageCircle, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 const Analytics = () => {
+  const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('7d');
+  const { data: analyticsData, loading, error } = useAnalytics(timeRange);
+
+  // Fallback to old data structure for compatibility
   const [platformData, setPlatformData] = useState<any[]>([]);
   const [topPosts, setTopPosts] = useState<any[]>([]);
   const [totalStats, setTotalStats] = useState({
@@ -15,11 +20,30 @@ const Analytics = () => {
     publishedPosts: 0,
     failedPosts: 0
   });
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchAnalyticsData();
-  }, []);
+    if (analyticsData) {
+      setPlatformData(analyticsData.platformBreakdown.map(platform => ({
+        name: platform.platform.charAt(0).toUpperCase() + platform.platform.slice(1),
+        posts: platform.posts,
+        engagement: Math.round(platform.engagementRate)
+      })));
+
+      setTopPosts(analyticsData.topPosts.map(post => ({
+        content: post.content,
+        platform: post.platform,
+        engagement: post.totalEngagement,
+        status: 'published'
+      })));
+
+      setTotalStats({
+        totalPosts: analyticsData.totalPosts,
+        scheduledPosts: 0, // This would come from a different query
+        publishedPosts: analyticsData.totalPosts,
+        failedPosts: 0
+      });
+    }
+  }, [analyticsData]);
 
   const fetchAnalyticsData = async () => {
     try {
@@ -102,12 +126,17 @@ const Analytics = () => {
     }
   };
 
-  // Generate week data based on real posts
+  // Generate week data based on real analytics
   const generateWeekData = () => {
+    if (analyticsData?.weeklyTrend) {
+      return analyticsData.weeklyTrend;
+    }
+
+    // Fallback for when no data is available
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return days.map(day => ({
       name: day,
-      likes: 0, // Real data would come from platform APIs
+      likes: 0,
       shares: 0,
       comments: 0
     }));
@@ -118,7 +147,30 @@ const Analytics = () => {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading analytics...</p>
+          <p className="text-gray-600">Loading real-time analytics...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="text-red-500 mb-4">⚠️ Error loading analytics</div>
+          <p className="text-gray-600">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!analyticsData) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <BarChart3 className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-600 mb-2">No analytics data available</p>
+          <p className="text-sm text-gray-400">Start posting content to see your analytics</p>
         </div>
       </div>
     );

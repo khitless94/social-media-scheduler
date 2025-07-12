@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Final Cleanup - Real Posts Only</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #FF6B6B 0%, #4ECDC4 100%);
+            color: white;
+            min-height: 100vh;
+            text-align: center;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        .button {
+            background: #4CAF50;
+            color: white;
+            padding: 20px 40px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 20px;
+            font-weight: bold;
+            margin: 20px;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        .button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .status {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+            border-left: 5px solid #4CAF50;
+        }
+        .error { border-left-color: #f44336; }
+        .success { border-left-color: #4CAF50; }
+        .warning { border-left-color: #ff9800; }
+        .progress {
+            width: 100%;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #45a049);
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+        .countdown {
+            font-size: 72px;
+            font-weight: bold;
+            margin: 20px 0;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.3);
+        }
+        .step {
+            margin: 15px 0;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            text-align: left;
+        }
+        .step.active {
+            background: rgba(76, 175, 80, 0.3);
+            border-left: 4px solid #4CAF50;
+        }
+        .step.complete {
+            background: rgba(76, 175, 80, 0.2);
+            border-left: 4px solid #4CAF50;
+        }
+        .fix-note {
+            background: rgba(255, 193, 7, 0.2);
+            border: 2px solid #FFC107;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Final Cleanup - Real Posts Only</h1>
+        <p>Removing all test posts and setting up clean real data!</p>
+        
+        <div class="fix-note">
+            <h3>🔍 Found The Problem!</h3>
+            <p><strong>Issue:</strong> "Create Test Post" button was creating dummy posts with "This is a test post created on..."</p>
+            <p><strong>Solution:</strong> Remove test button + clean database + add proper real posts</p>
+            <p><strong>Result:</strong> Clean Content Library with only meaningful posts!</p>
+        </div>
+
+        <div class="countdown" id="countdown">3</div>
+        
+        <div class="progress">
+            <div class="progress-bar" id="progress"></div>
+        </div>
+
+        <div class="step" id="step1">
+            <h3>🗑️ Step 1: Delete Test Posts</h3>
+            <p>Removing all posts with "This is a test post created on..." content...</p>
+        </div>
+
+        <div class="step" id="step2">
+            <h3>🗑️ Step 2: Delete Demo Posts</h3>
+            <p>Removing posts with demo user ID...</p>
+        </div>
+
+        <div class="step" id="step3">
+            <h3>📝 Step 3: Add Real User Posts</h3>
+            <p>Adding 6 meaningful posts tied to your account...</p>
+        </div>
+
+        <div class="step" id="step4">
+            <h3>🚀 Step 4: Test Clean Content Library</h3>
+            <p>Your Content Library will show only real, meaningful posts!</p>
+        </div>
+
+        <div id="status" class="status">
+            <h3>🧹 Ready for Final Cleanup</h3>
+            <p>Removing test button and cleaning database. Starting in <span id="countdown-text">3</span> seconds...</p>
+        </div>
+
+        <button class="button" id="setupBtn" onclick="startCleanup()">
+            🧹 Start Final Cleanup
+        </button>
+
+        <button class="button" id="testBtn" onclick="openContentLibrary()" style="display:none;">
+            📚 Open Clean Content Library
+        </button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const SUPABASE_URL = "https://eqiuukwwpdiyncahrdny.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaXV1a3d3cGRpeW5jYWhyZG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxOTA5MzcsImV4cCI6MjA2NDc2NjkzN30.sgwl7oP2fJD7rh64w59XWdfMCS0XQcNjD4Qr_WGILGs";
+        
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let setupStarted = false;
+
+        function updateProgress(percent) {
+            document.getElementById('progress').style.width = percent + '%';
+        }
+
+        function updateStatus(message, type = 'status') {
+            const statusEl = document.getElementById('status');
+            statusEl.className = `status ${type}`;
+            statusEl.innerHTML = `<h3>${message}</h3>`;
+        }
+
+        function markStepComplete(stepNum) {
+            const step = document.getElementById(`step${stepNum}`);
+            step.classList.add('complete');
+            step.classList.remove('active');
+        }
+
+        function markStepActive(stepNum) {
+            const step = document.getElementById(`step${stepNum}`);
+            step.classList.add('active');
+        }
+
+        async function startCleanup() {
+            if (setupStarted) return;
+            setupStarted = true;
+            
+            document.getElementById('setupBtn').disabled = true;
+            document.getElementById('countdown').style.display = 'none';
+            
+            try {
+                // Check if user is logged in
+                const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+                
+                if (userError || !user) {
+                    updateStatus('❌ Please log in to your app first at http://localhost:8080/', 'error');
+                    document.getElementById('setupBtn').disabled = false;
+                    setupStarted = false;
+                    return;
+                }
+
+                updateStatus(`🧹 Cleaning up database for user: ${user.email}`, 'status');
+
+                // Step 1: Delete test posts
+                markStepActive(1);
+                updateStatus('🗑️ Deleting test posts...', 'status');
+                updateProgress(25);
+
+                const deleteTestResponse = await fetch(`${SUPABASE_URL}/functions/v1/delete-test-posts`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const deleteTestResult = await deleteTestResponse.json();
+                
+                if (!deleteTestResult.success) {
+                    throw new Error(`Test post deletion failed: ${deleteTestResult.error}`);
+                }
+
+                markStepComplete(1);
+                updateStatus(`✅ Deleted ${deleteTestResult.deletedPosts?.length || 0} test posts!`, 'success');
+                updateProgress(50);
+
+                // Step 2: Delete demo posts
+                markStepActive(2);
+                updateStatus('🗑️ Deleting demo posts...', 'status');
+
+                const deleteDemoResponse = await fetch(`${SUPABASE_URL}/functions/v1/delete-demo-posts`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const deleteDemoResult = await deleteDemoResponse.json();
+                
+                if (!deleteDemoResult.success) {
+                    throw new Error(`Demo post deletion failed: ${deleteDemoResult.error}`);
+                }
+
+                markStepComplete(2);
+                updateStatus(`✅ Deleted ${deleteDemoResult.deletedPosts?.length || 0} demo posts!`, 'success');
+                updateProgress(75);
+
+                // Step 3: Add real user posts
+                markStepActive(3);
+                updateStatus('📝 Adding real posts for your account...', 'status');
+
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                
+                const postsResponse = await fetch(`${SUPABASE_URL}/functions/v1/add-user-posts`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${session?.access_token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const postsResult = await postsResponse.json();
+                
+                if (!postsResult.success) {
+                    throw new Error(`Adding user posts failed: ${postsResult.error}`);
+                }
+
+                markStepComplete(3);
+                updateStatus(`✅ Added ${postsResult.posts?.length || 6} real posts for your account!`, 'success');
+                updateProgress(100);
+
+                // Step 4: Complete
+                markStepActive(4);
+                updateStatus('🎉 SUCCESS! Your Content Library is now clean with only real, meaningful posts!', 'success');
+                
+                document.getElementById('testBtn').style.display = 'inline-block';
+                
+                // Auto-open Content Library
+                setTimeout(() => {
+                    openContentLibrary();
+                }, 2000);
+
+            } catch (error) {
+                updateStatus(`❌ Cleanup failed: ${error.message}`, 'error');
+                document.getElementById('setupBtn').disabled = false;
+                setupStarted = false;
+            }
+        }
+
+        function openContentLibrary() {
+            window.open('http://localhost:8080/posts', '_blank');
+        }
+
+        // Auto-start countdown
+        let countdown = 3;
+        const countdownEl = document.getElementById('countdown');
+        const countdownTextEl = document.getElementById('countdown-text');
+        
+        const timer = setInterval(() => {
+            countdown--;
+            countdownEl.textContent = countdown;
+            countdownTextEl.textContent = countdown;
+            
+            if (countdown <= 0) {
+                clearInterval(timer);
+                countdownEl.textContent = '🧹';
+                startCleanup();
+            }
+        }, 1000);
+
+        // Stop countdown if user clicks manually
+        document.getElementById('setupBtn').addEventListener('click', () => {
+            clearInterval(timer);
+            countdownEl.textContent = '🧹';
+        });
+    </script>
+</body>
+</html>

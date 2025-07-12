@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useSocialMediaConnection } from "@/hooks/useSocialMediaConnection";
+import { useSocialMediaConnectionWrapper } from "@/hooks/useSocialMediaConnectionWrapper";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -82,7 +82,14 @@ const SettingsPage = () => {
 
   const { user } = useAuth();
   const { toast } = useToast();
-  const { isConnecting, connectPlatform, disconnectPlatform } = useSocialMediaConnection(setConnectionStatus);
+  const { isConnecting, connectPlatform, connectionStatus: hookConnectionStatus } = useSocialMediaConnectionWrapper(setConnectionStatus);
+
+  // Sync connection status from hook
+  useEffect(() => {
+    if (hookConnectionStatus) {
+      setConnectionStatus(hookConnectionStatus);
+    }
+  }, [hookConnectionStatus]);
 
   // Fetch user profile data
   useEffect(() => {

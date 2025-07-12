@@ -137,7 +137,10 @@ export const usePosts = (filters: PostFilters = {}) => {
       setPosts([]);
       setError(null);
       setLoading(false);
+      return;
     }
+    console.log('🔍 [usePosts] User available, fetching posts');
+    fetchPosts();
   }, [user]);
 
   const fetchPosts = async () => {
@@ -227,7 +230,7 @@ export const usePosts = (filters: PostFilters = {}) => {
         .insert([
           {
             ...postData,
-            user_id: user.id,
+            user_id: user.id, // Use actual user ID for new posts
           }
         ])
         .select()

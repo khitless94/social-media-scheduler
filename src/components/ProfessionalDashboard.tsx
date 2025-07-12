@@ -5,6 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { usePosts } from "@/hooks/usePosts";
+import RealTimeAnalytics from "./RealTimeAnalytics";
+import { useEngagementSync, realEngagementService, RealTimeEngagementSync } from "@/services/engagementService";
 import {
   Sparkles,
   Home,
@@ -64,7 +67,9 @@ import {
   User,
   Crown,
   Mail,
-  Camera
+  Camera,
+  Database,
+  Trash2
 } from "lucide-react";
 import { Facebook, Instagram, Twitter, Linkedin } from "lucide-react";
 import CreatePostModal from "./CreatePostModal";
@@ -95,6 +100,21 @@ const ProfessionalDashboard = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { isConnecting, connectPlatform, disconnectPlatform } = useSocialMediaConnection(setConnectionStatus);
+  const { posts, loading: postsLoading, stats } = usePosts();
+
+  // Set up automatic engagement syncing every 30 minutes
+  const { syncEngagement } = useEngagementSync(user?.id, 30);
+
+  // Start real-time engagement sync when user is available
+  useEffect(() => {
+    if (user?.id) {
+      RealTimeEngagementSync.startSync(user.id, 15); // Sync every 15 minutes
+
+      return () => {
+        RealTimeEngagementSync.stopSync(user.id);
+      };
+    }
+  }, [user?.id]);
 
   const handleSignOut = async () => {
     try {
@@ -247,42 +267,42 @@ const ProfessionalDashboard = () => {
     }
   ];
 
-  // Professional metrics with better data visualization
+  // Professional metrics with real data
   const metrics = [
     {
-      title: "Total Reach",
-      value: "127.5K",
-      change: "+23.4%",
-      trend: "up",
-      icon: Users,
+      title: "Total Posts",
+      value: stats.total.toString(),
+      change: stats.total > 0 ? "+100%" : "0%",
+      trend: stats.total > 0 ? "up" : "neutral",
+      icon: FileText,
       color: "blue",
-      description: "Unique users reached this month"
+      description: "All posts in your library"
     },
     {
-      title: "Engagement Rate",
-      value: "8.7%",
-      change: "+2.1%",
-      trend: "up",
-      icon: Heart,
-      color: "pink",
-      description: "Average engagement across platforms"
-    },
-    {
-      title: "Content Published",
-      value: "47",
-      change: "+12",
-      trend: "up",
+      title: "Published",
+      value: stats.published.toString(),
+      change: stats.published > 0 ? "+100%" : "0%",
+      trend: stats.published > 0 ? "up" : "neutral",
       icon: Send,
       color: "green",
-      description: "Posts published this month"
+      description: "Successfully published posts"
     },
     {
-      title: "Scheduled Posts",
-      value: "23",
-      change: "+5",
-      trend: "up",
-      icon: Clock,
+      title: "Drafts",
+      value: stats.drafts.toString(),
+      change: stats.drafts > 0 ? "+100%" : "0%",
+      trend: stats.drafts > 0 ? "up" : "neutral",
+      icon: Edit3,
       color: "orange",
+      description: "Posts saved as drafts"
+    },
+    {
+      title: "Scheduled",
+      value: stats.scheduled.toString(),
+      change: stats.scheduled > 0 ? "+100%" : "0%",
+      trend: stats.scheduled > 0 ? "up" : "neutral",
+      icon: Clock,
+      color: "purple",
       description: "Posts ready to publish"
     }
   ];
@@ -508,7 +528,8 @@ const ProfessionalDashboard = () => {
                       blue: 'from-blue-500 to-blue-600 bg-blue-50 text-blue-700',
                       pink: 'from-pink-500 to-pink-600 bg-pink-50 text-pink-700',
                       green: 'from-emerald-500 to-emerald-600 bg-emerald-50 text-emerald-700',
-                      orange: 'from-orange-500 to-orange-600 bg-orange-50 text-orange-700'
+                      orange: 'from-orange-500 to-orange-600 bg-orange-50 text-orange-700',
+                      purple: 'from-purple-500 to-purple-600 bg-purple-50 text-purple-700'
                     };
 
                     return (
@@ -517,14 +538,14 @@ const ProfessionalDashboard = () => {
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
                               <div className="flex items-center space-x-3 mb-4">
-                                <div className={`w-10 h-10 rounded-lg bg-gradient-to-r ${colorClasses[metric.color].split(' ')[0]} ${colorClasses[metric.color].split(' ')[1]} flex items-center justify-center shadow-sm`}>
+                                <div className={`w-10 h-10 rounded-lg bg-gradient-to-r ${colorClasses[metric.color]?.split(' ')[0] || 'from-gray-500'} ${colorClasses[metric.color]?.split(' ')[1] || 'to-gray-600'} flex items-center justify-center shadow-sm`}>
                                   <Icon className="w-5 h-5 text-white" />
                                 </div>
                                 <div className="flex-1">
                                   <h3 className="text-sm font-medium text-gray-600">{metric.title}</h3>
                                   <div className="flex items-center space-x-2 mt-1">
                                     <span className="text-2xl font-bold text-gray-900">{metric.value}</span>
-                                    <Badge className={`text-xs ${colorClasses[metric.color].split(' ').slice(2).join(' ')}`}>
+                                    <Badge className={`text-xs ${colorClasses[metric.color]?.split(' ').slice(2).join(' ') || 'bg-gray-50 text-gray-700'}`}>
                                       {metric.change}
                                     </Badge>
                                   </div>
@@ -604,84 +625,117 @@ const ProfessionalDashboard = () => {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
-                        {[
-                          {
-                            id: 1,
-                            content: "🚀 Excited to announce our new AI-powered content generation feature! This will revolutionize how you create social media content.",
-                            platform: "LinkedIn",
-                            status: "published",
-                            time: "2 hours ago",
-                            engagement: { likes: "234", comments: "45", shares: "12" },
-                            platformColor: "text-blue-600",
-                            platformBg: "bg-blue-50"
-                          },
-                          {
-                            id: 2,
-                            content: "Behind the scenes: How we built our content scheduling system using modern web technologies 🛠️ #TechStack #Development",
-                            platform: "Twitter",
-                            status: "published",
-                            time: "5 hours ago",
-                            engagement: { likes: "89", comments: "23", shares: "34" },
-                            platformColor: "text-sky-600",
-                            platformBg: "bg-sky-50"
-                          },
-                          {
-                            id: 3,
-                            content: "Tips for better social media engagement: 1. Post consistently 2. Use relevant hashtags 3. Engage with your audience...",
-                            platform: "Instagram",
-                            status: "scheduled",
-                            time: "Tomorrow at 9:00 AM",
-                            engagement: { likes: "0", comments: "0", shares: "0" },
-                            platformColor: "text-pink-600",
-                            platformBg: "bg-pink-50"
-                          }
-                        ].map((post) => (
-                          <div key={post.id} className="p-4 rounded-lg border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all duration-200 bg-white">
-                            <div className="flex items-start space-x-3">
-                              <div className={`w-8 h-8 rounded-lg ${post.platformBg} flex items-center justify-center flex-shrink-0`}>
-                                {post.status === 'published' ? (
-                                  <CheckCircle className={`w-4 h-4 ${post.platformColor}`} />
-                                ) : (
-                                  <Clock className={`w-4 h-4 ${post.platformColor}`} />
-                                )}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center space-x-2 mb-2">
-                                  <span className={`text-sm font-medium ${post.platformColor}`}>
-                                    {post.platform}
-                                  </span>
-                                  <Badge
-                                    variant={post.status === 'published' ? 'default' : 'secondary'}
-                                    className="text-xs"
-                                  >
-                                    {post.status}
-                                  </Badge>
-                                  <span className="text-xs text-gray-500">{post.time}</span>
-                                </div>
-                                <p className="text-sm text-gray-700 mb-3 line-clamp-2">{post.content}</p>
-                                {post.status === 'published' && (
-                                  <div className="flex items-center space-x-4 text-xs text-gray-500">
-                                    <div className="flex items-center space-x-1">
-                                      <Heart className="w-3 h-3" />
-                                      <span>{post.engagement.likes}</span>
-                                    </div>
-                                    <div className="flex items-center space-x-1">
-                                      <MessageCircle className="w-3 h-3" />
-                                      <span>{post.engagement.comments}</span>
-                                    </div>
-                                    <div className="flex items-center space-x-1">
-                                      <Share2 className="w-3 h-3" />
-                                      <span>{post.engagement.shares}</span>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                              <button className="p-1 rounded hover:bg-gray-100 transition-colors">
-                                <MoreVertical className="w-4 h-4 text-gray-400" />
-                              </button>
-                            </div>
+                        {postsLoading ? (
+                          <div className="text-center py-8">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                            <p className="text-gray-500 mt-2">Loading recent posts...</p>
                           </div>
-                        ))}
+                        ) : posts.length === 0 ? (
+                          <div className="text-center py-8">
+                            <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                            <p className="text-gray-500 mb-2">No posts yet</p>
+                            <p className="text-sm text-gray-400">Create your first post to see it here</p>
+                            <Button
+                              onClick={() => navigate('/create')}
+                              className="mt-4"
+                              size="sm"
+                            >
+                              Create Post
+                            </Button>
+                          </div>
+                        ) : (
+                          posts.slice(0, 3).map((post) => {
+                            const getPlatformColor = (platform: string) => {
+                              switch (platform.toLowerCase()) {
+                                case 'twitter': return { color: 'text-sky-600', bg: 'bg-sky-50' };
+                                case 'linkedin': return { color: 'text-blue-600', bg: 'bg-blue-50' };
+                                case 'instagram': return { color: 'text-pink-600', bg: 'bg-pink-50' };
+                                case 'facebook': return { color: 'text-blue-700', bg: 'bg-blue-50' };
+                                case 'reddit': return { color: 'text-orange-600', bg: 'bg-orange-50' };
+                                default: return { color: 'text-gray-600', bg: 'bg-gray-50' };
+                              }
+                            };
+
+                            const formatTime = (dateString: string) => {
+                              const date = new Date(dateString);
+                              const now = new Date();
+                              const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+
+                              if (diffInHours < 1) return 'Just now';
+                              if (diffInHours < 24) return `${diffInHours} hours ago`;
+                              const diffInDays = Math.floor(diffInHours / 24);
+                              if (diffInDays === 1) return '1 day ago';
+                              return `${diffInDays} days ago`;
+                            };
+
+                            const platformStyle = getPlatformColor(post.platform);
+
+                            return (
+                            <div key={post.id} className="p-4 rounded-lg border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all duration-200 bg-white">
+                              <div className="flex items-start space-x-3">
+                                <div className={`w-8 h-8 rounded-lg ${platformStyle.bg} flex items-center justify-center flex-shrink-0`}>
+                                  {post.status === 'published' ? (
+                                    <CheckCircle className={`w-4 h-4 ${platformStyle.color}`} />
+                                  ) : post.status === 'scheduled' ? (
+                                    <Clock className={`w-4 h-4 ${platformStyle.color}`} />
+                                  ) : (
+                                    <FileText className={`w-4 h-4 ${platformStyle.color}`} />
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center space-x-2 mb-2">
+                                    <span className={`text-sm font-medium ${platformStyle.color}`}>
+                                      {post.platform.charAt(0).toUpperCase() + post.platform.slice(1)}
+                                    </span>
+                                    <Badge
+                                      variant={post.status === 'published' ? 'default' : 'secondary'}
+                                      className="text-xs"
+                                    >
+                                      {post.status}
+                                    </Badge>
+                                    <span className="text-xs text-gray-500">
+                                      {post.status === 'scheduled' && post.scheduled_at
+                                        ? `Scheduled for ${new Date(post.scheduled_at).toLocaleDateString()}`
+                                        : formatTime(post.created_at)
+                                      }
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-gray-700 mb-3 line-clamp-2">{post.content}</p>
+                                  {post.status === 'published' && post.engagement_stats && Object.keys(post.engagement_stats).length > 0 && (
+                                    <div className="flex items-center space-x-4 text-xs text-gray-500">
+                                      {Object.entries(post.engagement_stats).map(([platform, stats]: [string, any]) => (
+                                        <div key={platform} className="flex items-center space-x-2">
+                                          {stats.likes && (
+                                            <div className="flex items-center space-x-1">
+                                              <Heart className="w-3 h-3" />
+                                              <span>{stats.likes}</span>
+                                            </div>
+                                          )}
+                                          {stats.comments && (
+                                            <div className="flex items-center space-x-1">
+                                              <MessageCircle className="w-3 h-3" />
+                                              <span>{stats.comments}</span>
+                                            </div>
+                                          )}
+                                          {stats.shares && (
+                                            <div className="flex items-center space-x-1">
+                                              <Share2 className="w-3 h-3" />
+                                              <span>{stats.shares}</span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                                <button className="p-1 rounded hover:bg-gray-100 transition-colors">
+                                  <MoreVertical className="w-4 h-4 text-gray-400" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -734,23 +788,90 @@ const ProfessionalDashboard = () => {
                       {/* Quick Stats */}
                       <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
                         <div className="text-center">
-                          <div className="text-lg font-bold text-gray-900">47</div>
-                          <div className="text-xs text-gray-500">Posts</div>
+                          <div className="text-lg font-bold text-gray-900">{stats.total}</div>
+                          <div className="text-xs text-gray-500">Total Posts</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-lg font-bold text-gray-900">23</div>
+                          <div className="text-lg font-bold text-gray-900">{stats.scheduled}</div>
                           <div className="text-xs text-gray-500">Scheduled</div>
                         </div>
                       </div>
 
-                      <Button
-                        onClick={() => setActiveTab("analytics")}
-                        variant="outline"
-                        className="w-full"
-                      >
-                        View Detailed Analytics
-                        <BarChart3 className="w-4 h-4 ml-2" />
-                      </Button>
+                      <div className="space-y-3">
+                        <Button
+                          onClick={() => setActiveTab("analytics")}
+                          variant="outline"
+                          className="w-full"
+                        >
+                          View Detailed Analytics
+                          <BarChart3 className="w-4 h-4 ml-2" />
+                        </Button>
+
+                        {/* Real Engagement Sync */}
+                        <Button
+                          onClick={async () => {
+                            if (user?.id) {
+                              toast({
+                                title: "Syncing Real Engagement Data",
+                                description: "Fetching live data from your connected social media platforms...",
+                              });
+                              try {
+                                await realEngagementService.syncRealData(user.id);
+                                toast({
+                                  title: "Real Data Synced!",
+                                  description: "Your analytics now show live engagement data from all connected platforms.",
+                                });
+                              } catch (error) {
+                                toast({
+                                  title: "Sync Error",
+                                  description: "Failed to sync real engagement data. Check your platform connections.",
+                                  variant: "destructive",
+                                });
+                              }
+                            }
+                          }}
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs border-blue-300 text-blue-600 hover:bg-blue-50"
+                        >
+                          <RefreshCw className="w-3 h-3 mr-1" />
+                          Sync Real Engagement Data
+                        </Button>
+
+                        {/* Clear All Data */}
+                        <Button
+                          onClick={async () => {
+                            if (user?.id) {
+                              const confirmed = confirm('This will clear all engagement data to ensure only real data from social media platforms is shown. Continue?');
+                              if (!confirmed) return;
+
+                              toast({
+                                title: "Clearing All Engagement Data",
+                                description: "Removing all data to ensure only real engagement is shown...",
+                              });
+                              try {
+                                await realEngagementService.clearAllEngagementData(user.id);
+                                toast({
+                                  title: "Data Cleared!",
+                                  description: "All engagement data cleared. Only real data from social media platforms will be shown.",
+                                });
+                              } catch (error) {
+                                toast({
+                                  title: "Clear Error",
+                                  description: "Failed to clear engagement data.",
+                                  variant: "destructive",
+                                });
+                              }
+                            }
+                          }}
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs border-red-300 text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-3 h-3 mr-1" />
+                          Clear All Engagement Data
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 </div>
@@ -790,27 +911,8 @@ const ProfessionalDashboard = () => {
             )}
 
             {activeTab === "analytics" && (
-              <div className="text-center py-16">
-                <div className="w-16 h-16 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                  <BarChart3 className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Analytics Dashboard</h3>
-                <p className="text-gray-500 mb-6 max-w-md mx-auto">
-                  Track your performance with detailed insights and actionable recommendations.
-                </p>
-                <div className="flex items-center justify-center space-x-3">
-                  <Button
-                    onClick={() => setActiveTab("overview")}
-                    className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white"
-                  >
-                    <Eye className="w-4 h-4 mr-2" />
-                    View Overview
-                  </Button>
-                  <Button variant="outline">
-                    <Download className="w-4 h-4 mr-2" />
-                    Export Report
-                  </Button>
-                </div>
+              <div className="-m-6">
+                <RealTimeAnalytics />
               </div>
             )}
 

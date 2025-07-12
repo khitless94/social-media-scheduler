@@ -28,6 +28,7 @@ import {
   ExternalLink
 } from "lucide-react";
 import { usePosts, Post } from "@/hooks/usePosts";
+import { useSocialMedia } from "@/hooks/useSocialMedia";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -51,6 +52,7 @@ const MyPostsPage = () => {
     loading,
     error,
     deletePost,
+    updatePost,
     refreshPosts,
     stats
   } = usePosts({
@@ -58,6 +60,8 @@ const MyPostsPage = () => {
     platform: platformFilter,
     search: searchTerm
   });
+
+  const { postToSocial } = useSocialMedia();
 
 
 
@@ -74,44 +78,7 @@ const MyPostsPage = () => {
 
 
 
-  // Add a test button to create a sample post for debugging
-  const createTestPost = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.log('❌ No user found for test post creation');
-        return;
-      }
 
-      console.log('🧪 Creating test post for user:', user.id);
-
-      const { data, error } = await supabase
-        .from('posts')
-        .insert([
-          {
-            user_id: user.id,
-            content: 'This is a test post created on ' + new Date().toLocaleString(),
-            platform: 'twitter',
-            status: 'draft',
-            platform_post_ids: {},
-            engagement_stats: {},
-            generated_by_ai: false,
-            retry_count: 0
-          }
-        ])
-        .select()
-        .single();
-
-      if (error) {
-        console.error('❌ Error creating test post:', error);
-      } else {
-        console.log('✅ Test post created:', data);
-        refreshPosts(); // Refresh the posts list
-      }
-    } catch (err) {
-      console.error('❌ Exception creating test post:', err);
-    }
-  };
 
   // Debug logging
   console.log('🔍 [MyPostsPage] Render state:', {
@@ -138,6 +105,53 @@ const MyPostsPage = () => {
     toast.success("Posts refreshed");
   };
 
+  const handlePublishDraft = async (post: Post) => {
+    try {
+      console.log('📤 Publishing draft post:', post);
+
+      // Use original content without timestamp modifications
+      let contentToPost = post.content;
+
+      const result = await postToSocial({
+        content: contentToPost,
+        platform: post.platform as any,
+        image: post.image_url
+      });
+
+      if (result.success) {
+        // Update post status to published
+        await updatePost(post.id, {
+          status: 'published',
+          published_at: new Date().toISOString(),
+          platform_post_ids: result.postId ? { [post.platform]: result.postId } : {}
+        });
+
+        toast.success(`Draft published to ${post.platform} successfully!`);
+      } else {
+        // Update post status to failed
+        await updatePost(post.id, {
+          status: 'failed',
+          error_message: result.error || 'Failed to publish'
+        });
+
+        // Show specific guidance for duplicate content errors
+        if (result.error && result.error.includes('duplicate content')) {
+          toast.error('Duplicate Content Detected', {
+            description: 'Twitter doesn\'t allow identical posts. Click "Edit" to modify your content slightly, then try publishing again.',
+            duration: 8000
+          });
+        } else {
+          toast.error(`Failed to publish draft: ${result.error || 'Unknown error'}`);
+        }
+
+        throw new Error(result.error || 'Failed to publish draft');
+      }
+    } catch (error: any) {
+      console.error('Error publishing draft:', error);
+      toast.error(`Failed to publish draft: ${error.message}`);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "published": return "bg-green-100 text-green-700 border-green-200";
@@ -160,13 +174,19 @@ const MyPostsPage = () => {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    if (!dateString) return 'No date';
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      console.error('Date formatting error:', error);
+      return 'Invalid date';
+    }
   };
 
   const formatPlatform = (platform: string) => {
@@ -198,13 +218,7 @@ const MyPostsPage = () => {
                 <span>Back to Dashboard</span>
               </Button>
 
-              <Button
-                onClick={createTestPost}
-                variant="outline"
-                className="px-4 py-2 rounded-lg flex items-center space-x-2"
-              >
-                <span>🧪 Create Test Post</span>
-              </Button>
+
 
               <Button
                 onClick={() => navigate('/create')}
@@ -240,7 +254,10 @@ const MyPostsPage = () => {
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl">
+            <Button
+              onClick={() => navigate('/create')}
+              className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl"
+            >
               <Plus className="h-5 w-5 mr-2" />
               Create Post
             </Button>
@@ -415,7 +432,10 @@ const MyPostsPage = () => {
                     </div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">No posts found</h3>
                     <p className="text-gray-600 mb-4">Create your first post to get started</p>
-                    <Button className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700">
+                    <Button
+                      onClick={() => navigate('/create')}
+                      className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
+                    >
                       <Plus className="h-4 w-4 mr-2" />
                       Create Post
                     </Button>
@@ -444,6 +464,40 @@ const MyPostsPage = () => {
                           </div>
 
                           <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {/* Draft Actions */}
+                            {post.status === 'draft' && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 px-3 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                  onClick={() => {
+                                    // Navigate to create post page with draft content
+                                    const createPostUrl = `/create?draft=${encodeURIComponent(JSON.stringify({
+                                      content: post.content,
+                                      platform: post.platform,
+                                      image: post.image_url
+                                    }))}`;
+                                    window.location.href = createPostUrl;
+                                  }}
+                                  title="Edit draft"
+                                >
+                                  <Edit className="h-4 w-4 mr-1" />
+                                  Edit
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 px-3 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                  onClick={() => handlePublishDraft(post)}
+                                  title="Publish draft"
+                                >
+                                  <CheckCircle className="h-4 w-4 mr-1" />
+                                  Publish
+                                </Button>
+                              </>
+                            )}
+
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                               <Eye className="h-4 w-4" />
                             </Button>

@@ -1,0 +1,246 @@
+{
+  "name": "Production Social Media Scheduler",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every Minute Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM get_pending_scheduled_posts()",
+        "options": {}
+      },
+      "id": "fetch-pending-posts",
+      "name": "Fetch Pending Posts",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [460, 300],
+      "credentials": {
+        "postgres": {
+          "name": "Supabase Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-posts",
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "check-has-posts",
+      "name": "Has Posts to Process?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process each post individually for better error isolation\nconst posts = $input.all();\nconst results = [];\n\nconsole.log(`📋 Processing ${posts.length} scheduled posts`);\n\nfor (const post of posts) {\n  const postData = {\n    queueId: post.json.queue_id,\n    postId: post.json.post_id,\n    userId: post.json.user_id,\n    content: post.json.content,\n    platforms: post.json.platforms || [],\n    mediaUrls: post.json.media_urls || [],\n    scheduledFor: post.json.scheduled_for,\n    oauthCredentials: post.json.oauth_credentials || {}\n  };\n  \n  console.log(`📝 Post ${postData.postId}: \"${postData.content.substring(0, 50)}...\"`);\n  console.log(`📱 Platforms: ${postData.platforms.join(', ')}`);\n  \n  results.push(postData);\n}\n\nreturn results.map(item => ({ json: item }));"
+      },
+      "id": "process-posts",
+      "name": "Process Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 180]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT update_scheduled_post_status('{{ $json.queueId }}', 'processing', '{{ $workflow.id }}-{{ $execution.id }}')",
+        "options": {}
+      },
+      "id": "mark-processing",
+      "name": "Mark as Processing",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1120, 180],
+      "credentials": {
+        "postgres": {
+          "name": "Supabase Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Enhanced Social Media Publishing with Production Features\nconst postData = $input.first().json;\nconst platforms = postData.platforms || [];\nconst content = postData.content || '';\nconst mediaUrls = postData.mediaUrls || [];\nconst oauthCredentials = postData.oauthCredentials || {};\nconst queueId = postData.queueId;\nconst postId = postData.postId;\n\nconsole.log(`🚀 Publishing post ${postId} to ${platforms.length} platforms`);\n\nconst results = [];\nconst platformPostIds = {};\nlet successCount = 0;\nlet failureCount = 0;\n\n// Rate limiting configuration\nconst RATE_LIMIT_DELAY = 2000; // 2 seconds between platforms\nconst MAX_RETRIES = 3;\n\nfor (const platform of platforms) {\n  let retryCount = 0;\n  let success = false;\n  \n  while (retryCount < MAX_RETRIES && !success) {\n    try {\n      console.log(`📤 Publishing to ${platform} (attempt ${retryCount + 1})...`);\n      \n      const credentials = oauthCredentials[platform];\n      if (!credentials || !credentials.access_token) {\n        throw new Error(`No OAuth credentials for ${platform}`);\n      }\n\n      // Check token expiration\n      if (credentials.expires_at) {\n        const expiryDate = new Date(credentials.expires_at);\n        if (expiryDate <= new Date()) {\n          throw new Error(`Access token expired for ${platform}`);\n        }\n      }\n\n      let postResult;\n      switch (platform.toLowerCase()) {\n        case 'twitter':\n          postResult = await publishToTwitter(content, mediaUrls, credentials);\n          break;\n        case 'facebook':\n          postResult = await publishToFacebook(content, mediaUrls, credentials);\n          break;\n        case 'instagram':\n          postResult = await publishToInstagram(content, mediaUrls, credentials);\n          break;\n        case 'linkedin':\n          postResult = await publishToLinkedIn(content, mediaUrls, credentials);\n          break;\n        case 'reddit':\n          postResult = await publishToReddit(content, mediaUrls, credentials);\n          break;\n        default:\n          throw new Error(`Unsupported platform: ${platform}`);\n      }\n\n      results.push({\n        platform,\n        success: true,\n        postId: postResult.id,\n        url: postResult.url,\n        attempts: retryCount + 1\n      });\n      \n      platformPostIds[platform] = postResult.id;\n      successCount++;\n      success = true;\n      \n      console.log(`✅ ${platform}: ${postResult.url}`);\n\n    } catch (error) {\n      retryCount++;\n      console.error(`❌ ${platform} attempt ${retryCount} failed: ${error.message}`);\n      \n      if (retryCount >= MAX_RETRIES) {\n        results.push({\n          platform,\n          success: false,\n          error: error.message,\n          attempts: retryCount\n        });\n        failureCount++;\n      } else {\n        // Wait before retry\n        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));\n      }\n    }\n  }\n  \n  // Rate limiting between platforms\n  if (platforms.indexOf(platform) < platforms.length - 1) {\n    await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY));\n  }\n}\n\n// Enhanced platform publishing functions\nasync function publishToTwitter(content, mediaUrls, credentials) {\n  const tweetText = content.length > 280 ? content.substring(0, 277) + '...' : content;\n  \n  const response = await $http.request({\n    method: 'POST',\n    url: 'https://api.twitter.com/2/tweets',\n    headers: {\n      'Authorization': `Bearer ${credentials.access_token}`,\n      'Content-Type': 'application/json'\n    },\n    body: { text: tweetText }\n  });\n  \n  if (!response.data?.id) {\n    throw new Error('Invalid Twitter API response');\n  }\n  \n  return { \n    id: response.data.id, \n    url: `https://twitter.com/user/status/${response.data.id}` \n  };\n}\n\nasync function publishToFacebook(content, mediaUrls, credentials) {\n  const postData = {\n    message: content,\n    access_token: credentials.access_token\n  };\n  \n  if (mediaUrls?.length > 0) {\n    postData.link = mediaUrls[0];\n  }\n  \n  const response = await $http.request({\n    method: 'POST',\n    url: 'https://graph.facebook.com/me/feed',\n    body: postData\n  });\n  \n  if (!response.id) {\n    throw new Error('Invalid Facebook API response');\n  }\n  \n  return { \n    id: response.id, \n    url: `https://facebook.com/${response.id}` \n  };\n}\n\nasync function publishToInstagram(content, mediaUrls, credentials) {\n  if (!mediaUrls?.length) {\n    throw new Error('Instagram requires media');\n  }\n  \n  // Create media container\n  const mediaResponse = await $http.request({\n    method: 'POST',\n    url: 'https://graph.instagram.com/me/media',\n    body: {\n      image_url: mediaUrls[0],\n      caption: content,\n      access_token: credentials.access_token\n    }\n  });\n  \n  // Publish media\n  const publishResponse = await $http.request({\n    method: 'POST',\n    url: 'https://graph.instagram.com/me/media_publish',\n    body: {\n      creation_id: mediaResponse.id,\n      access_token: credentials.access_token\n    }\n  });\n  \n  return { \n    id: publishResponse.id, \n    url: `https://instagram.com/p/${publishResponse.id}` \n  };\n}\n\nasync function publishToLinkedIn(content, mediaUrls, credentials) {\n  // Get person ID\n  const profileResponse = await $http.request({\n    method: 'GET',\n    url: 'https://api.linkedin.com/v2/people/(id:me)',\n    headers: {\n      'Authorization': `Bearer ${credentials.access_token}`\n    }\n  });\n  \n  const postData = {\n    author: `urn:li:person:${profileResponse.id}`,\n    lifecycleState: 'PUBLISHED',\n    specificContent: {\n      'com.linkedin.ugc.ShareContent': {\n        shareCommentary: { text: content },\n        shareMediaCategory: 'NONE'\n      }\n    },\n    visibility: {\n      'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC'\n    }\n  };\n  \n  const response = await $http.request({\n    method: 'POST',\n    url: 'https://api.linkedin.com/v2/ugcPosts',\n    headers: {\n      'Authorization': `Bearer ${credentials.access_token}`,\n      'Content-Type': 'application/json'\n    },\n    body: postData\n  });\n  \n  return { \n    id: response.id, \n    url: `https://linkedin.com/feed/update/${response.id}` \n  };\n}\n\nasync function publishToReddit(content, mediaUrls, credentials) {\n  const postData = {\n    api_type: 'json',\n    kind: 'self',\n    sr: 'test', // Configure this\n    title: content.substring(0, 100),\n    text: content\n  };\n  \n  const response = await $http.request({\n    method: 'POST',\n    url: 'https://oauth.reddit.com/api/submit',\n    headers: {\n      'Authorization': `Bearer ${credentials.access_token}`,\n      'Content-Type': 'application/x-www-form-urlencoded'\n    },\n    body: new URLSearchParams(postData)\n  });\n  \n  return { \n    id: response.json.data.id, \n    url: response.json.data.url \n  };\n}\n\n// Return comprehensive results\nconst finalStatus = failureCount === 0 ? 'completed' : \n                   successCount === 0 ? 'failed' : 'partial';\n\nconst summary = {\n  queueId,\n  postId,\n  results,\n  platformPostIds,\n  successCount,\n  failureCount,\n  totalPlatforms: platforms.length,\n  status: finalStatus,\n  errorMessage: failureCount > 0 ? \n    results.filter(r => !r.success).map(r => `${r.platform}: ${r.error}`).join('; ') : null\n};\n\nconsole.log(`📊 Final: ${successCount}/${platforms.length} successful, status: ${finalStatus}`);\n\nreturn [summary];"
+      },
+      "id": "publish-platforms",
+      "name": "Publish to Platforms",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 180]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT update_scheduled_post_status('{{ $json.queueId }}', '{{ $json.status }}', '{{ $workflow.id }}-{{ $execution.id }}', {{ $json.errorMessage ? `'${$json.errorMessage.replace(/'/g, \"''\")}'` : 'NULL' }}, '{{ JSON.stringify($json.platformPostIds) }}'::jsonb)",
+        "options": {}
+      },
+      "id": "update-status",
+      "name": "Update Final Status",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1560, 180],
+      "credentials": {
+        "postgres": {
+          "name": "Supabase Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "webhook-status-update",
+        "options": {}
+      },
+      "id": "webhook-notify",
+      "name": "Notify App (Optional)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [1780, 180],
+      "webhookId": "status-update-webhook"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('webhook-notify').first().json.webhookUrl }}/api/webhooks/n8n-status",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($input.first().json) }}",
+        "options": {}
+      },
+      "id": "send-webhook",
+      "name": "Send Status to App",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [2000, 180]
+    }
+  ],
+  "connections": {
+    "Every Minute Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Pending Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Pending Posts": {
+      "main": [
+        [
+          {
+            "node": "Has Posts to Process?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Posts to Process?": {
+      "main": [
+        [
+          {
+            "node": "Process Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Posts": {
+      "main": [
+        [
+          {
+            "node": "Mark as Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark as Processing": {
+      "main": [
+        [
+          {
+            "node": "Publish to Platforms",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publish to Platforms": {
+      "main": [
+        [
+          {
+            "node": "Update Final Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Final Status": {
+      "main": [
+        [
+          {
+            "node": "Notify App (Optional)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify App (Optional)": {
+      "main": [
+        [
+          {
+            "node": "Send Status to App",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["production", "social-media", "scheduling"],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-15T10:00:00.000Z",
+  "versionId": "2.0"
+}

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram Post Saving Fixed</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #E1306C 0%, #F56040 100%);
+            color: white;
+            min-height: 100vh;
+            text-align: center;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        .button {
+            background: #fff;
+            color: #E1306C;
+            padding: 20px 40px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 20px;
+            font-weight: bold;
+            margin: 20px;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        .success {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 30px;
+            border-radius: 15px;
+            margin: 30px 0;
+            border-left: 5px solid #fff;
+        }
+        .fix-note {
+            background: rgba(76, 175, 80, 0.2);
+            border: 2px solid #4CAF50;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .countdown {
+            font-size: 72px;
+            font-weight: bold;
+            margin: 30px 0;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📸 Instagram Post Saving Fixed!</h1>
+        <p>I found and fixed the issue preventing your Instagram posts from appearing in the Content Library!</p>
+        
+        <div class="fix-note">
+            <h2>🔍 Problem Found & Fixed:</h2>
+            <p><strong>Issue:</strong> Database field mismatch in <code>savePostToDatabase</code> function</p>
+            <p><strong>Problem:</strong> Using <code>platforms</code> field instead of <code>platform</code></p>
+            <p><strong>Solution:</strong> Fixed field mapping to match database schema</p>
+        </div>
+
+        <div class="success">
+            <h3>✅ What I Fixed:</h3>
+            <ul style="text-align: left; max-width: 600px; margin: 0 auto;">
+                <li>✅ <strong>Database Field Mapping:</strong> Changed <code>platforms</code> to <code>platform</code></li>
+                <li>✅ <strong>Scheduled Field:</strong> Changed <code>scheduled_for</code> to <code>scheduled_at</code></li>
+                <li>✅ <strong>Added Logging:</strong> Better tracking of post saving process</li>
+                <li>✅ <strong>Error Handling:</strong> Improved error reporting for failed saves</li>
+            </ul>
+        </div>
+
+        <div class="countdown" id="countdown">3</div>
+        
+        <a href="http://localhost:8080/posts" class="button" target="_blank" id="testButton">
+            📚 Check Content Library
+        </a>
+
+        <div class="success">
+            <h3>🧪 Test Instructions:</h3>
+            <ol style="text-align: left; max-width: 600px; margin: 0 auto;">
+                <li><strong>Create a new Instagram post</strong> in your app</li>
+                <li><strong>Post it successfully</strong> to Instagram</li>
+                <li><strong>Check the Content Library</strong> - it should now appear!</li>
+                <li><strong>Check browser console</strong> for logging messages</li>
+            </ol>
+        </div>
+
+        <div class="success">
+            <h3>📊 Expected Console Logs:</h3>
+            <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; font-family: monospace; text-align: left; margin: 15px 0;">
+                💾 [useSocialMedia] Saving successful instagram post to database...<br>
+                ✅ [useSocialMedia] Post saved to database with ID: [uuid]
+            </div>
+        </div>
+
+        <div class="success" style="background: rgba(255, 255, 255, 0.3);">
+            <h3>🎯 Expected Result:</h3>
+            <p style="font-size: 18px;"><strong>Your Instagram posts should now appear in the Content Library immediately after posting!</strong></p>
+            <p>No more missing posts - everything gets saved to the database properly.</p>
+        </div>
+    </div>
+
+    <script>
+        let countdown = 3;
+        const countdownEl = document.getElementById('countdown');
+        const button = document.getElementById('testButton');
+        
+        const timer = setInterval(() => {
+            countdown--;
+            countdownEl.textContent = countdown;
+            
+            if (countdown <= 0) {
+                clearInterval(timer);
+                countdownEl.textContent = '📸';
+                button.click();
+            }
+        }, 1000);
+        
+        // Stop countdown if user clicks manually
+        button.addEventListener('click', () => {
+            clearInterval(timer);
+            countdownEl.textContent = '✅';
+        });
+    </script>
+</body>
+</html>

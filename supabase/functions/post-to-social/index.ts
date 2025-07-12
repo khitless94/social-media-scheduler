@@ -393,10 +393,18 @@ async function postTweetOAuth1a(content: string, mediaId: string | null, credent
         };
       }
 
+      // Handle specific Twitter errors
+      let errorMessage = `HTTP ${response.status}: ${errorText}`;
+
+      // Check for duplicate content error
+      if (response.status === 403 && errorText.includes('duplicate content')) {
+        errorMessage = 'Twitter doesn\'t allow identical posts. Please edit your content to make it unique before posting again.';
+      }
+
       return {
         platform: "twitter",
         success: false,
-        error: `HTTP ${response.status}: ${errorText}`
+        error: errorMessage
       };
     }
 

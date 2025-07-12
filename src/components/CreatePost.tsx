@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,9 +9,10 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
-import { useSocialMediaConnection, type Platform, type ConnectionStatus } from '@/hooks/useSocialMediaConnection';
+import { useSocialMediaConnectionWrapper, type Platform, type ConnectionStatus } from '@/hooks/useSocialMediaConnectionWrapper';
 import { useAuth } from '@/hooks/useAuth';
 import { useSocialMedia } from '@/hooks/useSocialMedia';
+import { useScheduledPosts } from '@/hooks/useScheduledPosts';
 import {
   ArrowLeft,
   Sparkles,
@@ -23,7 +24,8 @@ import {
   Send,
   CalendarDays,
   ExternalLink,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  FileText
 } from 'lucide-react';
 import { FaLinkedin, FaTwitter, FaInstagram, FaFacebook, FaReddit } from 'react-icons/fa';
 import { format } from 'date-fns';
@@ -32,9 +34,10 @@ import { ensureAuthenticated, authenticatedStorageOperation } from '@/utils/auth
 
 const CreatePost: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const { user } = useAuth();
-  const { postToSocial, loading: socialMediaLoading } = useSocialMedia();
+  const { postToSocial, loading: socialMediaLoading, savePostToDatabase } = useSocialMedia();
 
   // State management
   const [prompt, setPrompt] = useState('');
@@ -45,6 +48,10 @@ const CreatePost: React.FC = () => {
   const [scheduleDate, setScheduleDate] = useState<Date>();
   const [scheduleTime, setScheduleTime] = useState('');
   const [isPosting, setIsPosting] = useState(false);
+  const [postType, setPostType] = useState<'now' | 'schedule'>('now');
+
+  // Import the scheduling hook
+  const { createScheduledPost, loading: schedulingLoading } = useScheduledPosts();
 
   // Image management
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -63,8 +70,15 @@ const CreatePost: React.FC = () => {
     reddit: false
   });
 
-  // Use the real-time social media connection hook
-  const { connectPlatform: connectToSocialPlatform, isConnecting } = useSocialMediaConnection(setConnectionStatus);
+  // Use the wrapper social media connection hook
+  const { connectPlatform: connectToSocialPlatform, isConnecting, connectionStatus: hookConnectionStatus, loadConnectionStatus } = useSocialMediaConnectionWrapper(setConnectionStatus);
+
+  // Sync connection status from hook
+  useEffect(() => {
+    if (hookConnectionStatus) {
+      setConnectionStatus(hookConnectionStatus);
+    }
+  }, [hookConnectionStatus]);
 
   // Configuration
   const platforms = [
@@ -82,6 +96,31 @@ const CreatePost: React.FC = () => {
     { value: 'humorous', label: 'Humorous' },
     { value: 'inspirational', label: 'Inspirational' }
   ];
+
+  // Load draft data from URL parameters
+  useEffect(() => {
+    const draftParam = searchParams.get('draft');
+    if (draftParam) {
+      try {
+        const draftData = JSON.parse(decodeURIComponent(draftParam));
+        if (draftData.content) setGeneratedText(draftData.content);
+        if (draftData.platform) setPlatform(draftData.platform);
+        if (draftData.image) setImageUrl(draftData.image);
+
+        toast({
+          title: "Draft loaded",
+          description: "Your draft has been loaded for editing.",
+        });
+      } catch (error) {
+        console.error('Error loading draft:', error);
+        toast({
+          title: "Error loading draft",
+          description: "There was an error loading your draft.",
+          variant: "destructive",
+        });
+      }
+    }
+  }, [searchParams, toast]);
 
   // Helper function to handle platform connection
   const handleConnectPlatform = (platformValue: string) => {
@@ -711,6 +750,91 @@ Create the post now:`;
     }
   };
 
+  // Save as Draft function
+  const handleSaveAsDraft = async () => {
+    if (!generatedText.trim() || !platform) {
+      toast({
+        title: "Missing information",
+        description: "Please add content and select a platform to save as draft.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsPosting(true);
+    try {
+      console.log('💾 [handleSaveAsDraft] Starting draft save...');
+
+      const savedPost = await savePostToDatabase(
+        generatedText,
+        [platform],
+        'draft',
+        getCurrentImage(),
+        undefined, // scheduledFor
+        {}, // platformPostIds
+        undefined, // errorMessage
+        false, // generatedByAI
+        prompt // aiPrompt
+      );
+
+      console.log('💾 [handleSaveAsDraft] Save result:', savedPost);
+
+      if (savedPost) {
+        console.log('✅ [handleSaveAsDraft] Draft saved successfully');
+        toast({
+          title: "Draft saved!",
+          description: `Your post has been saved as a draft. You can edit and publish it later.`,
+        });
+      } else {
+        console.error('❌ [handleSaveAsDraft] savePostToDatabase returned null');
+        // The function might return null but the save could still be successful
+        // Let's verify by checking if the draft appears in the database
+        try {
+          const { data: recentDrafts } = await supabase
+            .from('posts')
+            .select('*')
+            .eq('user_id', user?.id)
+            .eq('status', 'draft')
+            .eq('content', generatedText)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          if (recentDrafts && recentDrafts.length > 0) {
+            console.log('✅ [handleSaveAsDraft] Verified draft was saved successfully');
+            toast({
+              title: "Draft saved!",
+              description: "Your draft has been saved successfully. Check the Content Library to view it.",
+            });
+          } else {
+            throw new Error('Draft was not saved to database');
+          }
+        } catch (verifyError) {
+          console.error('❌ [handleSaveAsDraft] Failed to verify draft save:', verifyError);
+          throw new Error('Failed to save draft - please try again');
+        }
+      }
+
+      // Clear form on successful save
+      setGeneratedText('');
+      setPrompt('');
+      setPlatform('');
+      setTone('');
+      setUploadedImage(null);
+      setGeneratedImage(null);
+      setImageSource('none');
+      setImageUrl('');
+    } catch (error: any) {
+      console.error('❌ [handleSaveAsDraft] Exception:', error);
+      toast({
+        title: "Save failed",
+        description: error.message || "There was an error saving your draft. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPosting(false);
+    }
+  };
+
   // Schedule post function
   const handleSchedulePost = async () => {
     if (!generatedText.trim() || !platform || !scheduleDate || !scheduleTime) {
@@ -724,17 +848,24 @@ Create the post now:`;
 
     setIsPosting(true);
     try {
-      const result = await postToSocial({
-        content: generatedText,
-        platform: platform as Platform,
-        subreddit: platform === 'reddit' ? 'test' : undefined,
-        image: getCurrentImage()
-      });
+      const scheduledDateTime = new Date(`${scheduleDate.toISOString().split('T')[0]}T${scheduleTime}`);
 
-      if (result.success) {
+      const savedPost = await savePostToDatabase(
+        generatedText,
+        [platform],
+        'scheduled',
+        getCurrentImage(),
+        scheduledDateTime.toISOString(), // scheduledFor
+        {}, // platformPostIds
+        undefined, // errorMessage
+        false, // generatedByAI
+        prompt // aiPrompt
+      );
+
+      if (savedPost) {
         toast({
-          title: "Posted successfully!",
-          description: `Your content has been posted to ${platform}. (Scheduled posting coming soon!)`,
+          title: "Post scheduled!",
+          description: `Your post has been scheduled for ${scheduledDateTime.toLocaleString()}.`,
         });
         setGeneratedText('');
         setPrompt('');
@@ -747,7 +878,7 @@ Create the post now:`;
         setImageSource('none');
         setImageUrl('');
       } else {
-        throw new Error(result.error || 'Unknown error occurred');
+        throw new Error('Failed to schedule post');
       }
     } catch (error: any) {
       toast({
@@ -1797,6 +1928,25 @@ Create the post now:`;
                           <>
                             <CalendarDays className="h-4 w-4 mr-2" />
                             Schedule Post
+                          </>
+                        )}
+                      </Button>
+
+                      <Button
+                        onClick={handleSaveAsDraft}
+                        disabled={isPosting || socialMediaLoading || !generatedText.trim() || !platform}
+                        variant="outline"
+                        className="w-full h-12 border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {(isPosting || socialMediaLoading) ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <FileText className="h-4 w-4 mr-2" />
+                            Save as Draft
                           </>
                         )}
                       </Button>

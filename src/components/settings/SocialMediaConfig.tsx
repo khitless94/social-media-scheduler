@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useSocialMediaConnection } from "@/hooks/useSocialMediaConnection";
+import { useSocialMediaConnectionWrapper } from "@/hooks/useSocialMediaConnectionWrapper";
 import { platforms } from "@/constants/platforms";
 import { PlatformCard } from "./PlatformCard";
 import { Share2, RefreshCw } from "lucide-react";
@@ -17,7 +17,7 @@ interface SocialMediaConfigProps {
 }
 
 const SocialMediaConfig = ({ connectionStatus, onConnectionStatusChange }: SocialMediaConfigProps) => {
-  const { isConnecting, connectPlatform, disconnectPlatform, refreshConnectionStatus } = useSocialMediaConnection(onConnectionStatusChange);
+  const { isConnecting, connectPlatform, disconnectPlatform, loadConnectionStatus } = useSocialMediaConnectionWrapper(onConnectionStatusChange);
 
   return (
     <Card className="bg-white/95 backdrop-blur-xl border-0 shadow-2xl rounded-3xl overflow-hidden">

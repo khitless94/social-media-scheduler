@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test OAuth Flow</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .platform {
+            margin-bottom: 20px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .platform h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .url {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            word-break: break-all;
+            margin-top: 10px;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔗 OAuth Flow Tester</h1>
+        <p>Test the OAuth URLs and flow for each social media platform.</p>
+        
+        <div class="platform">
+            <h3>🐦 Twitter</h3>
+            <button onclick="testTwitter()">Test Twitter OAuth</button>
+            <div id="twitter-status"></div>
+            <div id="twitter-url" class="url" style="display: none;"></div>
+        </div>
+        
+        <div class="platform">
+            <h3>💼 LinkedIn</h3>
+            <button onclick="testLinkedIn()">Test LinkedIn OAuth</button>
+            <div id="linkedin-status"></div>
+            <div id="linkedin-url" class="url" style="display: none;"></div>
+        </div>
+        
+        <div class="platform">
+            <h3>📘 Facebook</h3>
+            <button onclick="testFacebook()">Test Facebook OAuth</button>
+            <div id="facebook-status"></div>
+            <div id="facebook-url" class="url" style="display: none;"></div>
+        </div>
+        
+        <div class="platform">
+            <h3>📷 Instagram</h3>
+            <button onclick="testInstagram()">Test Instagram OAuth</button>
+            <div id="instagram-status"></div>
+            <div id="instagram-url" class="url" style="display: none;"></div>
+        </div>
+        
+        <div class="platform">
+            <h3>🤖 Reddit</h3>
+            <button onclick="testReddit()">Test Reddit OAuth</button>
+            <div id="reddit-status"></div>
+            <div id="reddit-url" class="url" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        // OAuth Configuration from your app
+        const AppConfig = {
+            twitter: { clientId: "cElLTnFibUhINUJpblBRTTA2aFA6MTpjaQ" },
+            reddit: { clientId: "kBrkkv-sRC-3jE9RIUt6-g" },
+            linkedin: { clientId: "78yhh9neso7awt" },
+            facebook: { clientId: "772026995163778" },
+            instagram: { clientId: "772026995163778" }
+        };
+
+        const redirectUrl = "https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback";
+
+        function showStatus(platform, message, type = 'info') {
+            const statusEl = document.getElementById(`${platform}-status`);
+            statusEl.innerHTML = message;
+            statusEl.className = `status ${type}`;
+        }
+
+        function showUrl(platform, url) {
+            const urlEl = document.getElementById(`${platform}-url`);
+            urlEl.textContent = url;
+            urlEl.style.display = 'block';
+        }
+
+        function getAuthUrl(platform, baseUrl, scope) {
+            const clientId = AppConfig[platform].clientId;
+            const params = new URLSearchParams({
+                client_id: clientId,
+                redirect_uri: redirectUrl,
+                response_type: 'code',
+                scope: scope,
+                state: `${platform}-${Date.now()}`
+            });
+            return `${baseUrl}?${params.toString()}`;
+        }
+
+        function testOAuth(platform, baseUrl, scope) {
+            try {
+                const authUrl = getAuthUrl(platform, baseUrl, scope);
+                showUrl(platform, authUrl);
+                showStatus(platform, '✅ OAuth URL generated successfully. Opening popup...', 'success');
+                
+                // Open OAuth popup
+                const popup = window.open(
+                    authUrl,
+                    `${platform}-oauth`,
+                    'width=600,height=600,scrollbars=yes,resizable=yes'
+                );
+
+                if (!popup) {
+                    showStatus(platform, '❌ Popup blocked. Please allow popups for this site.', 'error');
+                    return;
+                }
+
+                // Monitor popup
+                const checkClosed = setInterval(() => {
+                    if (popup.closed) {
+                        clearInterval(checkClosed);
+                        showStatus(platform, '🔄 Popup closed. Check if OAuth was successful.', 'info');
+                    }
+                }, 1000);
+
+            } catch (error) {
+                showStatus(platform, `❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        function testTwitter() {
+            testOAuth(
+                'twitter',
+                'https://twitter.com/i/oauth2/authorize',
+                'tweet.read tweet.write users.read'
+            );
+        }
+
+        function testLinkedIn() {
+            testOAuth(
+                'linkedin',
+                'https://www.linkedin.com/oauth/v2/authorization',
+                'r_liteprofile w_member_social'
+            );
+        }
+
+        function testFacebook() {
+            testOAuth(
+                'facebook',
+                'https://www.facebook.com/v18.0/dialog/oauth',
+                'pages_manage_posts,pages_read_engagement'
+            );
+        }
+
+        function testInstagram() {
+            testOAuth(
+                'instagram',
+                'https://api.instagram.com/oauth/authorize',
+                'user_profile,user_media'
+            );
+        }
+
+        function testReddit() {
+            testOAuth(
+                'reddit',
+                'https://www.reddit.com/api/v1/authorize',
+                'submit,read'
+            );
+        }
+
+        // Listen for OAuth success messages
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'OAUTH_SUCCESS') {
+                const { platform } = event.data;
+                showStatus(platform, `🎉 OAuth SUCCESS for ${platform}!`, 'success');
+            }
+        });
+    </script>
+</body>
+</html>

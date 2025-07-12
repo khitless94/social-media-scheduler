@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Create Post</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Create Post Functionality</h1>
+        <p>This page tests the create post functionality without React Hook issues.</p>
+        
+        <form id="createPostForm">
+            <div class="form-group">
+                <label for="content">Post Content:</label>
+                <textarea id="content" placeholder="Enter your post content..." required></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="platform">Platform:</label>
+                <select id="platform" required>
+                    <option value="">Select a platform</option>
+                    <option value="twitter">Twitter</option>
+                    <option value="linkedin">LinkedIn</option>
+                    <option value="instagram">Instagram</option>
+                    <option value="facebook">Facebook</option>
+                    <option value="reddit">Reddit</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="postType">Post Type:</label>
+                <select id="postType" required>
+                    <option value="draft">Save as Draft</option>
+                    <option value="now">Post Now</option>
+                    <option value="schedule">Schedule for Later</option>
+                </select>
+            </div>
+            
+            <div class="form-group" id="scheduleGroup" style="display: none;">
+                <label for="scheduleTime">Schedule Time:</label>
+                <input type="datetime-local" id="scheduleTime">
+            </div>
+            
+            <button type="submit" id="submitBtn">Create Post</button>
+            <button type="button" onclick="testDatabase()">Test Database Connection</button>
+        </form>
+        
+        <div id="status" class="status"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const SUPABASE_URL = "https://eqiuukwwpdiyncahrdny.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaXV1a3d3cGRpeW5jYWhyZG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxOTA5MzcsImV4cCI6MjA2NDc2NjkzN30.sgwl7oP2fJD7rh64w59XWdfMCS0XQcNjD4Qr_WGILGs";
+        
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // Show/hide schedule time based on post type
+        document.getElementById('postType').addEventListener('change', function() {
+            const scheduleGroup = document.getElementById('scheduleGroup');
+            if (this.value === 'schedule') {
+                scheduleGroup.style.display = 'block';
+                document.getElementById('scheduleTime').required = true;
+            } else {
+                scheduleGroup.style.display = 'none';
+                document.getElementById('scheduleTime').required = false;
+            }
+        });
+
+        // Test database connection
+        async function testDatabase() {
+            showStatus('Testing database connection...', 'info');
+            
+            try {
+                const { data, error } = await supabaseClient
+                    .from('posts')
+                    .select('id, content, platform, status')
+                    .limit(1);
+                
+                if (error) throw error;
+                
+                showStatus('✅ Database connection successful!', 'success');
+                console.log('Database test result:', data);
+            } catch (error) {
+                showStatus(`❌ Database connection failed: ${error.message}`, 'error');
+                console.error('Database test error:', error);
+            }
+        }
+
+        // Handle form submission
+        document.getElementById('createPostForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const content = document.getElementById('content').value;
+            const platform = document.getElementById('platform').value;
+            const postType = document.getElementById('postType').value;
+            const scheduleTime = document.getElementById('scheduleTime').value;
+            
+            if (!content || !platform || !postType) {
+                showStatus('❌ Please fill in all required fields', 'error');
+                return;
+            }
+            
+            if (postType === 'schedule' && !scheduleTime) {
+                showStatus('❌ Please select a schedule time', 'error');
+                return;
+            }
+            
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Creating...';
+            
+            try {
+                const postData = {
+                    content: content,
+                    platform: platform,
+                    status: postType === 'now' ? 'published' : postType,
+                    scheduled_at: postType === 'schedule' ? new Date(scheduleTime).toISOString() : null,
+                    published_at: postType === 'now' ? new Date().toISOString() : null,
+                    platform_post_ids: {},
+                    engagement_stats: {},
+                    generated_by_ai: false,
+                    retry_count: 0
+                };
+                
+                console.log('Creating post with data:', postData);
+                
+                const { data, error } = await supabaseClient
+                    .from('posts')
+                    .insert([postData])
+                    .select();
+                
+                if (error) throw error;
+                
+                showStatus(`✅ Post ${postType === 'now' ? 'published' : postType === 'schedule' ? 'scheduled' : 'saved'} successfully!`, 'success');
+                console.log('Post created:', data);
+                
+                // Reset form
+                document.getElementById('createPostForm').reset();
+                document.getElementById('scheduleGroup').style.display = 'none';
+                
+            } catch (error) {
+                showStatus(`❌ Failed to create post: ${error.message}`, 'error');
+                console.error('Create post error:', error);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Create Post';
+            }
+        });
+
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    status.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Test database connection on page load
+        window.addEventListener('load', testDatabase);
+    </script>
+</body>
+</html>

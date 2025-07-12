@@ -1,10 +1,77 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { useSocialMedia } from '@/hooks/useSocialMedia';
 import { ArrowLeft, Sparkles, Settings as SettingsIcon } from 'lucide-react';
 
 const TestCreatePost = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const { savePostToDatabase } = useSocialMedia();
+
+  const [content, setContent] = useState('');
+  const [platform, setPlatform] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSaveTest = async () => {
+    if (!content.trim() || !platform) {
+      toast({
+        title: "Missing information",
+        description: "Please add content and select a platform.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      console.log('🧪 Testing save with:', { content, platform, user: user?.id });
+
+      const result = await savePostToDatabase(
+        content,
+        [platform],
+        'draft',
+        undefined, // image
+        undefined, // scheduledFor
+        {}, // platformPostIds
+        undefined, // errorMessage
+        false, // generatedByAI
+        undefined // aiPrompt
+      );
+
+      console.log('🧪 Save result:', result);
+
+      if (result) {
+        toast({
+          title: "Success!",
+          description: "Test post saved successfully.",
+        });
+        setContent('');
+        setPlatform('');
+      } else {
+        toast({
+          title: "Save failed",
+          description: "Failed to save test post.",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error('🧪 Test save error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "An error occurred.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">

@@ -154,39 +154,85 @@ export const useSocialMedia = () => {
     generatedByAI?: boolean,
     aiPrompt?: string
   ) => {
-    if (!user?.id) return null;
+    console.log('💾 [savePostToDatabase] Starting save with params:', {
+      content: content?.substring(0, 50) + '...',
+      platforms,
+      status,
+      image,
+      userId: user?.id,
+      generatedByAI,
+      aiPrompt
+    });
+
+    if (!user?.id) {
+      console.error('❌ [savePostToDatabase] No user ID found');
+      return null;
+    }
 
     try {
+      const postData = {
+        user_id: user.id,
+        content,
+        platform: platforms[0] || 'instagram', // Use single platform field as per actual database schema
+        status,
+        image_url: image,
+        scheduled_at: scheduledFor, // Use scheduled_at as per actual database schema
+        published_at: status === 'published' ? new Date().toISOString() : null,
+        platform_post_ids: platformPostIds || {},
+        engagement_stats: {},
+        generated_by_ai: generatedByAI || false,
+        ai_prompt: aiPrompt,
+        error_message: errorMessage,
+        retry_count: 0
+      };
+
+      console.log('💾 [savePostToDatabase] Inserting data:', postData);
+
       const { data, error } = await supabase
         .from('posts')
-        .insert([
-          {
-            user_id: user.id,
-            content,
-            platforms,
-            status,
-            image_url: image,
-            scheduled_for: scheduledFor,
-            published_at: status === 'published' ? new Date().toISOString() : null,
-            platform_post_ids: platformPostIds || {},
-            engagement_stats: {},
-            generated_by_ai: generatedByAI || false,
-            ai_prompt: aiPrompt,
-            error_message: errorMessage,
-            retry_count: 0
-          }
-        ])
+        .insert([postData])
         .select()
         .single();
 
       if (error) {
-        console.error('Error saving post to database:', error);
+        console.error('❌ [savePostToDatabase] Database error:', error);
+        console.error('❌ [savePostToDatabase] Error details:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+
+        // Check if it's a non-critical error but the save might have succeeded
+        if (error.code === 'PGRST116' || error.message?.includes('No rows found')) {
+          console.log('🔍 [savePostToDatabase] No rows returned but insert might have succeeded');
+          // Try to fetch the most recent post for this user to verify
+          try {
+            const { data: recentPost } = await supabase
+              .from('posts')
+              .select('*')
+              .eq('user_id', user.id)
+              .eq('status', status)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single();
+
+            if (recentPost && recentPost.content === content) {
+              console.log('✅ [savePostToDatabase] Found matching recent post, save was successful');
+              return recentPost;
+            }
+          } catch (fetchError) {
+            console.error('❌ [savePostToDatabase] Failed to verify save:', fetchError);
+          }
+        }
+
         return null;
       }
 
+      console.log('✅ [savePostToDatabase] Successfully saved post:', data);
       return data;
     } catch (error) {
-      console.error('Error saving post to database:', error);
+      console.error('❌ [savePostToDatabase] Exception:', error);
       return null;
     }
   };
@@ -262,8 +308,9 @@ export const useSocialMedia = () => {
           console.log(`[useSocialMedia] Success: ${platform} post completed`);
 
           // Save successful post to database
+          console.log(`💾 [useSocialMedia] Saving successful ${platform} post to database...`);
           const platformPostIds = result.postId ? { [platform]: result.postId } : {};
-          await savePostToDatabase(
+          const savedPost = await savePostToDatabase(
             content,
             [platform],
             'published',
@@ -275,6 +322,12 @@ export const useSocialMedia = () => {
             undefined // aiPrompt
           );
 
+          if (savedPost) {
+            console.log(`✅ [useSocialMedia] Post saved to database with ID:`, savedPost.id);
+          } else {
+            console.error(`❌ [useSocialMedia] Failed to save post to database`);
+          }
+
           return {
             success: true,
             message: result.message || `Successfully posted to ${platform}`,
@@ -285,7 +338,8 @@ export const useSocialMedia = () => {
           console.log(`[useSocialMedia] Failed: ${platform} post failed - ${result.error}`);
 
           // Save failed post to database
-          await savePostToDatabase(
+          console.log(`💾 [useSocialMedia] Saving failed ${platform} post to database...`);
+          const savedFailedPost = await savePostToDatabase(
             content,
             [platform],
             'failed',
@@ -296,6 +350,12 @@ export const useSocialMedia = () => {
             false, // generatedByAI
             undefined // aiPrompt
           );
+
+          if (savedFailedPost) {
+            console.log(`✅ [useSocialMedia] Failed post saved to database with ID:`, savedFailedPost.id);
+          } else {
+            console.error(`❌ [useSocialMedia] Failed to save failed post to database`);
+          }
 
           return {
             success: false,
