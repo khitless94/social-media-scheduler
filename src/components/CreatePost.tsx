@@ -13,6 +13,7 @@ import { AIContentGenerator } from '@/components/ui/ai-content-generator';
 import { useToast } from '@/hooks/use-toast';
 import { useSocialMediaConnection, type Platform, type ConnectionStatus } from '@/hooks/useSocialMediaConnection';
 import { useAuth } from '@/hooks/useAuth';
+import { ScheduledPostService } from '@/services/scheduledPostService';
 // import { useScheduledPosts } from '@/hooks/useScheduledPosts';
 import {
   ArrowLeft,
@@ -1035,7 +1036,19 @@ Create the post now:`;
 
     setIsPosting(true);
     try {
+      console.log('📅 [handleSchedulePost] Schedule inputs:', { scheduleDate, scheduleTime });
       const scheduledDateTime = new Date(`${scheduleDate.toISOString().split('T')[0]}T${scheduleTime}`);
+      console.log('📅 [handleSchedulePost] Parsed datetime:', scheduledDateTime.toISOString());
+
+      // Validate the datetime
+      if (isNaN(scheduledDateTime.getTime())) {
+        throw new Error('Invalid schedule date/time. Please check your inputs.');
+      }
+
+      // Ensure it's in the future
+      if (scheduledDateTime <= new Date()) {
+        throw new Error('Schedule time must be in the future.');
+      }
 
       const savedPost = await savePostToDatabase(
         generatedText,
@@ -1050,6 +1063,21 @@ Create the post now:`;
       );
 
       if (savedPost) {
+        // Trigger n8n webhook for immediate processing
+        try {
+          console.log('🚀 [handleSchedulePost] Triggering n8n webhook for post:', savedPost.id);
+          await ScheduledPostService.triggerN8nWebhook(savedPost);
+          console.log('✅ [handleSchedulePost] Webhook triggered successfully');
+        } catch (webhookError) {
+          console.error('❌ [handleSchedulePost] Webhook failed:', webhookError);
+          // Don't fail the entire operation if webhook fails
+          toast({
+            title: "Post scheduled with warning",
+            description: `Post scheduled but automation may be delayed. Post ID: ${savedPost.id}`,
+            variant: "destructive",
+          });
+        }
+
         toast({
           title: "Post scheduled!",
           description: `Your post has been scheduled for ${scheduledDateTime.toLocaleString()}.`,

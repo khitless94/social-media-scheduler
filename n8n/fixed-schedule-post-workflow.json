@@ -1,0 +1,476 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "schedule-post",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "b10ab352-d0fa-442b-8768-ace143bfb662",
+      "name": "Schedule Post Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -1620,
+        300
+      ],
+      "webhookId": "300be5b4-e75f-41c2-a009-8ca60bfdd1d9"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract webhook data\nconsole.log('=== WEBHOOK DATA PROCESSING ===');\n\n// Get the webhook body\nlet data = {};\n\ntry {\n  // Try to get data from webhook body\n  const input = $input.first();\n  data = input.json.body || input.json;\n  console.log('Webhook data received:', JSON.stringify(data, null, 2));\n} catch (e) {\n  console.log('Error getting webhook data:', e.message);\n  // Use test data for debugging\n  data = {\n    userId: \"12345678-1234-1234-1234-123456789abc\",\n    platform: \"twitter\",\n    content: \"Test post from n8n workflow\",\n    postId: \"test-\" + Date.now()\n  };\n  console.log('Using test data:', JSON.stringify(data, null, 2));\n}\n\n// Validate required fields\nif (!data.userId || !data.platform || !data.content) {\n  throw new Error('Missing required fields: userId, platform, or content');\n}\n\nreturn data;"
+      },
+      "id": "663b3636-cdce-471b-87f6-4bd430a3f954",
+      "name": "Process Webhook Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  access_token,\n  refresh_token,\n  expires_at,\n  platform,\n  user_id\nFROM oauth_credentials \nWHERE user_id = '{{ $node[\"Process Webhook Data\"].json.userId }}' \nAND platform = '{{ $node[\"Process Webhook Data\"].json.platform }}'\nLIMIT 1;"
+      },
+      "id": "ef7901aa-5847-463e-a2f3-5d5ec2bae528",
+      "name": "Fetch OAuth Credentials",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        -1180,
+        300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "supabase-connection",
+          "name": "Supabase Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge webhook data with OAuth credentials\nconsole.log('=== MERGE DATA DEBUG ===');\n\n// Get data from previous nodes\nconst webhookData = $node['Process Webhook Data'].json;\nconst credentials = $json; // OAuth data from database\n\nconsole.log('Webhook data:', JSON.stringify(webhookData, null, 2));\nconsole.log('Credentials data:', JSON.stringify(credentials, null, 2));\n\n// Check if we have OAuth credentials\nif (!credentials || !credentials.access_token) {\n  console.log('❌ No OAuth credentials found');\n  throw new Error(`No OAuth credentials found for user ${webhookData.userId} on platform ${webhookData.platform}`);\n}\n\nconsole.log('✅ OAuth credentials found');\n\n// Check if token is expired\nconst now = new Date();\nconst expiresAt = new Date(credentials.expires_at);\nif (expiresAt < now) {\n  console.log('⚠️ Token is expired, needs refresh');\n  // You might want to implement token refresh logic here\n}\n\n// Merge the data\nreturn {\n  // Webhook data\n  userId: webhookData.userId,\n  platform: webhookData.platform,\n  content: webhookData.content,\n  postId: webhookData.postId,\n  \n  // OAuth credentials\n  access_token: credentials.access_token,\n  refresh_token: credentials.refresh_token,\n  expires_at: credentials.expires_at\n};"
+      },
+      "id": "6486b18f-5b6e-4ef6-9ee3-68b3ef39f139",
+      "name": "Merge Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -960,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.platform }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "twitter"
+            },
+            {
+              "value2": "facebook"
+            },
+            {
+              "value2": "linkedin"
+            },
+            {
+              "value2": "reddit"
+            },
+            {
+              "value2": "instagram"
+            }
+          ]
+        }
+      },
+      "id": "2344d584-e137-4cba-860a-03b955ef6633",
+      "name": "Route by Platform",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        -740,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.twitter.com/2/tweets",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $json.access_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "={{ $json.content }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d458ad28-a1d9-4c78-ba06-6105bfd5b980",
+      "name": "Post to Twitter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -520,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://graph.facebook.com/v18.0/me/feed",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "={{ $json.content }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "331f76b2-f232-465c-912b-8cff7163fd61",
+      "name": "Post to Facebook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -520,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.linkedin.com/v2/ugcPosts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $json.access_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"author\": \"urn:li:person:{{ $json.userId }}\",\n  \"lifecycleState\": \"PUBLISHED\",\n  \"specificContent\": {\n    \"com.linkedin.ugc.ShareContent\": {\n      \"shareCommentary\": {\n        \"text\": \"{{ $json.content }}\"\n      },\n      \"shareMediaCategory\": \"NONE\"\n    }\n  },\n  \"visibility\": {\n    \"com.linkedin.ugc.MemberNetworkVisibility\": \"PUBLIC\"\n  }\n}",
+        "options": {}
+      },
+      "id": "ab105210-cb46-41cc-99c7-ca742ca3fb3e",
+      "name": "Post to LinkedIn",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -520,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://oauth.reddit.com/api/submit",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $json.access_token }}"
+            },
+            {
+              "name": "User-Agent",
+              "value": "SocialMediaScheduler/1.0"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "kind",
+              "value": "self"
+            },
+            {
+              "name": "sr",
+              "value": "test"
+            },
+            {
+              "name": "title",
+              "value": "={{ $json.content.substring(0, 100) }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $json.content }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1e848da8-2250-4e1d-9e7f-267516a40a9d",
+      "name": "Post to Reddit",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -520,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Instagram posting requires media upload - placeholder for now\nconsole.log('Instagram posting not implemented - requires media upload');\nreturn {\n  success: false,\n  message: 'Instagram posting requires media upload implementation',\n  platform: 'instagram'\n};"
+      },
+      "id": "d82b23c3-f24d-4466-973b-7264f7457128",
+      "name": "Post to Instagram",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -520,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "mergeByFields": {
+          "values": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "c09497a2-842b-4e5d-a5b7-70bc2e7e6bb5",
+      "name": "Merge Responses",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [
+        -300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare success response\nconst webhookData = $node['Process Webhook Data'].json;\nconst postResult = $json;\n\nconsole.log('Post result:', JSON.stringify(postResult, null, 2));\n\nreturn {\n  success: true,\n  message: 'Post published successfully',\n  platform: webhookData.platform,\n  postId: webhookData.postId,\n  platformPostId: postResult.data?.id || postResult.id || 'unknown',\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "7656ab68-19bc-4d59-a933-69369aba71b7",
+      "name": "Prepare Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "d2a2047b-ece6-4b6b-9329-0b2403f534af",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        140,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule Post Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Webhook Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Webhook Data": {
+      "main": [
+        [
+          {
+            "node": "Fetch OAuth Credentials",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch OAuth Credentials": {
+      "main": [
+        [
+          {
+            "node": "Merge Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Data": {
+      "main": [
+        [
+          {
+            "node": "Route by Platform",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Platform": {
+      "main": [
+        [
+          {
+            "node": "Post to Twitter",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post to Facebook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post to LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post to Reddit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post to Instagram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Twitter": {
+      "main": [
+        [
+          {
+            "node": "Merge Responses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Facebook": {
+      "main": [
+        [
+          {
+            "node": "Merge Responses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Merge Responses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Reddit": {
+      "main": [
+        [
+          {
+            "node": "Merge Responses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Instagram": {
+      "main": [
+        [
+          {
+            "node": "Merge Responses",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Responses": {
+      "main": [
+        [
+          {
+            "node": "Prepare Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Response": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "fde9763b8044604bc07985ad1250ae04991926daedc356fa9cf1585f9efdf302"
+  }
+}

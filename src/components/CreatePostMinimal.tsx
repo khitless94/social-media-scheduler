@@ -219,9 +219,9 @@ const CreatePostMinimal: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [scheduleDate, setScheduleDate] = useState<Date>();
   const [scheduleTime, setScheduleTime] = useState(() => {
-    // Default to 5 minutes from now (to match service validation requirement)
-    const fiveMinutesFromNow = new Date(Date.now() + 5 * 60 * 1000);
-    return fiveMinutesFromNow.toTimeString().slice(0, 5); // HH:MM format
+    // Default to 2 minutes from now (to match service validation requirement)
+    const twoMinutesFromNow = new Date(Date.now() + 2 * 60 * 1000);
+    return twoMinutesFromNow.toTimeString().slice(0, 5); // HH:MM format
   });
   const [isPosting, setIsPosting] = useState(false);
   const [postType, setPostType] = useState<'now' | 'schedule'>('now');
@@ -1052,11 +1052,11 @@ Create the post now:`;
         isInFuture: scheduledDateTime > now
       });
 
-      // Validate the scheduled time is in the future (must match ScheduledPostService requirement: 5 minutes)
-      const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutes buffer to match service
+      // Validate the scheduled time is in the future (must match ScheduledPostService requirement: 1 minute)
+      const oneMinuteFromNow = new Date(now.getTime() + 1 * 60 * 1000); // 1 minute buffer to match service
 
-      if (scheduledDateTime <= fiveMinutesFromNow) {
-        throw new Error(`Scheduled time must be at least 5 minutes in the future. Current time: ${now.toLocaleTimeString()}, Minimum time: ${fiveMinutesFromNow.toLocaleTimeString()}`);
+      if (scheduledDateTime <= oneMinuteFromNow) {
+        throw new Error(`Scheduled time must be at least 1 minute in the future. Current time: ${now.toLocaleTimeString()}, Minimum time: ${oneMinuteFromNow.toLocaleTimeString()}`);
       }
 
       // Prepare the scheduling data for n8n
@@ -2104,7 +2104,7 @@ Create the post now:`;
                         </div>
                       </div>
                       <p className="text-xs text-gray-500 mb-3">
-                        Schedule posts at least 5 minutes in the future for n8n processing
+                        Schedule posts at least 1 minute in the future for n8n processing
                       </p>
                       <div className="space-y-3">
                         <ModernDateTimePicker

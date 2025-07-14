@@ -42,11 +42,17 @@ export class ScheduledPostService {
         post_id: post.id,
         user_id: post.user_id,
         content: post.content,
-        platforms: post.platforms || [post.platform],
-        scheduled_for: post.scheduled_for,
+        platform: post.platform || (post.platforms && post.platforms[0]) || 'twitter',
+        scheduled_for: post.scheduled_at || post.scheduled_for || new Date().toISOString(),
         media_urls: post.media_urls || [],
         action: 'schedule_post'
       };
+
+      console.log('🔍 [triggerN8nWebhook] Post object fields:', {
+        scheduled_at: post.scheduled_at,
+        scheduled_for: post.scheduled_for,
+        final_scheduled_for: webhookPayload.scheduled_for
+      });
 
       console.log('📤 Webhook payload:', webhookPayload);
 
@@ -728,12 +734,12 @@ export class ScheduledPostService {
    */
   static validateScheduledTime(scheduledFor: Date): { valid: boolean; error?: string } {
     const now = new Date();
-    const minScheduleTime = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutes from now
+    const minScheduleTime = new Date(now.getTime() + 1 * 60 * 1000); // 1 minute from now (reduced from 5 minutes)
 
     if (scheduledFor <= minScheduleTime) {
       return {
         valid: false,
-        error: 'Scheduled time must be at least 5 minutes in the future'
+        error: 'Scheduled time must be at least 1 minute in the future'
       };
     }
 
