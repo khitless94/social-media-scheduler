@@ -93,8 +93,8 @@ const SUPABASE_URL = "https://eqiuukwwpdiyncahrdny.supabase.co";
 // Force re-render helper for immediate UI updates
 const forceUpdate = () => Math.random();
 
-type Platform = "twitter" | "reddit" | "linkedin" | "facebook" | "instagram";
-type ConnectionStatus = Record<Platform, boolean>;
+export type Platform = "twitter" | "reddit" | "linkedin" | "facebook" | "instagram";
+export type ConnectionStatus = Record<Platform, boolean>;
 
 // This helper function is defined outside the hook so it isn't recreated on every render.
 const getClientIdForPlatform = (platform: Platform): string => {
@@ -212,22 +212,16 @@ export const useSocialMediaConnection = (
   const loadConnectionStatusFromDB = useCallback(async () => {
     if (!user) return;
 
-    console.log('🔄 LOADING CONNECTION STATUS - Using localStorage as primary source');
-
     // Use localStorage as the primary source and force UI update
     const localStatus = loadFromLocalStorage();
     if (localStatus) {
-      console.log('✅ Using localStorage:', localStatus);
-
       // Force update even if status seems the same
       currentConnectionStatus.current = localStatus;
-      console.log('🔄 Calling onConnectionStatusChange with:', localStatus);
       onConnectionStatusChange(localStatus);
 
       // Force re-render to ensure UI updates
       forceRender();
     } else {
-      console.log('📭 No localStorage data found, checking individual platform keys');
 
       // Check individual platform connection keys directly
       const platforms: Platform[] = ['twitter', 'linkedin', 'reddit', 'facebook', 'instagram'];
@@ -275,17 +269,11 @@ export const useSocialMediaConnection = (
       platforms.forEach(platform => {
         const key = `connected_${platform}_${user.id}`;
         const isConnected = localStorage.getItem(key) === 'true';
-        console.log(`🔍 Checking ${platform}: key=${key}, value=${localStorage.getItem(key)}, isConnected=${isConnected}`);
         if (isConnected) {
           status[platform] = true;
           hasAnyConnection = true;
-          console.log(`✅ localStorage: ${platform} is connected`);
         }
       });
-
-      console.log('📋 localStorage status:', status);
-      console.log('📋 hasAnyConnection:', hasAnyConnection);
-      console.log('📋 Returning:', hasAnyConnection ? status : null);
       return hasAnyConnection ? status : null;
     } catch (error) {
       console.error('Failed to load from localStorage:', error);
@@ -302,7 +290,7 @@ export const useSocialMediaConnection = (
         const key = `connected_${platform}_${user.id}`;
         localStorage.setItem(key, connected.toString());
       });
-      console.log('Saved to localStorage:', status);
+
     } catch (error) {
       console.error('Failed to save to localStorage:', error);
     }
@@ -398,8 +386,6 @@ export const useSocialMediaConnection = (
 
           // Check if there's a mismatch between localStorage and state
           if (isConnectedInStorage && !isConnectedInState) {
-            console.log(`🎯 DIRECT STATUS MISMATCH: ${platform} connected in localStorage but not in state!`);
-
             // Update UI immediately
             const newStatus = {
               ...currentConnectionStatus.current,
@@ -410,10 +396,6 @@ export const useSocialMediaConnection = (
             onConnectionStatusChange(newStatus);
             forceRender();
             setIsConnecting(prev => ({ ...prev, [platform]: false }));
-
-            const platformName = formatPlatformName(platform);
-
-            console.log(`✅ DIRECT STATUS FIX: ${platform} UI updated from localStorage`);
           }
 
           if (successValue || completeValue) {
@@ -434,7 +416,6 @@ export const useSocialMediaConnection = (
               if (user) {
                 const key = `connected_${platform}_${user.id}`;
                 localStorage.setItem(key, 'true');
-                console.log(`✅ POLLING PERSISTED: ${platform} saved to localStorage`);
               }
 
               forceRender();
@@ -536,7 +517,6 @@ export const useSocialMediaConnection = (
       if (user) {
         const key = `connected_${platform}_${user.id}`;
         localStorage.setItem(key, 'true');
-        console.log(`✅ PERSISTED: ${platform} saved to localStorage with key: ${key}`);
 
         // Also save to the general status object
         const statusKey = `connection_status_${user.id}`;
@@ -769,7 +749,6 @@ export const useSocialMediaConnection = (
       // CLEAR FROM LOCALSTORAGE FOR IMMEDIATE UI UPDATE
       const key = `connected_${platform}_${user.id}`;
       localStorage.removeItem(key);
-      console.log(`✅ DISCONNECTED: ${platform} removed from localStorage`);
 
       // Update UI immediately
       const newStatus = {

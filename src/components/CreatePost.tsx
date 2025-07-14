@@ -8,11 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { ModernDateTimePicker } from '@/components/ui/modern-datetime-picker';
+import { AIContentGenerator } from '@/components/ui/ai-content-generator';
 import { useToast } from '@/hooks/use-toast';
-import { useSocialMediaConnectionWrapper, type Platform, type ConnectionStatus } from '@/hooks/useSocialMediaConnectionWrapper';
+import { useSocialMediaConnection, type Platform, type ConnectionStatus } from '@/hooks/useSocialMediaConnection';
 import { useAuth } from '@/hooks/useAuth';
-import { useSocialMedia } from '@/hooks/useSocialMedia';
-import { useScheduledPosts } from '@/hooks/useScheduledPosts';
+// import { useScheduledPosts } from '@/hooks/useScheduledPosts';
 import {
   ArrowLeft,
   Sparkles,
@@ -37,7 +38,178 @@ const CreatePost: React.FC = () => {
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const { user } = useAuth();
-  const { postToSocial, loading: socialMediaLoading, savePostToDatabase } = useSocialMedia();
+
+  // Loading state for social media operations
+  const [socialMediaLoading, setSocialMediaLoading] = useState(false);
+
+  // Function to save post to database
+  const savePostToDatabase = async (
+    content: string,
+    platforms: string[],
+    status: 'draft' | 'scheduled' | 'published' | 'failed',
+    image?: string,
+    scheduledFor?: string,
+    platformPostIds?: Record<string, string>,
+    errorMessage?: string,
+    generatedByAI?: boolean,
+    aiPrompt?: string
+  ) => {
+    console.log('💾 [savePostToDatabase] Starting save with params:', {
+      content: content?.substring(0, 50) + '...',
+      platforms,
+      status,
+      image,
+      userId: user?.id,
+      generatedByAI,
+      aiPrompt
+    });
+
+    if (!user?.id) {
+      console.error('❌ [savePostToDatabase] No user ID found');
+      return null;
+    }
+
+    try {
+      const postData = {
+        user_id: user.id,
+        content,
+        platform: platforms[0] || 'instagram',
+        status,
+        image_url: image,
+        scheduled_at: scheduledFor,
+        published_at: status === 'published' ? new Date().toISOString() : null,
+        platform_post_ids: platformPostIds || {},
+        engagement_stats: {},
+        generated_by_ai: generatedByAI || false,
+        ai_prompt: aiPrompt,
+        error_message: errorMessage,
+        retry_count: 0
+      };
+
+      console.log('💾 [savePostToDatabase] Inserting data:', postData);
+
+      const { data, error } = await supabase
+        .from('posts')
+        .insert([postData])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('❌ [savePostToDatabase] Database error:', error);
+        return null;
+      }
+
+      console.log('✅ [savePostToDatabase] Successfully saved post:', data);
+      return data;
+    } catch (error) {
+      console.error('❌ [savePostToDatabase] Exception:', error);
+      return null;
+    }
+  };
+
+  // Post to social media function
+  const postToSocial = async ({ content, platform, subreddit, image }: {
+    content: string;
+    platform: Platform;
+    subreddit?: string;
+    image?: string;
+  }) => {
+    try {
+      setSocialMediaLoading(true);
+
+      console.log(`🚀 [CreatePost] Posting to ${platform} with OAuth authentication`);
+      console.log(`📝 [CreatePost] Content: "${content.substring(0, 100)}..."`);
+      console.log(`🖼️ [CreatePost] Image: ${image ? 'Yes' : 'No'}`);
+
+      // Get the current session token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No active session. Please sign in.');
+      }
+
+      const requestBody = {
+        content,
+        platform,
+        ...(subreddit && { subreddit }),
+        ...(image && { image })
+      };
+
+      console.log(`📤 [CreatePost] Request body:`, requestBody);
+
+      // Call the edge function with authentication
+      const response = await fetch('https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/post-to-social', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      console.log(`📡 [CreatePost] Response status: ${response.status} ${response.statusText}`);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ [CreatePost] Edge function error (${response.status}):`, errorText);
+        return {
+          success: false,
+          error: `HTTP ${response.status}: ${errorText}`,
+          platform
+        };
+      }
+
+      const result = await response.json();
+      console.log(`📡 [CreatePost] Edge function response:`, result);
+
+      if (result.success) {
+        console.log(`[CreatePost] Success: ${platform} post completed`);
+
+        // Save successful post to database
+        console.log(`💾 [CreatePost] Saving successful ${platform} post to database...`);
+        const platformPostIds = result.postId ? { [platform]: result.postId } : {};
+        const savedPost = await savePostToDatabase(
+          content,
+          [platform],
+          'published',
+          image,
+          undefined,
+          platformPostIds,
+          undefined,
+          false,
+          undefined
+        );
+
+        if (savedPost) {
+          console.log(`✅ [CreatePost] Post saved to database with ID:`, savedPost.id);
+        } else {
+          console.error(`❌ [CreatePost] Failed to save post to database`);
+        }
+
+        return {
+          success: true,
+          message: result.message || `Successfully posted to ${platform}`,
+          postId: result.postId,
+          platform
+        };
+      } else {
+        console.log(`[CreatePost] Failed: ${platform} post failed - ${result.error}`);
+        return {
+          success: false,
+          error: result.error || 'Failed to post',
+          platform
+        };
+      }
+    } catch (error: any) {
+      console.error(`❌ [CreatePost] Exception posting to ${platform}:`, error);
+      return {
+        success: false,
+        error: error.message || 'Network error occurred',
+        platform
+      };
+    } finally {
+      setSocialMediaLoading(false);
+    }
+  };
 
   // State management
   const [prompt, setPrompt] = useState('');
@@ -51,7 +223,9 @@ const CreatePost: React.FC = () => {
   const [postType, setPostType] = useState<'now' | 'schedule'>('now');
 
   // Import the scheduling hook
-  const { createScheduledPost, loading: schedulingLoading } = useScheduledPosts();
+  // const { createScheduledPost, loading: schedulingLoading } = useScheduledPosts();
+  const createScheduledPost = async () => null; // Temporary placeholder
+  const schedulingLoading = false;
 
   // Image management
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -71,14 +245,27 @@ const CreatePost: React.FC = () => {
   });
 
   // Use the wrapper social media connection hook
-  const { connectPlatform: connectToSocialPlatform, isConnecting, connectionStatus: hookConnectionStatus, loadConnectionStatus } = useSocialMediaConnectionWrapper(setConnectionStatus);
+  const { connectPlatform: connectToSocialPlatform, isConnecting, connectionStatus: hookConnectionStatus, loadConnectionStatus } = useSocialMediaConnection(setConnectionStatus);
 
   // Sync connection status from hook
   useEffect(() => {
+    console.log('🔄 [CreatePost] Hook connection status changed:', hookConnectionStatus);
     if (hookConnectionStatus) {
       setConnectionStatus(hookConnectionStatus);
+      console.log('✅ [CreatePost] Updated local connection status:', hookConnectionStatus);
     }
   }, [hookConnectionStatus]);
+
+  // Load connection status when component mounts
+  useEffect(() => {
+    console.log('🚀 [CreatePost] Component mounted, loading connection status...');
+    loadConnectionStatus();
+  }, [loadConnectionStatus]);
+
+  // Debug current connection status
+  useEffect(() => {
+    console.log('📊 [CreatePost] Current connection status:', connectionStatus);
+  }, [connectionStatus]);
 
   // Configuration
   const platforms = [
@@ -1863,32 +2050,16 @@ Create the post now:`;
                     {/* Scheduling */}
                     <div className="space-y-4 mb-6">
                       <Label className="text-sm font-medium text-gray-900">Schedule (Optional)</Label>
-                      <div className="grid grid-cols-2 gap-3">
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className="w-full h-10 justify-start text-left font-normal border-gray-200 hover:border-gray-300"
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {scheduleDate ? format(scheduleDate, "PPP") : "Pick a date"}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0 rounded-lg shadow-lg border border-gray-200">
-                            <Calendar
-                              mode="single"
-                              selected={scheduleDate}
-                              onSelect={setScheduleDate}
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-
-                        <Input
-                          type="time"
-                          value={scheduleTime}
-                          onChange={(e) => setScheduleTime(e.target.value)}
-                          className="h-10 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                      <div className="space-y-3">
+                        <ModernDateTimePicker
+                          value={scheduleDate}
+                          onChange={setScheduleDate}
+                          placeholder="Pick a date"
+                          disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                          timeValue={scheduleTime}
+                          onTimeChange={setScheduleTime}
+                          showTime={true}
+                          className="w-full"
                         />
                       </div>
                     </div>

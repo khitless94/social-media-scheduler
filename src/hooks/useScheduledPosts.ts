@@ -23,9 +23,9 @@ export interface UseScheduledPostsReturn {
 }
 
 export const useScheduledPosts = (): UseScheduledPostsReturn => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
-  
+
   const [scheduledPosts, setScheduledPosts] = useState<ScheduledPost[]>([]);
   const [upcomingPosts, setUpcomingPosts] = useState<ScheduledPost[]>([]);
   const [queueStatus, setQueueStatus] = useState({
@@ -38,12 +38,17 @@ export const useScheduledPosts = (): UseScheduledPostsReturn => {
   const [error, setError] = useState<string | null>(null);
 
   const fetchScheduledPosts = useCallback(async () => {
-    if (!user?.id) return;
+    // Don't fetch if auth is still loading or user is not available
+    if (authLoading || !user?.id) {
+      console.log('📅 [useScheduledPosts] Skipping fetch - auth loading or no user:', { authLoading, userId: user?.id });
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
     try {
+      console.log('📅 [useScheduledPosts] Fetching posts for user:', user.id);
       const [posts, upcoming, status] = await Promise.all([
         ScheduledPostService.getUserScheduledPosts(user.id),
         ScheduledPostService.getUpcomingPosts(user.id),
@@ -53,19 +58,21 @@ export const useScheduledPosts = (): UseScheduledPostsReturn => {
       setScheduledPosts(posts);
       setUpcomingPosts(upcoming);
       setQueueStatus(status);
+      console.log('✅ [useScheduledPosts] Fetched posts successfully:', { postsCount: posts.length, upcomingCount: upcoming.length });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch scheduled posts';
       setError(errorMessage);
-      console.error('Error fetching scheduled posts:', err);
+      console.error('❌ [useScheduledPosts] Error fetching scheduled posts:', err);
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, authLoading]);
 
   const createScheduledPost = useCallback(async (
     data: Omit<SchedulePostData, 'user_id'>
   ): Promise<ScheduledPost | null> => {
     if (!user?.id) {
+      console.error('❌ [useScheduledPosts] No user ID available for scheduling');
       toast({
         title: "Authentication Error",
         description: "You must be logged in to schedule posts",
@@ -87,29 +94,32 @@ export const useScheduledPosts = (): UseScheduledPostsReturn => {
 
     try {
       setLoading(true);
+      console.log('📅 [useScheduledPosts] Creating scheduled post for user:', user.id);
+
       const post = await ScheduledPostService.createScheduledPost({
         ...data,
         user_id: user.id
       });
 
-      toast({
-        title: "Post Scheduled!",
-        description: `Your post has been scheduled for ${data.scheduled_for.toLocaleString()}`,
-      });
+      if (post) {
+        // Don't show toast here - let the component handle success/error messages
+        console.log('✅ [useScheduledPosts] Post scheduled successfully:', post.id);
 
-      // Refresh the posts list
-      await fetchScheduledPosts();
-      
-      return post;
+        // Refresh the posts list
+        await fetchScheduledPosts();
+
+        return post;
+      } else {
+        console.error('❌ [useScheduledPosts] No post returned from service');
+        throw new Error('Failed to create scheduled post - no data returned');
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to schedule post';
       setError(errorMessage);
-      toast({
-        title: "Scheduling Failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
-      return null;
+      console.error('❌ [useScheduledPosts] Scheduling failed:', errorMessage);
+
+      // Throw the error so the component can handle it
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -239,13 +249,17 @@ export const useScheduledPosts = (): UseScheduledPostsReturn => {
     await fetchScheduledPosts();
   }, [fetchScheduledPosts]);
 
-  // Fetch posts on mount and when user changes
+  // Fetch posts on mount and when user changes (but wait for auth to be ready)
   useEffect(() => {
-    fetchScheduledPosts();
-  }, [fetchScheduledPosts]);
+    if (!authLoading) {
+      fetchScheduledPosts();
+    }
+  }, [fetchScheduledPosts, authLoading]);
 
   // Auto-refresh every 30 seconds to keep status updated
   useEffect(() => {
+    if (authLoading) return;
+
     const interval = setInterval(() => {
       if (user?.id) {
         fetchScheduledPosts();
@@ -253,7 +267,7 @@ export const useScheduledPosts = (): UseScheduledPostsReturn => {
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [user?.id, fetchScheduledPosts]);
+  }, [user?.id, fetchScheduledPosts, authLoading]);
 
   return {
     scheduledPosts,

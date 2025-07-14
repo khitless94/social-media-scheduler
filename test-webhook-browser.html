@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webhook Scheduler Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        .platform-checkboxes {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .platform-checkboxes label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: normal;
+        }
+        .platform-checkboxes input {
+            width: auto;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Webhook Scheduler Test</h1>
+        <p>Test your n8n webhook-based scheduling system</p>
+
+        <form id="testForm">
+            <div class="form-group">
+                <label for="userId">User ID:</label>
+                <input type="text" id="userId" value="00000000-0000-0000-0000-000000000000" required>
+            </div>
+
+            <div class="form-group">
+                <label for="content">Post Content:</label>
+                <textarea id="content" placeholder="Enter your test post content..." required>Test post from webhook - ${new Date().toISOString()}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Platforms:</label>
+                <div class="platform-checkboxes">
+                    <label><input type="checkbox" value="twitter" checked> Twitter</label>
+                    <label><input type="checkbox" value="reddit"> Reddit</label>
+                    <label><input type="checkbox" value="linkedin"> LinkedIn</label>
+                    <label><input type="checkbox" value="facebook"> Facebook</label>
+                    <label><input type="checkbox" value="instagram"> Instagram</label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="scheduledFor">Scheduled For:</label>
+                <input type="datetime-local" id="scheduledFor" required>
+            </div>
+
+            <button type="submit" id="testBtn">🚀 Test Webhook</button>
+            <button type="button" id="quickTestBtn">⚡ Quick Test (Now + 1 min)</button>
+        </form>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const WEBHOOK_URL = 'https://k94.app.n8n.cloud/webhook/schedule-post';
+
+        // Set default scheduled time to 5 minutes from now
+        const now = new Date();
+        now.setMinutes(now.getMinutes() + 5);
+        document.getElementById('scheduledFor').value = now.toISOString().slice(0, 16);
+
+        // Update content with current timestamp
+        function updateContent() {
+            const content = document.getElementById('content');
+            content.value = `Test post from webhook - ${new Date().toISOString()}`;
+        }
+
+        // Get selected platforms
+        function getSelectedPlatforms() {
+            const checkboxes = document.querySelectorAll('.platform-checkboxes input:checked');
+            return Array.from(checkboxes).map(cb => cb.value);
+        }
+
+        // Show result
+        function showResult(message, type = 'info') {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = `result ${type}`;
+            resultDiv.textContent = message;
+        }
+
+        // Test webhook
+        async function testWebhook(scheduledFor) {
+            const userId = document.getElementById('userId').value;
+            const content = document.getElementById('content').value;
+            const platforms = getSelectedPlatforms();
+
+            if (!platforms.length) {
+                showResult('Please select at least one platform', 'error');
+                return;
+            }
+
+            const payload = {
+                post_id: `test-${Date.now()}`,
+                user_id: userId,
+                content: content,
+                platforms: platforms,
+                scheduled_for: scheduledFor,
+                action: 'schedule_post'
+            };
+
+            showResult('🚀 Sending webhook request...\n\nPayload:\n' + JSON.stringify(payload, null, 2), 'info');
+
+            try {
+                const response = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-User-ID': userId
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showResult(`✅ SUCCESS!\n\nResponse:\n${JSON.stringify(result, null, 2)}`, 'success');
+                } else {
+                    showResult(`❌ FAILED!\n\nStatus: ${response.status}\nResponse:\n${JSON.stringify(result, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                showResult(`💥 ERROR!\n\n${error.message}`, 'error');
+            }
+        }
+
+        // Form submit handler
+        document.getElementById('testForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const scheduledFor = new Date(document.getElementById('scheduledFor').value).toISOString();
+            await testWebhook(scheduledFor);
+        });
+
+        // Quick test button
+        document.getElementById('quickTestBtn').addEventListener('click', async () => {
+            updateContent();
+            const quickTime = new Date();
+            quickTime.setMinutes(quickTime.getMinutes() + 1);
+            await testWebhook(quickTime.toISOString());
+        });
+
+        // Update content on page load
+        updateContent();
+    </script>
+</body>
+</html>

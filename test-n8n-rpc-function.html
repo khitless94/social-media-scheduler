@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test n8n RPC Function</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .result {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        .info { background: #d1ecf1; color: #0c5460; padding: 10px; border-radius: 4px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test n8n RPC Function</h1>
+        
+        <div class="info">
+            <strong>Instructions:</strong>
+            <ol>
+                <li>First run the SQL script: <code>fix-posts-table-schema.sql</code> in your Supabase SQL editor</li>
+                <li>Then run: <code>fix-n8n-rpc-function.sql</code> in your Supabase SQL editor</li>
+                <li>Test the functions below</li>
+                <li>If tests pass, your n8n workflow should work</li>
+            </ol>
+            <p><strong>Note:</strong> The schema fix script will handle the "platform column NOT NULL" error you encountered.</p>
+        </div>
+        
+        <div class="test-section">
+            <h2>Test 1: Check RPC Function Exists</h2>
+            <button onclick="testFunctionExists()">Test Function Exists</button>
+            <div id="function-result" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Test 2: Call get_pending_scheduled_posts</h2>
+            <button onclick="testGetPendingPosts()">Test Get Pending Posts</button>
+            <div id="pending-result" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Test 3: Call get_pending_posts_json</h2>
+            <button onclick="testGetPendingPostsJson()">Test Get Pending Posts JSON</button>
+            <div id="json-result" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Test 4: Create Test Scheduled Post</h2>
+            <button onclick="createTestPost()">Create Test Post</button>
+            <div id="create-result" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Test 5: Full n8n Workflow Simulation</h2>
+            <button onclick="simulateN8nWorkflow()">Simulate n8n Workflow</button>
+            <div id="workflow-result" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://eqiuukwwpdiyncahrdny.supabase.co';
+        const SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaXV1a3d3cGRpeW5jYWhyZG55Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0OTE5MDkzNywiZXhwIjoyMDY0NzY2OTM3fQ.oUxZvopxq77zraXu4h3C2v31YSSRUZqwrXc48d-R8Zs';
+
+        async function testFunctionExists() {
+            const resultDiv = document.getElementById('function-result');
+            resultDiv.textContent = 'Testing if RPC function exists...';
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_pending_scheduled_posts`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SERVICE_KEY,
+                        'Authorization': `Bearer ${SERVICE_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({})
+                });
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = '✅ Function exists and is accessible!';
+                } else {
+                    const errorText = await response.text();
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ Function test failed: ${response.status} - ${errorText}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Error testing function: ${error.message}`;
+            }
+        }
+
+        async function testGetPendingPosts() {
+            const resultDiv = document.getElementById('pending-result');
+            resultDiv.textContent = 'Calling get_pending_scheduled_posts...';
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_pending_scheduled_posts`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SERVICE_KEY,
+                        'Authorization': `Bearer ${SERVICE_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({})
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ Function called successfully!\nFound ${data.length} pending posts:\n\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    const errorText = await response.text();
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ Function call failed: ${response.status} - ${errorText}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Error calling function: ${error.message}`;
+            }
+        }
+
+        async function testGetPendingPostsJson() {
+            const resultDiv = document.getElementById('json-result');
+            resultDiv.textContent = 'Calling get_pending_posts_json...';
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_pending_posts_json`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SERVICE_KEY,
+                        'Authorization': `Bearer ${SERVICE_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({})
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ JSON function called successfully!\nResult:\n\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    const errorText = await response.text();
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ JSON function call failed: ${response.status} - ${errorText}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Error calling JSON function: ${error.message}`;
+            }
+        }
+
+        async function createTestPost() {
+            const resultDiv = document.getElementById('create-result');
+            resultDiv.textContent = 'Creating test scheduled post...';
+
+            try {
+                // Use the helper function to create a test post
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/create_test_scheduled_post`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SERVICE_KEY,
+                        'Authorization': `Bearer ${SERVICE_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        test_user_id: '00000000-0000-0000-0000-000000000000',
+                        test_content: 'Test post for n8n workflow',
+                        test_platforms: ['twitter'],
+                        minutes_from_now: 1
+                    })
+                });
+
+                if (response.ok) {
+                    const postId = await response.json();
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ Test post created successfully!\nPost ID: ${postId}\nScheduled for: 1 minute from now\n\nThe post and queue entry were created automatically.`;
+                } else {
+                    const errorText = await response.text();
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ Failed to create test post: ${response.status} - ${errorText}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Error creating test post: ${error.message}`;
+            }
+        }
+
+        async function simulateN8nWorkflow() {
+            const resultDiv = document.getElementById('workflow-result');
+            resultDiv.textContent = 'Simulating full n8n workflow...';
+            
+            try {
+                let log = 'n8n Workflow Simulation\n';
+                log += '========================\n\n';
+                
+                // Step 1: Fetch pending posts
+                log += '1. Fetching pending posts...\n';
+                const fetchResponse = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_pending_scheduled_posts`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SERVICE_KEY,
+                        'Authorization': `Bearer ${SERVICE_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({})
+                });
+                
+                if (!fetchResponse.ok) {
+                    throw new Error(`Failed to fetch posts: ${fetchResponse.status}`);
+                }
+                
+                const posts = await fetchResponse.json();
+                log += `✅ Found ${posts.length} pending posts\n\n`;
+                
+                if (posts.length > 0) {
+                    const post = posts[0];
+                    log += `2. Processing post: ${post.post_id}\n`;
+                    log += `   Content: ${post.content}\n`;
+                    log += `   Platform: ${post.platform}\n`;
+                    log += `   Scheduled for: ${post.scheduled_for}\n\n`;
+                    
+                    // Step 3: Update post status to completed
+                    log += '3. Updating post status to completed...\n';
+                    const updateResponse = await fetch(`${SUPABASE_URL}/rest/v1/rpc/update_scheduled_post_status`, {
+                        method: 'POST',
+                        headers: {
+                            'apikey': SERVICE_KEY,
+                            'Authorization': `Bearer ${SERVICE_KEY}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            queue_id_param: post.queue_id,
+                            new_status: 'completed',
+                            execution_id_param: 'test-execution-' + Date.now(),
+                            platform_post_ids_param: { twitter: 'test-tweet-id-123' }
+                        })
+                    });
+                    
+                    if (updateResponse.ok) {
+                        log += '✅ Post status updated successfully\n\n';
+                        log += '🎉 Workflow simulation completed successfully!';
+                        resultDiv.className = 'result success';
+                    } else {
+                        const errorText = await updateResponse.text();
+                        log += `❌ Failed to update status: ${updateResponse.status} - ${errorText}`;
+                        resultDiv.className = 'result error';
+                    }
+                } else {
+                    log += '⚠️ No pending posts found. Create a test post first.';
+                    resultDiv.className = 'result';
+                }
+                
+                resultDiv.textContent = log;
+                
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Workflow simulation failed: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

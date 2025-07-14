@@ -50,71 +50,68 @@ export const useSocialMediaConnectionWrapper = (
         reddit: false,
       };
 
+      // First try localStorage (faster and more reliable)
+      const platforms: Platform[] = ['twitter', 'linkedin', 'instagram', 'facebook', 'reddit'];
+      let hasLocalData = false;
+
+      platforms.forEach(platform => {
+        const key = `connected_${platform}_${user.id}`;
+        const isConnected = localStorage.getItem(key) === 'true';
+        if (isConnected) {
+          defaultStatus[platform] = true;
+          hasLocalData = true;
+        }
+      });
+
+      // If we have local data, use it immediately
+      if (hasLocalData) {
+        console.log('Using localStorage connection status:', defaultStatus);
+        setConnectionStatus(defaultStatus);
+        onConnectionStatusChange(defaultStatus);
+        return;
+      }
+
       // First check localStorage for immediate UI update
+      // Check both the consolidated status and individual platform keys
       const statusKey = `connection_status_${user.id}`;
       const cachedStatus = localStorage.getItem(statusKey);
 
+      let initialStatus = { ...defaultStatus };
+
+      // First try the consolidated status
       if (cachedStatus) {
         try {
           const parsed = JSON.parse(cachedStatus);
           console.log('Found cached connection status:', parsed);
-          setConnectionStatus(parsed);
-          onConnectionStatusChange(parsed);
+          initialStatus = { ...defaultStatus, ...parsed };
         } catch (e) {
           console.warn('Failed to parse cached status:', e);
-          // Use default status if cache is corrupted
-          setConnectionStatus(defaultStatus);
-          onConnectionStatusChange(defaultStatus);
         }
-      } else {
-        // Set default status immediately if no cache
-        setConnectionStatus(defaultStatus);
-        onConnectionStatusChange(defaultStatus);
       }
 
-      // Try to load from database with graceful error handling
-      try {
-        const [oauthResult, socialTokensResult] = await Promise.allSettled([
-          supabase.from('oauth_credentials').select('platform, expires_at, created_at').eq('user_id', user.id),
-          supabase.from('social_tokens').select('platform, expires_at, created_at').eq('user_id', user.id)
-        ]);
-
-        // Extract data from settled promises
-        const oauthData = oauthResult.status === 'fulfilled' && !oauthResult.value.error ? oauthResult.value.data : [];
-        const socialTokensData = socialTokensResult.status === 'fulfilled' && !socialTokensResult.value.error ? socialTokensResult.value.data : [];
-
-        // Combine tokens from both tables
-        const allTokens = [
-          ...(oauthData || []),
-          ...(socialTokensData || [])
-        ];
-
-        console.log('Found tokens:', allTokens);
-
-        const newStatus: ConnectionStatus = { ...defaultStatus };
-
-        // Process tokens to determine connection status
-        if (allTokens.length > 0) {
-          allTokens.forEach((token) => {
-            if (token.platform in newStatus) {
-              // Check if token is still valid (not expired)
-              const isValid = !token.expires_at || new Date(token.expires_at) > new Date();
-              newStatus[token.platform as Platform] = isValid;
-            }
-          });
+      // Then check individual platform keys (used by useSocialMedia hook)
+      const platforms: Platform[] = ['twitter', 'linkedin', 'instagram', 'facebook', 'reddit'];
+      platforms.forEach(platform => {
+        const key = `connected_${platform}_${user.id}`;
+        const isConnected = localStorage.getItem(key) === 'true';
+        if (isConnected) {
+          initialStatus[platform] = true;
+          console.log(`✅ [ConnectionWrapper] Found individual key: ${platform} is connected`);
         }
+      });
 
-        console.log('Final connection status:', newStatus);
-        setConnectionStatus(newStatus);
-        onConnectionStatusChange(newStatus);
+      console.log('Final initial status:', initialStatus);
+      console.log('🔄 [ConnectionWrapper] Setting connection status:', initialStatus);
+      setConnectionStatus(initialStatus);
+      onConnectionStatusChange(initialStatus);
+      console.log('✅ [ConnectionWrapper] Connection status updated successfully');
 
-        // Update localStorage
-        localStorage.setItem(statusKey, JSON.stringify(newStatus));
-
-      } catch (dbError) {
-        console.warn('Database query failed, using cached/default status:', dbError);
-        // Don't throw error, just use the cached or default status
-      }
+      // Update localStorage for consistency
+      localStorage.setItem(statusKey, JSON.stringify(initialStatus));
+      platforms.forEach(platform => {
+        const key = `connected_${platform}_${user.id}`;
+        localStorage.setItem(key, initialStatus[platform].toString());
+      });
 
     } catch (error) {
       console.error('Failed to load connection status:', error);
@@ -152,20 +149,28 @@ export const useSocialMediaConnectionWrapper = (
     try {
       console.log(`Connecting to ${platform}...`);
 
-      const redirectUrl = `https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback`;
+      const redirectUrl = `https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/oauth-callback?platform=${platform}&user_id=${user.id}`;
 
       // Get auth URL with error handling
       let authUrl;
       try {
+        console.log(`🔗 [ConnectionWrapper] Getting auth URL for ${platform}...`);
         authUrl = getAuthUrl(platform, redirectUrl);
+        console.log(`✅ [ConnectionWrapper] Auth URL generated: ${authUrl}`);
       } catch (urlError) {
-        throw new Error(`Configuration error for ${platform}. Please check your app settings.`);
+        console.error(`❌ [ConnectionWrapper] Failed to generate auth URL for ${platform}:`, urlError);
+        throw new Error(`Configuration error for ${platform}: ${urlError.message}`);
       }
 
       toast({
         title: "Connection initiated",
         description: `Opening ${platform} authentication...`,
       });
+
+      // Store platform info in localStorage as backup
+      localStorage.setItem('oauth_platform_in_progress', platform);
+      localStorage.setItem('oauth_user_id', user.id);
+      console.log(`💾 [ConnectionWrapper] Stored OAuth info: platform=${platform}, user=${user.id}`);
 
       // Open OAuth in new window
       const popup = window.open(
@@ -175,6 +180,9 @@ export const useSocialMediaConnectionWrapper = (
       );
 
       if (!popup) {
+        // Clean up localStorage if popup fails
+        localStorage.removeItem('oauth_platform_in_progress');
+        localStorage.removeItem('oauth_user_id');
         throw new Error('Popup blocked. Please allow popups for this site.');
       }
 
@@ -187,12 +195,23 @@ export const useSocialMediaConnectionWrapper = (
 
         if (popup.closed) {
           clearInterval(checkClosed);
+
+          // Clean up localStorage
+          localStorage.removeItem('oauth_platform_in_progress');
+          localStorage.removeItem('oauth_user_id');
+          console.log(`🧹 [ConnectionWrapper] Cleaned up OAuth localStorage for ${platform}`);
+
           setIsConnecting(prev => ({ ...prev, [platform]: false }));
           // Reload connection status after OAuth
           setTimeout(() => loadConnectionStatus(), 1000);
         } else if (checkCount >= maxChecks) {
           // Timeout after 5 minutes
           clearInterval(checkClosed);
+
+          // Clean up localStorage on timeout
+          localStorage.removeItem('oauth_platform_in_progress');
+          localStorage.removeItem('oauth_user_id');
+
           setIsConnecting(prev => ({ ...prev, [platform]: false }));
           popup.close();
           toast({
@@ -204,7 +223,14 @@ export const useSocialMediaConnectionWrapper = (
       }, 1000);
 
     } catch (error: any) {
-      console.error(`Failed to connect to ${platform}:`, error);
+      console.error(`❌ [ConnectionWrapper] Failed to connect to ${platform}:`, error);
+      console.error(`❌ [ConnectionWrapper] Error details:`, {
+        message: error.message,
+        stack: error.stack,
+        platform,
+        user: user?.id
+      });
+
       toast({
         title: "Connection failed",
         description: error.message || `Failed to connect to ${platform}. Please try again.`,
@@ -216,6 +242,8 @@ export const useSocialMediaConnectionWrapper = (
 
   // Get OAuth URL for platform
   const getAuthUrl = (platform: Platform, redirectUrl: string): string => {
+    console.log(`🔗 [getAuthUrl] Generating URL for ${platform}...`);
+
     const baseUrls = {
       twitter: 'https://twitter.com/i/oauth2/authorize',
       linkedin: 'https://www.linkedin.com/oauth/v2/authorization',
@@ -224,21 +252,37 @@ export const useSocialMediaConnectionWrapper = (
       reddit: 'https://www.reddit.com/api/v1/authorize'
     };
 
+    console.log(`🔗 [getAuthUrl] AppConfig for ${platform}:`, AppConfig[platform]);
+
     const clientId = AppConfig[platform]?.clientId;
     if (!clientId) {
-      throw new Error(`Client ID for ${platform} is not configured`);
+      console.error(`❌ [getAuthUrl] No client ID found for ${platform}`);
+      console.error(`❌ [getAuthUrl] Available platforms in AppConfig:`, Object.keys(AppConfig));
+      throw new Error(`Client ID for ${platform} is not configured in AppConfig`);
     }
 
+    console.log(`✅ [getAuthUrl] Client ID found for ${platform}: ${clientId}`);
+
     const baseUrl = baseUrls[platform];
+    if (!baseUrl) {
+      throw new Error(`Base URL for ${platform} is not configured`);
+    }
+
+    const scope = getScope(platform);
+    console.log(`🔗 [getAuthUrl] Scope for ${platform}: ${scope}`);
+
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUrl,
       response_type: 'code',
-      scope: getScope(platform),
+      scope: scope,
       state: `${platform}-${Date.now()}`
     });
 
-    return `${baseUrl}?${params.toString()}`;
+    const finalUrl = `${baseUrl}?${params.toString()}`;
+    console.log(`✅ [getAuthUrl] Final URL generated: ${finalUrl}`);
+
+    return finalUrl;
   };
 
   // Get required scopes for each platform
@@ -339,6 +383,14 @@ export const useSocialMediaConnectionWrapper = (
       });
     }
   }, [user, connectionStatus, toast, onConnectionStatusChange]);
+
+  // Auto-load connection status when user changes
+  useEffect(() => {
+    if (user) {
+      console.log('🔄 [ConnectionWrapper] User changed, auto-loading connection status...');
+      loadConnectionStatus();
+    }
+  }, [user, loadConnectionStatus]);
 
   return {
     connectPlatform,

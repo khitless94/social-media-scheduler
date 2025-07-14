@@ -26,9 +26,9 @@ export const EditPostModal = ({ isOpen, onClose, post, onSave }: EditPostModalPr
 
   useEffect(() => {
     if (post) {
-      setContent(post.generated_text || post.prompt || "");
-      if (post.scheduled_time) {
-        const scheduledDate = new Date(post.scheduled_time);
+      setContent(post.content || post.ai_prompt || "");
+      if (post.scheduled_at) {
+        const scheduledDate = new Date(post.scheduled_at);
         setScheduleDate(scheduledDate);
         setScheduleTime(format(scheduledDate, "HH:mm"));
       }
@@ -41,13 +41,13 @@ export const EditPostModal = ({ isOpen, onClose, post, onSave }: EditPostModalPr
     setIsSaving(true);
     try {
       const updatedData: any = {
-        generated_text: content,
+        content: content,
         updated_at: new Date().toISOString()
       };
 
       if (scheduleDate && scheduleTime) {
         const scheduledDateTime = new Date(`${format(scheduleDate, "yyyy-MM-dd")}T${scheduleTime}`);
-        updatedData.scheduled_time = scheduledDateTime.toISOString();
+        updatedData.scheduled_at = scheduledDateTime.toISOString();
       }
 
       await onSave(post.id, updatedData);
@@ -59,7 +59,7 @@ export const EditPostModal = ({ isOpen, onClose, post, onSave }: EditPostModalPr
     }
   };
 
-  const isScheduledPost = post?.status === 'scheduled' || post?.scheduled_time;
+  const isScheduledPost = post?.status === 'scheduled' || post?.scheduled_at;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

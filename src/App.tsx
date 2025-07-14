@@ -14,6 +14,7 @@ import CreatePost from '@/components/CreatePost';
 import CreatePostMinimal from '@/components/CreatePostMinimal';
 import CreatePostTest from '@/components/CreatePostTest';
 import TestCreatePost from '@/components/TestCreatePost';
+import CreatePostSimple from '@/components/CreatePostSimple';
 import OAuthCallback from '@/components/OAuthCallback';
 import MyPostsPage from '@/components/pages/MyPostsPage';
 
@@ -52,6 +53,15 @@ function App() {
       {/* Dedicated Create Page */}
       <Route
         path="/create"
+        element={
+          <ProtectedRoute>
+            <CreatePostMinimal />
+          </ProtectedRoute>
+        }
+      />
+      {/* Original Create Page (for debugging) */}
+      <Route
+        path="/create-original"
         element={
           <ProtectedRoute>
             <CreatePost />

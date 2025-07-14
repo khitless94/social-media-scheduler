@@ -71,11 +71,13 @@ export const useSocialMedia = () => {
 
       console.log('🔍 [useSocialMedia] Checking connection status for user:', user.id);
 
-      // Check both tables for backward compatibility
-      const [oauthResult, socialTokensResult] = await Promise.all([
-        supabase.from('oauth_credentials').select('platform, expires_at, created_at').eq('user_id', user.id),
-        supabase.from('social_tokens').select('platform, expires_at, created_at').eq('user_id', user.id)
-      ]);
+      // Skip database queries due to RLS issues causing 406 errors
+      // TODO: Fix RLS policies for oauth_credentials and social_tokens tables
+      console.log('⚠️ [useSocialMedia] Skipping database queries due to RLS issues');
+
+      // Use empty results to avoid errors
+      const oauthResult = { data: [] };
+      const socialTokensResult = { data: [] };
 
       // Combine tokens from both tables
       const allTokens = [

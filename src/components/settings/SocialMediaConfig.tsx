@@ -1,9 +1,11 @@
+import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useSocialMediaConnectionWrapper } from "@/hooks/useSocialMediaConnectionWrapper";
+import { useSocialMediaConnection } from "@/hooks/useSocialMediaConnection";
 import { platforms } from "@/constants/platforms";
 import { PlatformCard } from "./PlatformCard";
 import { Share2, RefreshCw } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 interface SocialMediaConfigProps {
   connectionStatus: {
@@ -17,7 +19,54 @@ interface SocialMediaConfigProps {
 }
 
 const SocialMediaConfig = ({ connectionStatus, onConnectionStatusChange }: SocialMediaConfigProps) => {
-  const { isConnecting, connectPlatform, disconnectPlatform, loadConnectionStatus } = useSocialMediaConnectionWrapper(onConnectionStatusChange);
+  const { user } = useAuth();
+  const { isConnecting, connectPlatform, disconnectPlatform, loadConnectionStatus } = useSocialMediaConnection(onConnectionStatusChange);
+
+  const refreshConnectionStatus = () => {
+    console.log('🔄 [SocialMediaConfig] Refresh button clicked');
+    loadConnectionStatus();
+  };
+
+  // Direct localStorage check function
+  const checkLocalStorageDirectly = () => {
+    if (!user) return;
+
+    console.log('🔍 [SocialMediaConfig] Direct localStorage check:');
+    const platforms = ['twitter', 'linkedin', 'instagram', 'facebook', 'reddit'];
+    const userId = user.id;
+
+    platforms.forEach(platform => {
+      const key = `connected_${platform}_${userId}`;
+      const value = localStorage.getItem(key);
+      console.log(`  ${key}: ${value}`);
+    });
+
+    const statusKey = `connection_status_${userId}`;
+    const statusValue = localStorage.getItem(statusKey);
+    console.log(`  ${statusKey}: ${statusValue}`);
+
+    // Try to update connection status directly from localStorage
+    const directStatus = {
+      twitter: localStorage.getItem(`connected_twitter_${userId}`) === 'true',
+      linkedin: localStorage.getItem(`connected_linkedin_${userId}`) === 'true',
+      instagram: localStorage.getItem(`connected_instagram_${userId}`) === 'true',
+      facebook: localStorage.getItem(`connected_facebook_${userId}`) === 'true',
+      reddit: localStorage.getItem(`connected_reddit_${userId}`) === 'true',
+    };
+
+    console.log('🔄 [SocialMediaConfig] Direct status from localStorage:', directStatus);
+    onConnectionStatusChange(directStatus);
+  };
+
+  // Force load connection status when component mounts
+  React.useEffect(() => {
+    if (user) {
+      console.log('🚀 [SocialMediaConfig] Component mounted, loading connection status...');
+      loadConnectionStatus();
+      // Also check localStorage directly
+      setTimeout(() => checkLocalStorageDirectly(), 1000);
+    }
+  }, [user, loadConnectionStatus]);
 
   return (
     <Card className="bg-white/95 backdrop-blur-xl border-0 shadow-2xl rounded-3xl overflow-hidden">
@@ -52,19 +101,112 @@ const SocialMediaConfig = ({ connectionStatus, onConnectionStatusChange }: Socia
                 Refresh
               </Button>
               {process.env.NODE_ENV === 'development' && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    // Test OAuth success simulation
-                    if ((window as any).handleOAuthSuccess) {
-                      (window as any).handleOAuthSuccess('twitter');
-                    }
-                  }}
-                  className="text-xs bg-yellow-100 hover:bg-yellow-200 text-yellow-800"
-                >
-                  Test OAuth
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      // Test OAuth success simulation
+                      if ((window as any).handleOAuthSuccess) {
+                        (window as any).handleOAuthSuccess('twitter');
+                      }
+                    }}
+                    className="text-xs bg-yellow-100 hover:bg-yellow-200 text-yellow-800"
+                  >
+                    Test OAuth
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      // Clear all test localStorage entries
+                      const platforms = ['twitter', 'linkedin', 'instagram', 'facebook', 'reddit'];
+                      const userId = user?.id || 'test-user';
+
+                      console.log('🧹 Clearing localStorage for user:', userId);
+
+                      platforms.forEach(platform => {
+                        const key = `connected_${platform}_${userId}`;
+                        const value = localStorage.getItem(key);
+                        console.log(`Removing ${key}: ${value}`);
+                        localStorage.removeItem(key);
+                        localStorage.removeItem(`oauth_success_${platform}`);
+                        localStorage.removeItem(`oauth_complete_${platform}`);
+                      });
+                      localStorage.removeItem(`connection_status_${userId}`);
+                      localStorage.removeItem('last_oauth_success');
+
+                      // Refresh connection status
+                      refreshConnectionStatus();
+
+                      console.log('🧹 Cleared all test localStorage entries for user:', userId);
+                    }}
+                    className="text-xs bg-red-100 hover:bg-red-200 text-red-800"
+                  >
+                    Clear Test Data
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      // Debug localStorage entries
+                      const platforms = ['twitter', 'linkedin', 'instagram', 'facebook', 'reddit'];
+                      const userId = user?.id || 'test-user';
+
+                      console.log('🔍 Debug localStorage for user:', userId);
+                      platforms.forEach(platform => {
+                        const key = `connected_${platform}_${userId}`;
+                        const value = localStorage.getItem(key);
+                        console.log(`${key}: ${value}`);
+                      });
+
+                      const statusKey = `connection_status_${userId}`;
+                      const statusValue = localStorage.getItem(statusKey);
+                      console.log(`${statusKey}: ${statusValue}`);
+                    }}
+                    className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-800"
+                  >
+                    Debug Storage
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      // Simulate connections for testing
+                      const platforms = ['twitter', 'linkedin'];
+                      const userId = user?.id || 'test-user';
+
+                      console.log('🧪 Simulating connections for user:', userId);
+                      platforms.forEach(platform => {
+                        const key = `connected_${platform}_${userId}`;
+                        localStorage.setItem(key, 'true');
+                        console.log(`Set ${key} = true`);
+                      });
+
+                      // Also set the consolidated status
+                      const statusKey = `connection_status_${userId}`;
+                      const status = { twitter: true, linkedin: true, instagram: false, facebook: false, reddit: false };
+                      localStorage.setItem(statusKey, JSON.stringify(status));
+                      console.log(`Set ${statusKey} =`, status);
+
+                      // Refresh connection status
+                      refreshConnectionStatus();
+
+                      console.log('🧪 Test connections simulated');
+                    }}
+                    className="text-xs bg-green-100 hover:bg-green-200 text-green-800"
+                  >
+                    Test Connections
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={checkLocalStorageDirectly}
+                    className="text-xs bg-purple-100 hover:bg-purple-200 text-purple-800"
+                  >
+                    Direct Check
+                  </Button>
+                </>
               )}
             </div>
           </CardTitle>

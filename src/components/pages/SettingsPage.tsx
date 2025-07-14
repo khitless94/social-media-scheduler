@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useSocialMediaConnectionWrapper } from "@/hooks/useSocialMediaConnectionWrapper";
+import { useSocialMediaConnection } from "@/hooks/useSocialMediaConnection";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -82,11 +82,14 @@ const SettingsPage = () => {
 
   const { user } = useAuth();
   const { toast } = useToast();
-  const { isConnecting, connectPlatform, connectionStatus: hookConnectionStatus } = useSocialMediaConnectionWrapper(setConnectionStatus);
+  const { isConnecting, connectPlatform, disconnectPlatform, connectionStatus: hookConnectionStatus } = useSocialMediaConnection(setConnectionStatus);
 
   // Sync connection status from hook
   useEffect(() => {
     if (hookConnectionStatus) {
+      console.log('🔄 [Settings] Hook connection status changed:', hookConnectionStatus);
+      console.log('🔢 [Settings] Connected platforms count:', Object.values(hookConnectionStatus).filter(Boolean).length);
+      console.log('🔍 [Settings] Connection status details:', Object.entries(hookConnectionStatus).map(([platform, connected]) => `${platform}: ${connected}`));
       setConnectionStatus(hookConnectionStatus);
     }
   }, [hookConnectionStatus]);
@@ -1074,7 +1077,15 @@ const SettingsPage = () => {
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => disconnectPlatform(platform.key as keyof typeof connectionStatus)}
+                                    onClick={async () => {
+                                      try {
+                                        console.log(`🔌 [Settings] Disconnecting from ${platform.key}...`);
+                                        await disconnectPlatform(platform.key as keyof typeof connectionStatus);
+                                        console.log(`✅ [Settings] Successfully disconnected from ${platform.key}`);
+                                      } catch (error) {
+                                        console.error(`❌ [Settings] Failed to disconnect from ${platform.key}:`, error);
+                                      }
+                                    }}
                                     disabled={isLoading}
                                     className="text-red-600 border-red-200 hover:bg-red-50"
                                   >
@@ -1084,7 +1095,15 @@ const SettingsPage = () => {
                               ) : (
                                 <Button
                                   size="sm"
-                                  onClick={() => connectPlatform(platform.key as keyof typeof connectionStatus)}
+                                  onClick={async () => {
+                                    try {
+                                      console.log(`🔌 [Settings] Connecting to ${platform.key}...`);
+                                      await connectPlatform(platform.key as keyof typeof connectionStatus);
+                                      console.log(`✅ [Settings] Successfully connected to ${platform.key}`);
+                                    } catch (error) {
+                                      console.error(`❌ [Settings] Failed to connect to ${platform.key}:`, error);
+                                    }
+                                  }}
                                   disabled={isLoading}
                                   className={`bg-gradient-to-r ${platform.color.includes('sky') ? 'from-sky-500 to-sky-600' :
                                     platform.color.includes('blue') && platform.name === 'LinkedIn' ? 'from-blue-500 to-blue-600' :

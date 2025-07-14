@@ -91,7 +91,7 @@ export const PostCard = ({ post, onEdit, onDelete, onPublish, getStatusColor, ge
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-gray-800 line-clamp-3">
-          {post.generated_text || post.prompt}
+          {post.content || post.ai_prompt}
         </p>
         {post.image_url && (
           <img 
@@ -105,12 +105,12 @@ export const PostCard = ({ post, onEdit, onDelete, onPublish, getStatusColor, ge
             <Calendar className="h-4 w-4" />
             <span>{new Date(post.created_at).toLocaleDateString()}</span>
           </span>
-          {post.scheduled_time && (
+          {post.scheduled_at && (
             <span className="flex items-center space-x-1">
               <Clock className="h-4 w-4" />
               <span>
-                {new Date(post.scheduled_time).toLocaleDateString()} at{" "}
-                {new Date(post.scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {new Date(post.scheduled_at).toLocaleDateString()} at{" "}
+                {new Date(post.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             </span>
           )}

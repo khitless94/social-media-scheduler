@@ -8,6 +8,7 @@ import ApiKeyManager from "./ApiKeyManager";
 import ProfileSettings from "./settings/ProfileSettings";
 import SocialMediaConfig from "./settings/SocialMediaConfig";
 import { PricingBasic } from "./PricingBasic";
+import { useSocialMediaConnection } from "@/hooks/useSocialMediaConnection";
 
 const Settings = () => {
   const { toast } = useToast();
@@ -29,11 +30,30 @@ const Settings = () => {
     reddit: false
   });
 
+  // Use the social media connection hook to load connection status
+  const { loadConnectionStatus, connectionStatus: hookConnectionStatus } = useSocialMediaConnection(setConnectionStatus);
+
+  // Sync connection status from hook
+  useEffect(() => {
+    console.log('🔄 [Settings] Hook connection status changed:', hookConnectionStatus);
+    if (hookConnectionStatus) {
+      setConnectionStatus(hookConnectionStatus);
+      console.log('✅ [Settings] Updated local connection status:', hookConnectionStatus);
+    }
+  }, [hookConnectionStatus]);
+
   useEffect(() => {
     if (user) {
+      console.log('🚀 [Settings] User available, loading profile and connection status...');
       loadProfile();
+      loadConnectionStatus(); // Load connection status when user is available
     }
-  }, [user]);
+  }, [user, loadConnectionStatus]);
+
+  // Debug connection status changes
+  useEffect(() => {
+    console.log('📊 [Settings] Connection status updated:', connectionStatus);
+  }, [connectionStatus]);
 
   const loadProfile = async () => {
     try {

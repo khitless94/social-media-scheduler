@@ -283,7 +283,7 @@ const Dashboard = () => {
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
                             <h4 className="font-semibold text-gray-900 truncate max-w-md mb-3 group-hover:text-blue-600 transition-colors duration-200">
-                              {post.generated_text || post.prompt}
+                              {post.content || post.ai_prompt}
                             </h4>
                             <div className="flex items-center space-x-4">
                               <div className="flex items-center space-x-2">
@@ -293,8 +293,8 @@ const Dashboard = () => {
                               <div className="flex items-center space-x-2 text-sm text-gray-500">
                                 <Clock className="w-4 h-4" />
                                 <span>
-                                  {new Date(post.scheduled_time).toLocaleDateString()} at{" "}
-                                  {new Date(post.scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  {new Date(post.scheduled_at).toLocaleDateString()} at{" "}
+                                  {new Date(post.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </span>
                               </div>
                             </div>

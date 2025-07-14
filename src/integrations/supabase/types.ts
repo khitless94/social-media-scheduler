@@ -117,39 +117,57 @@ export type Database = {
       posts: {
         Row: {
           created_at: string
-          generated_text: string | null
+          content: string
           id: string
           image_url: string | null
           platform: string
-          prompt: string
-          scheduled_time: string | null
+          ai_prompt: string | null
+          scheduled_at: string | null
           status: string | null
           updated_at: string
           user_id: string
+          published_at: string | null
+          platform_post_ids: Record<string, string> | null
+          engagement_stats: Record<string, any> | null
+          generated_by_ai: boolean | null
+          error_message: string | null
+          retry_count: number | null
         }
         Insert: {
           created_at?: string
-          generated_text?: string | null
+          content: string
           id?: string
           image_url?: string | null
           platform: string
-          prompt: string
-          scheduled_time?: string | null
+          ai_prompt?: string | null
+          scheduled_at?: string | null
           status?: string | null
           updated_at?: string
           user_id: string
+          published_at?: string | null
+          platform_post_ids?: Record<string, string> | null
+          engagement_stats?: Record<string, any> | null
+          generated_by_ai?: boolean | null
+          error_message?: string | null
+          retry_count?: number | null
         }
         Update: {
           created_at?: string
-          generated_text?: string | null
+          content?: string
           id?: string
           image_url?: string | null
           platform?: string
-          prompt?: string
-          scheduled_time?: string | null
+          ai_prompt?: string | null
+          scheduled_at?: string | null
           status?: string | null
           updated_at?: string
           user_id?: string
+          published_at?: string | null
+          platform_post_ids?: Record<string, string> | null
+          engagement_stats?: Record<string, any> | null
+          generated_by_ai?: boolean | null
+          error_message?: string | null
+          retry_count?: number | null
         }
         Relationships: []
       }

@@ -553,7 +553,7 @@ const MyPostsPage = () => {
                                 <span>Published {formatDate(post.published_at)}</span>
                               </div>
                             )}
-                            {post.status === 'published' && Object.keys(post.engagement_stats).length > 0 && (
+                            {post.status === 'published' && post.engagement_stats && Object.keys(post.engagement_stats).length > 0 && (
                               <div className="flex items-center space-x-4">
                                 {Object.entries(post.engagement_stats).map(([platform, stats]: [string, any]) => (
                                   <div key={platform} className="flex items-center space-x-2">

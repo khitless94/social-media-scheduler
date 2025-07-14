@@ -25,7 +25,10 @@ export class EngagementService {
    */
   static async fetchPostEngagement(userId: string, postId: string, platformPostIds: Record<string, string>): Promise<PlatformEngagement> {
     try {
-      console.log(`🔍 Fetching real engagement for post ${postId}...`);
+      // Completely disable engagement logs to reduce console noise
+      // if (process.env.NODE_ENV === 'development') {
+      //   console.log(`🔍 Fetching real engagement for post ${postId}...`);
+      // }
 
       // Use real API to fetch engagement data
       const realEngagement = await SocialMediaAPIs.getPostEngagement(userId, postId, platformPostIds);
@@ -43,7 +46,10 @@ export class EngagementService {
         };
       });
 
-      console.log(`✅ Successfully fetched real engagement:`, engagement);
+      // Completely disable engagement logs to reduce console noise
+      // if (process.env.NODE_ENV === 'development') {
+      //   console.log(`✅ Successfully fetched real engagement:`, engagement);
+      // }
       return engagement;
 
     } catch (error) {
@@ -73,8 +79,11 @@ export class EngagementService {
         .eq('id', postId);
 
       if (error) throw error;
-      
-      console.log(`✅ Updated engagement for post ${postId}`);
+
+      // Completely disable engagement logs to reduce console noise
+      // if (process.env.NODE_ENV === 'development') {
+      //   console.log(`✅ Updated engagement for post ${postId}`);
+      // }
     } catch (error) {
       console.error('Error updating post engagement:', error);
       throw error;
@@ -117,7 +126,10 @@ export class EngagementService {
                 return;
               }
 
-              console.log(`📊 Fetching real engagement for post ${post.id}...`);
+              // Completely disable engagement logs to reduce console noise
+              // if (process.env.NODE_ENV === 'development') {
+              //   console.log(`📊 Fetching real engagement for post ${post.id}...`);
+              // }
               const engagement = await this.fetchPostEngagement(userId, post.id, post.platform_post_ids);
               await this.updatePostEngagement(post.id, engagement);
 
@@ -140,7 +152,10 @@ export class EngagementService {
         }
       }
 
-      console.log('✅ Engagement sync completed');
+      // Completely disable engagement logs to reduce console noise
+      // if (process.env.NODE_ENV === 'development') {
+      //   console.log('✅ Engagement sync completed');
+      // }
     } catch (error) {
       console.error('Error syncing engagement data:', error);
       throw error;
@@ -257,7 +272,10 @@ export class RealTimeEngagementSync {
     // Set up interval
     const interval = setInterval(async () => {
       try {
-        console.log(`⏰ Running scheduled engagement sync for user ${userId}`);
+        // Only log scheduled syncs in development mode
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`⏰ Running scheduled engagement sync for user ${userId}`);
+        }
         await EngagementService.syncAllPostsEngagement(userId);
       } catch (error) {
         console.error('Scheduled engagement sync failed:', error);

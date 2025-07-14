@@ -1,0 +1,742 @@
+{
+  "name": "Complete Social Media Scheduler - Production",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "schedule-post",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-start",
+      "name": "Webhook Start",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [200, 400],
+      "webhookId": "schedule-post"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "user_id",
+              "value": "={{ $json.body.user_id || $json.user_id }}"
+            },
+            {
+              "name": "platform",
+              "value": "={{ $json.body.platform || $json.platform }}"
+            },
+            {
+              "name": "content",
+              "value": "={{ $json.body.content || $json.content }}"
+            },
+            {
+              "name": "scheduled_time",
+              "value": "={{ $json.body.scheduled_time || $json.scheduled_time || new Date().toISOString() }}"
+            },
+            {
+              "name": "post_id",
+              "value": "={{ $json.body.post_id || $json.post_id || 'post-' + Date.now() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "validate-input",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [400, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-user-id",
+              "leftValue": "={{ $json.user_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "id": "has-platform",
+              "leftValue": "={{ $json.platform }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "id": "has-content",
+              "leftValue": "={{ $json.content }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-required-fields",
+      "name": "Check Required Fields",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [600, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  uoc.access_token,\n  uoc.refresh_token,\n  uoc.platform_user_id,\n  uoc.platform_username,\n  uoc.token_expires_at,\n  uoc.is_active,\n  uoc.scope\nFROM user_oauth_credentials uoc\nWHERE uoc.user_id = $1::UUID \n  AND uoc.platform = $2\n  AND uoc.is_active = true\n  AND (uoc.token_expires_at IS NULL OR uoc.token_expires_at > NOW())\nORDER BY uoc.updated_at DESC\nLIMIT 1;",
+        "additionalFields": {
+          "queryParameters": "={{ [\n  $('Validate Input').first().json.user_id,\n  $('Validate Input').first().json.platform\n] }}"
+        },
+        "options": {}
+      },
+      "id": "fetch-oauth-credentials",
+      "name": "Fetch OAuth Credentials",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [800, 300],
+      "credentials": {
+        "postgres": {
+          "id": "supabase-db",
+          "name": "Supabase Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "oauth-exists",
+              "leftValue": "={{ $json.access_token }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "verify-oauth",
+      "name": "Verify OAuth",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1000, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "platform-twitter",
+              "leftValue": "={{ $('Validate Input').first().json.platform }}",
+              "rightValue": "twitter",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "twitter-route",
+      "name": "Twitter Route",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1200, 100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "platform-linkedin",
+              "leftValue": "={{ $('Validate Input').first().json.platform }}",
+              "rightValue": "linkedin",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "linkedin-route",
+      "name": "LinkedIn Route",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1200, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "platform-instagram",
+              "leftValue": "={{ $('Validate Input').first().json.platform }}",
+              "rightValue": "instagram",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "instagram-route",
+      "name": "Instagram Route",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1200, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "platform-facebook",
+              "leftValue": "={{ $('Validate Input').first().json.platform }}",
+              "rightValue": "facebook",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "facebook-route",
+      "name": "Facebook Route",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1200, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "platform-reddit",
+              "leftValue": "={{ $('Validate Input').first().json.platform }}",
+              "rightValue": "reddit",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "reddit-route",
+      "name": "Reddit Route",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1200, 500]
+    },
+    {
+      "parameters": {
+        "url": "https://api.twitter.com/2/tweets",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $('Fetch OAuth Credentials').first().json.access_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"text\": $('Validate Input').first().json.content\n} }}",
+        "options": {}
+      },
+      "id": "twitter-api-post",
+      "name": "Twitter API Post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1400, 100]
+    },
+    {
+      "parameters": {
+        "url": "https://api.linkedin.com/v2/ugcPosts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $('Fetch OAuth Credentials').first().json.access_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Restli-Protocol-Version",
+              "value": "2.0.0"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"author\": \"urn:li:person:\" + $('Fetch OAuth Credentials').first().json.platform_user_id,\n  \"lifecycleState\": \"PUBLISHED\",\n  \"specificContent\": {\n    \"com.linkedin.ugc.ShareContent\": {\n      \"shareCommentary\": {\n        \"text\": $('Validate Input').first().json.content\n      },\n      \"shareMediaCategory\": \"NONE\"\n    }\n  },\n  \"visibility\": {\n    \"com.linkedin.ugc.MemberNetworkVisibility\": \"PUBLIC\"\n  }\n} }}",
+        "options": {}
+      },
+      "id": "linkedin-api-post",
+      "name": "LinkedIn API Post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1400, 200]
+    },
+    {
+      "parameters": {
+        "url": "https://graph.instagram.com/me/media",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $('Fetch OAuth Credentials').first().json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "caption",
+              "value": "={{ $('Validate Input').first().json.content }}"
+            },
+            {
+              "name": "media_type",
+              "value": "TEXT"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "instagram-api-post",
+      "name": "Instagram API Post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1400, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://graph.facebook.com/me/feed",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $('Fetch OAuth Credentials').first().json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "={{ $('Validate Input').first().json.content }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "facebook-api-post",
+      "name": "Facebook API Post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1400, 400]
+    },
+    {
+      "parameters": {
+        "url": "https://oauth.reddit.com/api/submit",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $('Fetch OAuth Credentials').first().json.access_token }}"
+            },
+            {
+              "name": "User-Agent",
+              "value": "SocialMediaScheduler/1.0 by YourUsername"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "sr",
+              "value": "test"
+            },
+            {
+              "name": "kind",
+              "value": "self"
+            },
+            {
+              "name": "title",
+              "value": "Scheduled Post"
+            },
+            {
+              "name": "text",
+              "value": "={{ $('Validate Input').first().json.content }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "reddit-api-post",
+      "name": "Reddit API Post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1400, 500]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO post_history (\n  user_id,\n  platform,\n  content,\n  status,\n  post_id,\n  created_at\n) VALUES (\n  $1::UUID,\n  $2,\n  $3,\n  'posted',\n  $4,\n  NOW()\n) RETURNING id;",
+        "additionalFields": {
+          "queryParameters": "={{ [\n  $('Validate Input').first().json.user_id,\n  $('Validate Input').first().json.platform,\n  $('Validate Input').first().json.content,\n  $('Validate Input').first().json.post_id\n] }}"
+        },
+        "options": {}
+      },
+      "id": "log-post-history",
+      "name": "Log Post History",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1600, 300],
+      "credentials": {
+        "postgres": {
+          "id": "supabase-db",
+          "name": "Supabase Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  \"success\": true,\n  \"message\": \"Post published successfully to \" + $('Validate Input').first().json.platform,\n  \"data\": {\n    \"platform\": $('Validate Input').first().json.platform,\n    \"user_id\": $('Validate Input').first().json.user_id,\n    \"post_id\": $('Validate Input').first().json.post_id,\n    \"content_length\": $('Validate Input').first().json.content.length,\n    \"timestamp\": new Date().toISOString()\n  }\n} }}",
+        "options": {}
+      },
+      "id": "success-response",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1800, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  \"success\": false,\n  \"error\": \"Missing required fields\",\n  \"message\": \"Please provide user_id, platform, and content\",\n  \"received_data\": $('Validate Input').first().json,\n  \"timestamp\": new Date().toISOString()\n} }}",
+        "options": {}
+      },
+      "id": "validation-error",
+      "name": "Validation Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [600, 600]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  \"success\": false,\n  \"error\": \"OAuth credentials not found\",\n  \"message\": \"Please connect your \" + $('Validate Input').first().json.platform + \" account first\",\n  \"data\": {\n    \"platform\": $('Validate Input').first().json.platform,\n    \"user_id\": $('Validate Input').first().json.user_id\n  },\n  \"timestamp\": new Date().toISOString()\n} }}",
+        "options": {}
+      },
+      "id": "oauth-error",
+      "name": "OAuth Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1000, 500]
+    }
+  ],
+  "connections": {
+    "Webhook Start": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Check Required Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Required Fields": {
+      "main": [
+        [
+          {
+            "node": "Fetch OAuth Credentials",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch OAuth Credentials": {
+      "main": [
+        [
+          {
+            "node": "Verify OAuth",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify OAuth": {
+      "main": [
+        [
+          {
+            "node": "Twitter Route",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "LinkedIn Route",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Instagram Route",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Facebook Route",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Reddit Route",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "OAuth Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Twitter Route": {
+      "main": [
+        [
+          {
+            "node": "Twitter API Post",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "LinkedIn Route": {
+      "main": [
+        [
+          {
+            "node": "LinkedIn API Post",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Instagram Route": {
+      "main": [
+        [
+          {
+            "node": "Instagram API Post",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Facebook Route": {
+      "main": [
+        [
+          {
+            "node": "Facebook API Post",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Reddit Route": {
+      "main": [
+        [
+          {
+            "node": "Reddit API Post",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Twitter API Post": {
+      "main": [
+        [
+          {
+            "node": "Log Post History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LinkedIn API Post": {
+      "main": [
+        [
+          {
+            "node": "Log Post History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Instagram API Post": {
+      "main": [
+        [
+          {
+            "node": "Log Post History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Facebook API Post": {
+      "main": [
+        [
+          {
+            "node": "Log Post History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reddit API Post": {
+      "main": [
+        [
+          {
+            "node": "Log Post History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Post History": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["production", "social-media", "webhook"],
+  "triggerCount": 1,
+  "updatedAt": "2025-07-13T07:00:00.000Z",
+  "versionId": "complete-production-v1"
+}
