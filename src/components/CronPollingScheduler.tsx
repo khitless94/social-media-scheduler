@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useCronPollingScheduler } from '@/hooks/useCronPollingScheduler';
 import { Platform } from '@/services/cronPollingService';
 import { format } from 'date-fns';
+import { formatScheduledDateForDisplay } from '@/utils/timezone';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -14,6 +15,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { Loader2, Calendar, Clock, Image as ImageIcon, Send } from 'lucide-react';
+import { UltraModernTimePicker } from '@/components/ui/ultra-modern-time-picker';
+import { createScheduledDateTime, validateFutureTime, getFutureTimeForInput, getUserTimezone } from '@/utils/timezone';
 
 export const CronPollingScheduler: React.FC = () => {
   const { user } = useAuth();
@@ -43,16 +46,15 @@ export const CronPollingScheduler: React.FC = () => {
     }
   }, [user, loadPendingPosts]);
 
-  // Set default scheduled time to 1 hour from now
+  // Set default scheduled time to 1 hour from now using timezone utilities
   useEffect(() => {
-    const now = new Date();
-    now.setHours(now.getHours() + 1);
-    
-    const dateStr = now.toISOString().split('T')[0];
-    const timeStr = now.toTimeString().substring(0, 5);
-    
-    setScheduledDate(dateStr);
-    setScheduledTime(timeStr);
+    const { date, time } = getFutureTimeForInput(1);
+    setScheduledDate(date);
+    setScheduledTime(time);
+
+    // Log user's timezone for debugging
+    const timezone = getUserTimezone();
+    console.log('🌍 User timezone detected:', timezone);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -86,18 +88,19 @@ export const CronPollingScheduler: React.FC = () => {
       return;
     }
 
-    // Create scheduled time Date object
-    const scheduledDateTime = new Date(`${scheduledDate}T${scheduledTime}`);
-    
-    // Check if scheduled time is in the past
-    if (scheduledDateTime <= new Date()) {
+    // Validate the scheduled time using timezone utilities
+    const validation = validateFutureTime(scheduledDate, scheduledTime, 1);
+
+    if (!validation.isValid) {
       toast({
         title: "Invalid schedule time",
-        description: "Schedule time must be in the future",
+        description: validation.error,
         variant: "destructive"
       });
       return;
     }
+
+    const scheduledDateTime = validation.scheduledTime!;
 
     // Schedule the post
     const result = await schedulePost({
@@ -114,11 +117,10 @@ export const CronPollingScheduler: React.FC = () => {
       setTitle('');
       setImageUrl('');
       
-      // Set default time to 1 hour from now again
-      const now = new Date();
-      now.setHours(now.getHours() + 1);
-      setScheduledDate(now.toISOString().split('T')[0]);
-      setScheduledTime(now.toTimeString().substring(0, 5));
+      // Set default time to 1 hour from now again using timezone utilities
+      const { date, time } = getFutureTimeForInput(1);
+      setScheduledDate(date);
+      setScheduledTime(time);
     }
   };
 
@@ -199,31 +201,29 @@ export const CronPollingScheduler: React.FC = () => {
                   />
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="scheduledDate">Date</Label>
-                    <div className="flex">
-                      <Calendar className="mr-2 h-4 w-4" />
+                    <div className="flex items-center space-x-2">
+                      <Calendar className="h-4 w-4 text-gray-500" />
                       <Input
                         id="scheduledDate"
                         type="date"
                         value={scheduledDate}
                         onChange={(e) => setScheduledDate(e.target.value)}
+                        className="flex-1"
                       />
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="scheduledTime">Time</Label>
-                    <div className="flex">
-                      <Clock className="mr-2 h-4 w-4" />
-                      <Input
-                        id="scheduledTime"
-                        type="time"
-                        value={scheduledTime}
-                        onChange={(e) => setScheduledTime(e.target.value)}
-                      />
-                    </div>
+                    <UltraModernTimePicker
+                      value={scheduledTime}
+                      onChange={setScheduledTime}
+                      placeholder="Select time"
+                      className="w-full"
+                    />
                   </div>
                 </div>
                 
@@ -273,7 +273,7 @@ export const CronPollingScheduler: React.FC = () => {
                             {post.platform.charAt(0).toUpperCase() + post.platform.slice(1)}
                           </CardTitle>
                           <span className="text-xs text-muted-foreground">
-                            {format(new Date(post.scheduled_time), "MMM d, yyyy 'at' h:mm a")}
+                            {formatScheduledDateForDisplay(post.scheduled_time)}
                           </span>
                         </div>
                       </CardHeader>

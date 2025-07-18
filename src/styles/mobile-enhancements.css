@@ -1,0 +1,339 @@
+/* Mobile-First Responsive Enhancements */
+/* These styles give us a major advantage over PostScheduler.co */
+
+/* Base Mobile Styles */
+@media (max-width: 640px) {
+  /* Prevent horizontal scrolling */
+  body {
+    overflow-x: hidden;
+  }
+  
+  /* Improve touch targets */
+  button, 
+  input, 
+  select, 
+  textarea {
+    min-height: 44px; /* Apple's recommended minimum */
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+  
+  /* Better spacing for mobile */
+  .mobile-spacing {
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  /* Mobile-optimized cards */
+  .mobile-card {
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Mobile navigation improvements */
+  .mobile-nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: white;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  
+  /* Mobile form improvements */
+  .mobile-form input,
+  .mobile-form textarea,
+  .mobile-form select {
+    width: 100%;
+    padding: 0.75rem;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    font-size: 16px;
+  }
+  
+  /* Mobile button improvements */
+  .mobile-button {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    font-size: 16px;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+  }
+  
+  /* Mobile grid improvements */
+  .mobile-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  /* Mobile platform selector */
+  .mobile-platform-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+  
+  /* Mobile time picker */
+  .mobile-time-picker input[type="datetime-local"] {
+    width: 100%;
+    padding: 1rem;
+    font-size: 16px;
+    border-radius: 8px;
+  }
+  
+  /* Mobile content editor */
+  .mobile-editor textarea {
+    min-height: 120px;
+    resize: vertical;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+}
+
+/* Tablet Styles */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .tablet-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+  
+  .tablet-platform-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+  
+  .tablet-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+}
+
+/* Desktop Styles */
+@media (min-width: 1025px) {
+  .desktop-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2rem;
+  }
+  
+  .desktop-platform-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1rem;
+  }
+  
+  .desktop-form {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 2rem;
+  }
+}
+
+/* Touch-friendly improvements */
+.touch-friendly {
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+  touch-action: manipulation;
+}
+
+.touch-friendly:active {
+  transform: scale(0.98);
+  transition: transform 0.1s ease;
+}
+
+/* Improved focus states for mobile */
+.mobile-focus:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-color: #3b82f6;
+}
+
+/* Mobile-optimized animations */
+@media (prefers-reduced-motion: no-preference) {
+  .mobile-animate {
+    transition: all 0.2s ease-in-out;
+  }
+  
+  .mobile-slide-in {
+    animation: slideInFromRight 0.3s ease-out;
+  }
+  
+  @keyframes slideInFromRight {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+}
+
+/* Mobile-specific utility classes */
+.mobile-only {
+  display: block;
+}
+
+.desktop-only {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .mobile-only {
+    display: none;
+  }
+  
+  .desktop-only {
+    display: block;
+  }
+}
+
+/* Mobile calendar improvements */
+.mobile-calendar {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.mobile-calendar table {
+  width: 100%;
+  min-width: 280px;
+}
+
+.mobile-calendar td,
+.mobile-calendar th {
+  padding: 0.5rem;
+  text-align: center;
+  min-width: 40px;
+  min-height: 40px;
+}
+
+/* Mobile dashboard improvements */
+.mobile-dashboard {
+  padding: 1rem;
+}
+
+.mobile-dashboard .stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.mobile-dashboard .quick-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Mobile media upload */
+.mobile-media-upload {
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  padding: 2rem 1rem;
+  text-align: center;
+  background: #f9fafb;
+}
+
+.mobile-media-upload.dragover {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+/* Mobile preview improvements */
+.mobile-preview {
+  background: white;
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  margin-top: 1rem;
+}
+
+.mobile-preview .platform-preview {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Mobile loading states */
+.mobile-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+}
+
+.mobile-loading .spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e5e7eb;
+  border-top: 3px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Mobile error states */
+.mobile-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+  color: #dc2626;
+}
+
+/* Mobile success states */
+.mobile-success {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+  color: #16a34a;
+}
+
+/* Accessibility improvements for mobile */
+@media (prefers-reduced-motion: reduce) {
+  .mobile-animate,
+  .mobile-slide-in {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .mobile-card {
+    border: 2px solid #000;
+  }
+  
+  .mobile-button {
+    border: 2px solid #000;
+  }
+}
+
+/* Dark mode support for mobile */
+@media (prefers-color-scheme: dark) {
+  .mobile-card {
+    background: #1f2937;
+    color: #f9fafb;
+    border-color: #374151;
+  }
+  
+  .mobile-form input,
+  .mobile-form textarea,
+  .mobile-form select {
+    background: #374151;
+    color: #f9fafb;
+    border-color: #4b5563;
+  }
+}

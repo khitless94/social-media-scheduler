@@ -5,7 +5,7 @@ import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterv
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ModernTimePicker } from "@/components/ui/modern-time-picker";
+import { UltraModernTimePicker } from "@/components/ui/ultra-modern-time-picker";
 
 interface ModernDateTimePickerProps {
   value?: Date;
@@ -176,13 +176,13 @@ export function ModernDateTimePicker({
         </PopoverContent>
       </Popover>
 
-      {/* Modern time picker when showTime is true */}
+      {/* Ultra Modern time picker when showTime is true */}
       {showTime && (
-        <ModernTimePicker
+        <UltraModernTimePicker
           value={timeValue}
           onChange={handleTimeChange}
           placeholder="Select time"
-          className="w-full"
+          className="w-full mt-3"
         />
       )}
     </div>

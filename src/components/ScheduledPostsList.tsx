@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { format } from 'date-fns';
+import { formatScheduledDateForDisplay } from '@/utils/timezone';
 import { CronPollingService, ScheduledPost } from '@/services/cronPollingService';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -180,7 +181,7 @@ export const ScheduledPostsList: React.FC<ScheduledPostsListProps> = ({
                     </div>
                     
                     <span className="text-xs text-muted-foreground">
-                      {format(new Date(post.scheduled_time), "MMM d, yyyy 'at' h:mm a")}
+                      {formatScheduledDateForDisplay(post.scheduled_time)}
                     </span>
                   </div>
                 </CardHeader>
@@ -198,7 +199,7 @@ export const ScheduledPostsList: React.FC<ScheduledPostsListProps> = ({
                   
                   {post.posted && post.posted_at && (
                     <div className="mt-2 text-xs text-muted-foreground">
-                      Posted at: {format(new Date(post.posted_at), "MMM d, yyyy 'at' h:mm:ss a")}
+                      Posted at: {formatScheduledDateForDisplay(post.posted_at)}
                     </div>
                   )}
                 </CardContent>

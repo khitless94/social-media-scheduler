@@ -1,0 +1,498 @@
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "4d022f72-27a8-4016-9adc-36a48ffb4b9c",
+      "name": "Cron Trigger (Every 5 min)",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        -740,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, user_id, content, platform, scheduled_at, image_url, status FROM posts WHERE scheduled_at <= NOW() AND status = 'scheduled' LIMIT 10;",
+        "additionalFields": {}
+      },
+      "id": "26a1df10-df0c-46d5-9f37-836a296a247f",
+      "name": "Get Pending Posts",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        -520,
+        -60
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "E7r1BJUUA005LCJY",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "d2b039d7-e5df-4dc2-a8d8-82a458c4736d",
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [
+        -300,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT access_token, refresh_token, platform, token_type, expires_at FROM oauth_credentials WHERE user_id = $1::UUID AND platform = $2 AND access_token IS NOT NULL ORDER BY updated_at DESC LIMIT 1;",
+        "additionalFields": {}
+      },
+      "id": "ba6069ae-6dfd-44ea-9507-40bc07a0ec3e",
+      "name": "Get OAuth Token",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -60
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "E7r1BJUUA005LCJY",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Check if we have a valid token\nconst hasToken = item.json.access_token && item.json.access_token.length > 0;\n\n// Check if token is expired\nlet isExpired = false;\nif (item.json.expires_at) {\n  const expiresAt = new Date(item.json.expires_at);\n  isExpired = expiresAt < new Date();\n}\n\n// Add these properties to the item\nitem.json.has_token = hasToken;\nitem.json.is_expired = isExpired;\nitem.json.can_post = hasToken && !isExpired;\n\n// Add the original post data from the first node\nconst postData = $node[\"Get Pending Posts\"].json;\nitem.json.post_id = postData.id;\nitem.json.post_content = postData.content;\nitem.json.post_platform = postData.platform;\nitem.json.post_user_id = postData.user_id;\nitem.json.post_image_url = postData.image_url;\n\nreturn item;"
+      },
+      "id": "7d9a4200-ad2c-4f5e-889e-6c515586f0f1",
+      "name": "Validate Token",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        140,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.post_platform }}",
+              "value2": "twitter"
+            }
+          ]
+        }
+      },
+      "id": "48f1003a-9100-4731-b47e-e4601c12c8e0",
+      "name": "Is Twitter?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        360,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.post_platform }}",
+              "value2": "facebook"
+            }
+          ]
+        }
+      },
+      "id": "bf625ad4-a2ec-466b-9ef0-2d4e88e19454",
+      "name": "Is Facebook?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        360,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.post_platform }}",
+              "value2": "linkedin"
+            }
+          ]
+        }
+      },
+      "id": "b71a4802-abde-44c9-a89b-f98e8696b01f",
+      "name": "Is LinkedIn?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        360,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.post_platform }}",
+              "value2": "reddit"
+            }
+          ]
+        }
+      },
+      "id": "b9ccea70-2603-44e3-b132-977d2f3d4428",
+      "name": "Is Reddit?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        360,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.post_platform }}",
+              "value2": "instagram"
+            }
+          ]
+        }
+      },
+      "id": "e1649de3-0fe1-4b7f-bb09-37dee9ef3943",
+      "name": "Is Instagram?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        360,
+        540
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.x.com/2/tweets",
+        "options": {}
+      },
+      "id": "d0fab8bb-b9ee-42e0-8d91-ed3b9167b435",
+      "name": "Post to Twitter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        580,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://graph.facebook.com/me/feed",
+        "options": {}
+      },
+      "id": "4ec10024-9ae1-459e-aec2-74a5e10ae3ca",
+      "name": "Post to Facebook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        580,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.linkedin.com/v2/ugcPosts",
+        "options": {}
+      },
+      "id": "ada114f4-3713-4967-982a-cd15bf482554",
+      "name": "Post to LinkedIn",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        580,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://oauth.reddit.com/api/submit",
+        "options": {}
+      },
+      "id": "3ed96073-5a7a-46f3-b7a8-01fc38985c91",
+      "name": "Post to Reddit",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        580,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://graph.instagram.com/me/media",
+        "options": {}
+      },
+      "id": "bfefa83e-efa1-4978-9281-ab7454b3f381",
+      "name": "Post to Instagram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        580,
+        540
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE posts SET status = 'published', published_at = NOW() WHERE id = $1::UUID;",
+        "additionalFields": {}
+      },
+      "id": "62841b65-1883-41d8-a84c-6752c8fe4022",
+      "name": "Mark as Posted",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        800,
+        -60
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "E7r1BJUUA005LCJY",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO post_logs (post_id, user_id, platform, status, message, created_at) VALUES ($1::UUID, $2::UUID, $3, $4, $5, NOW()) ON CONFLICT DO NOTHING;",
+        "additionalFields": {}
+      },
+      "id": "5291807c-6a13-4301-8058-9fa4ee3d121f",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        1020,
+        -60
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "E7r1BJUUA005LCJY",
+          "name": "Postgres account 2"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Cron Trigger (Every 5 min)": {
+      "main": [
+        [
+          {
+            "node": "Get Pending Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pending Posts": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split In Batches": {
+      "main": [
+        [
+          {
+            "node": "Get OAuth Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get OAuth Token": {
+      "main": [
+        [
+          {
+            "node": "Validate Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Token": {
+      "main": [
+        [
+          {
+            "node": "Is Twitter?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Is Facebook?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Is LinkedIn?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Is Reddit?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Is Instagram?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Twitter?": {
+      "main": [
+        [
+          {
+            "node": "Post to Twitter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Facebook?": {
+      "main": [
+        [
+          {
+            "node": "Post to Facebook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is LinkedIn?": {
+      "main": [
+        [
+          {
+            "node": "Post to LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Reddit?": {
+      "main": [
+        [
+          {
+            "node": "Post to Reddit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Instagram?": {
+      "main": [
+        [
+          {
+            "node": "Post to Instagram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Twitter": {
+      "main": [
+        [
+          {
+            "node": "Mark as Posted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Facebook": {
+      "main": [
+        [
+          {
+            "node": "Mark as Posted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Mark as Posted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Reddit": {
+      "main": [
+        [
+          {
+            "node": "Mark as Posted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Instagram": {
+      "main": [
+        [
+          {
+            "node": "Mark as Posted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark as Posted": {
+      "main": [
+        [
+          {
+            "node": "Log Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fde9763b8044604bc07985ad1250ae04991926daedc356fa9cf1585f9efdf302"
+  }
+}

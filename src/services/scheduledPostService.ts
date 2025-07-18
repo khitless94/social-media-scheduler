@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { toLocalISOString } from '@/utils/timezone';
 
 export interface ScheduledPost {
   id: string;
@@ -262,7 +263,7 @@ export class ScheduledPostService {
 
       // Add optional fields only if they might exist in the schema
       if (data.scheduled_for) {
-        postData.scheduled_at = data.scheduled_for.toISOString();
+        postData.scheduled_at = toLocalISOString(data.scheduled_for); // Preserve local time
       }
 
       if (data.media_urls && data.media_urls.length > 0) {

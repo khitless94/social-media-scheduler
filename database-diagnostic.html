@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Diagnostic</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Database Diagnostic Tool</h1>
+    <p>This tool will help diagnose the scheduling database issues.</p>
+
+    <div class="grid">
+        <div class="container">
+            <h3>📊 Database Connection</h3>
+            <button onclick="testConnection()">Test Connection</button>
+            <div id="connection-result"></div>
+        </div>
+
+        <div class="container">
+            <h3>📋 Posts Table Schema</h3>
+            <button onclick="checkSchema()">Check Schema</button>
+            <div id="schema-result"></div>
+        </div>
+
+        <div class="container">
+            <h3>🧪 Test Insert</h3>
+            <button onclick="testInsert()">Test Insert</button>
+            <div id="insert-result"></div>
+        </div>
+
+        <div class="container">
+            <h3>📈 Current Posts</h3>
+            <button onclick="listPosts()">List Posts</button>
+            <div id="posts-result"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h3>🔧 Fix Actions</h3>
+        <button onclick="createMissingColumns()">Add Missing Columns</button>
+        <button onclick="cleanupTestData()">Cleanup Test Data</button>
+        <div id="fix-result"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const SUPABASE_URL = "https://eqiuukwwpdiyncahrdny.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaXV1a3d3cGRpeW5jYWhyZG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxOTA5MzcsImV4cCI6MjA2NDc2NjkzN30.sgwl7oP2fJD7rh64w59XWdfMCS0XQcNjD4Qr_WGILGs";
+        
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status ${type}"><p>${message}</p></div>`;
+        }
+
+        function showData(elementId, data, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status ${type}"><pre>${JSON.stringify(data, null, 2)}</pre></div>`;
+        }
+
+        async function testConnection() {
+            try {
+                showResult('connection-result', '🔄 Testing connection...', 'info');
+                
+                const { data: { user }, error } = await supabaseClient.auth.getUser();
+                
+                if (error) {
+                    showResult('connection-result', `❌ Auth Error: ${error.message}`, 'error');
+                    return;
+                }
+
+                if (!user) {
+                    showResult('connection-result', '⚠️ No authenticated user. Please login first.', 'warning');
+                    return;
+                }
+
+                showResult('connection-result', `✅ Connected! User: ${user.email}`, 'success');
+            } catch (error) {
+                showResult('connection-result', `❌ Connection failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkSchema() {
+            try {
+                showResult('schema-result', '🔄 Checking posts table schema...', 'info');
+                
+                // Try to get table info using a simple query
+                const { data, error } = await supabaseClient
+                    .from('posts')
+                    .select('*')
+                    .limit(1);
+
+                if (error) {
+                    showResult('schema-result', `❌ Schema Error: ${error.message}`, 'error');
+                    return;
+                }
+
+                // Get the first row to see the structure
+                if (data && data.length > 0) {
+                    const columns = Object.keys(data[0]);
+                    showData('schema-result', {
+                        message: '✅ Posts table exists',
+                        columns: columns,
+                        sample_row: data[0]
+                    }, 'success');
+                } else {
+                    showResult('schema-result', '⚠️ Posts table exists but is empty', 'warning');
+                }
+            } catch (error) {
+                showResult('schema-result', `❌ Schema check failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testInsert() {
+            try {
+                showResult('insert-result', '🔄 Testing insert...', 'info');
+                
+                const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+                if (userError || !user) {
+                    showResult('insert-result', '❌ Must be logged in to test insert', 'error');
+                    return;
+                }
+
+                const testData = {
+                    user_id: user.id,
+                    content: `🧪 Diagnostic test post - ${new Date().toISOString()}`,
+                    platform: 'twitter',
+                    status: 'scheduled',
+                    scheduled_at: new Date(Date.now() + 60 * 1000).toISOString(),
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                };
+
+                console.log('🧪 Attempting insert with data:', testData);
+
+                const { data: result, error } = await supabaseClient
+                    .from('posts')
+                    .insert(testData)
+                    .select()
+                    .single();
+
+                console.log('🧪 Insert result:', { result, error });
+
+                if (error) {
+                    showData('insert-result', {
+                        message: '❌ Insert failed',
+                        error: error,
+                        attempted_data: testData
+                    }, 'error');
+                    return;
+                }
+
+                if (!result) {
+                    showResult('insert-result', '❌ Insert succeeded but no result returned', 'error');
+                    return;
+                }
+
+                showData('insert-result', {
+                    message: '✅ Insert successful!',
+                    result: result
+                }, 'success');
+
+            } catch (error) {
+                showResult('insert-result', `❌ Insert test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function listPosts() {
+            try {
+                showResult('posts-result', '🔄 Loading posts...', 'info');
+                
+                const { data, error } = await supabaseClient
+                    .from('posts')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(10);
+
+                if (error) {
+                    showResult('posts-result', `❌ Error loading posts: ${error.message}`, 'error');
+                    return;
+                }
+
+                showData('posts-result', {
+                    message: `✅ Found ${data?.length || 0} posts`,
+                    posts: data
+                }, 'success');
+            } catch (error) {
+                showResult('posts-result', `❌ Failed to load posts: ${error.message}`, 'error');
+            }
+        }
+
+        async function createMissingColumns() {
+            showResult('fix-result', '⚠️ This would require admin access. Check the SQL console instead.', 'warning');
+        }
+
+        async function cleanupTestData() {
+            try {
+                showResult('fix-result', '🔄 Cleaning up test data...', 'info');
+                
+                const { data, error } = await supabaseClient
+                    .from('posts')
+                    .delete()
+                    .like('content', '%🧪 Diagnostic test post%');
+
+                if (error) {
+                    showResult('fix-result', `❌ Cleanup failed: ${error.message}`, 'error');
+                    return;
+                }
+
+                showResult('fix-result', '✅ Test data cleaned up', 'success');
+            } catch (error) {
+                showResult('fix-result', `❌ Cleanup failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-run connection test on load
+        window.addEventListener('load', () => {
+            testConnection();
+        });
+    </script>
+</body>
+</html>

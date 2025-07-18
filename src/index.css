@@ -5,6 +5,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import mobile-first responsive enhancements */
+@import './styles/mobile-enhancements.css';
+
 @layer base {
   :root {
     /* Ocoya Color Palette */

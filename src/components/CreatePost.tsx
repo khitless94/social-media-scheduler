@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { ModernDateTimePicker } from '@/components/ui/modern-datetime-picker';
+import { createScheduledDateTime, validateFutureTime, formatDateTimeForUser } from '@/utils/timezone';
 import { AIContentGenerator } from '@/components/ui/ai-content-generator';
 import { useToast } from '@/hooks/use-toast';
 import { useSocialMediaConnection, type Platform, type ConnectionStatus } from '@/hooks/useSocialMediaConnection';
@@ -1037,18 +1038,17 @@ Create the post now:`;
     setIsPosting(true);
     try {
       console.log('📅 [handleSchedulePost] Schedule inputs:', { scheduleDate, scheduleTime });
-      const scheduledDateTime = new Date(`${scheduleDate.toISOString().split('T')[0]}T${scheduleTime}`);
+
+      // Use timezone utilities for proper date handling
+      const dateString = scheduleDate.toISOString().split('T')[0];
+      const validation = validateFutureTime(dateString, scheduleTime, 1);
+
+      if (!validation.isValid) {
+        throw new Error(validation.error);
+      }
+
+      const scheduledDateTime = validation.scheduledTime!;
       console.log('📅 [handleSchedulePost] Parsed datetime:', scheduledDateTime.toISOString());
-
-      // Validate the datetime
-      if (isNaN(scheduledDateTime.getTime())) {
-        throw new Error('Invalid schedule date/time. Please check your inputs.');
-      }
-
-      // Ensure it's in the future
-      if (scheduledDateTime <= new Date()) {
-        throw new Error('Schedule time must be in the future.');
-      }
 
       const savedPost = await savePostToDatabase(
         generatedText,

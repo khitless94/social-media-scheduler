@@ -9,6 +9,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { CronPollingService, Platform } from '@/services/cronPollingService';
 import { Loader2, Calendar, Clock, Image as ImageIcon } from 'lucide-react';
+import { UltraModernTimePicker } from '@/components/ui/ultra-modern-time-picker';
+import { createScheduledDateTime, validateFutureTime, getFutureTimeForInput } from '@/utils/timezone';
 
 interface CreatePostProps {
   onSuccess?: () => void;
@@ -28,16 +30,11 @@ export const CreatePostCronPolling: React.FC<CreatePostProps> = ({ onSuccess }) 
   const [scheduleTime, setScheduleTime] = useState('');
   const [isPosting, setIsPosting] = useState(false);
 
-  // Set default scheduled time to 1 hour from now
+  // Set default scheduled time to 1 hour from now using timezone utilities
   useEffect(() => {
-    const now = new Date();
-    now.setHours(now.getHours() + 1);
-    
-    const dateStr = now.toISOString().split('T')[0];
-    const timeStr = now.toTimeString().substring(0, 5);
-    
-    setScheduleDate(dateStr);
-    setScheduleTime(timeStr);
+    const { date, time } = getFutureTimeForInput(1);
+    setScheduleDate(date);
+    setScheduleTime(time);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -73,17 +70,19 @@ export const CreatePostCronPolling: React.FC<CreatePostProps> = ({ onSuccess }) 
           return;
         }
 
-        const scheduledDateTime = new Date(`${scheduleDate}T${scheduleTime}`);
-        
-        // Check if scheduled time is in the past
-        if (scheduledDateTime <= new Date()) {
+        // Validate the scheduled time using timezone utilities
+        const validation = validateFutureTime(scheduleDate, scheduleTime, 1);
+
+        if (!validation.isValid) {
           toast({
             title: "Invalid schedule time",
-            description: "Schedule time must be in the future",
+            description: validation.error,
             variant: "destructive"
           });
           return;
         }
+
+        const scheduledDateTime = validation.scheduledTime!;
 
         // For Reddit, title is required
         if (platform === 'reddit' && !title.trim()) {
@@ -255,31 +254,29 @@ export const CreatePostCronPolling: React.FC<CreatePostProps> = ({ onSuccess }) 
           </div>
           
           {postType === 'schedule' && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="scheduleDate">Date</Label>
-                <div className="flex">
-                  <Calendar className="mr-2 h-4 w-4" />
+                <div className="flex items-center space-x-2">
+                  <Calendar className="h-4 w-4 text-gray-500" />
                   <Input
                     id="scheduleDate"
                     type="date"
                     value={scheduleDate}
                     onChange={(e) => setScheduleDate(e.target.value)}
+                    className="flex-1"
                   />
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="scheduleTime">Time</Label>
-                <div className="flex">
-                  <Clock className="mr-2 h-4 w-4" />
-                  <Input
-                    id="scheduleTime"
-                    type="time"
-                    value={scheduleTime}
-                    onChange={(e) => setScheduleTime(e.target.value)}
-                  />
-                </div>
+                <UltraModernTimePicker
+                  value={scheduleTime}
+                  onChange={setScheduleTime}
+                  placeholder="Select time"
+                  className="w-full"
+                />
               </div>
             </div>
           )}

@@ -9,11 +9,24 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { ModernDateTimePicker } from '@/components/ui/modern-datetime-picker';
+import { PostSchedulerDateTimePicker } from '@/components/ui/postscheduler-datetime-picker';
+import { FlexibleTimePicker } from '@/components/ui/flexible-time-picker';
+import { SimpleFlexibleTimePicker, NativeFlexibleTimePicker } from '@/components/ui/simple-flexible-time-picker';
+import {
+  createScheduledDateTime,
+  validateFutureTime,
+  formatDateTimeForUser,
+  validateFutureDate,
+  formatDateTimeForDisplay,
+  logDateTimezoneDebug,
+  createScheduledDateTimeFromDate
+} from '@/utils/timezone';
 import { AIContentGenerator } from '@/components/ui/ai-content-generator';
 import { useToast } from '@/hooks/use-toast';
 import { useSocialMediaConnection, type Platform, type ConnectionStatus } from '@/hooks/useSocialMediaConnection';
 import { useAuth } from '@/hooks/useAuth';
 import { useScheduledPosts } from '@/hooks/useScheduledPosts';
+import { SimpleSchedulingService } from '@/services/simpleSchedulingService';
 import {
   ArrowLeft,
   Sparkles,
@@ -223,6 +236,12 @@ const CreatePostMinimal: React.FC = () => {
     const twoMinutesFromNow = new Date(Date.now() + 2 * 60 * 1000);
     return twoMinutesFromNow.toTimeString().slice(0, 5); // HH:MM format
   });
+  // New flexible datetime state (PostScheduler style)
+  const [flexibleDateTime, setFlexibleDateTime] = useState<Date>(() => {
+    // Default to 2 minutes from now
+    return new Date(Date.now() + 2 * 60 * 1000);
+  });
+  const [useFlexibleTiming, setUseFlexibleTiming] = useState(true); // Enable by default
   const [isPosting, setIsPosting] = useState(false);
   const [postType, setPostType] = useState<'now' | 'schedule'>('now');
 
@@ -1009,9 +1028,14 @@ Create the post now:`;
     }
   };
 
-  // Schedule post function with n8n integration
+  // SIMPLIFIED Schedule post function - Uses Supabase pg_cron
   const handleSchedulePost = async () => {
-    if (!generatedText.trim() || !platform || !scheduleDate || !scheduleTime) {
+    // Check required fields based on timing mode
+    const hasRequiredFields = useFlexibleTiming
+      ? (generatedText.trim() && platform && flexibleDateTime)
+      : (generatedText.trim() && platform && scheduleDate && scheduleTime);
+
+    if (!hasRequiredFields) {
       toast({
         title: "Missing information",
         description: "Please fill in all required fields for scheduling.",
@@ -1022,61 +1046,79 @@ Create the post now:`;
 
     setIsPosting(true);
     try {
-      console.log('📅 [handleSchedulePost] Starting n8n scheduling process...');
+      console.log('📅 [SimpleScheduling] Starting scheduling process...');
 
       // Create the scheduled date/time with proper timezone handling
-      const now = new Date();
       let scheduledDateTime: Date;
 
-      if (scheduleDate) {
-        // Use the selected date with the selected time
-        const year = scheduleDate.getFullYear();
-        const month = scheduleDate.getMonth();
-        const day = scheduleDate.getDate();
-        const [hours, minutes] = scheduleTime.split(':').map(Number);
+      if (useFlexibleTiming) {
+        // Use flexible datetime (PostScheduler style)
+        const validation = validateFutureDate(flexibleDateTime, 1);
 
-        scheduledDateTime = new Date(year, month, day, hours, minutes, 0, 0);
+        if (!validation.isValid) {
+          throw new Error(validation.error);
+        }
+
+        scheduledDateTime = validation.scheduledTime!;
+        console.log('🎯 [SimpleScheduling] Using flexible timing:', {
+          flexibleDateTime: flexibleDateTime.toISOString(),
+          scheduledDateTime: scheduledDateTime.toISOString(),
+          formattedDisplay: formatDateTimeForDisplay(scheduledDateTime)
+        });
       } else {
-        // If no date selected, use today with the selected time
-        const [hours, minutes] = scheduleTime.split(':').map(Number);
-        scheduledDateTime = new Date();
-        scheduledDateTime.setHours(hours, minutes, 0, 0);
+        // Use traditional date + time selection
+        if (scheduleDate) {
+          const dateString = scheduleDate.toISOString().split('T')[0];
+          const validation = validateFutureTime(dateString, scheduleTime, 1);
+
+          if (!validation.isValid) {
+            throw new Error(validation.error);
+          }
+
+          scheduledDateTime = validation.scheduledTime!;
+        } else {
+          const today = new Date().toISOString().split('T')[0];
+          const validation = validateFutureTime(today, scheduleTime, 1);
+
+          if (!validation.isValid) {
+            throw new Error(validation.error);
+          }
+
+          scheduledDateTime = validation.scheduledTime!;
+        }
       }
 
-      console.log('📅 [handleSchedulePost] Scheduled date/time:', {
+      console.log('📅 [SimpleScheduling] Scheduled date/time:', {
         scheduleDate: scheduleDate?.toISOString(),
         scheduleTime,
         scheduledDateTime: scheduledDateTime.toISOString(),
-        now: now.toISOString(),
-        timeDiff: scheduledDateTime.getTime() - now.getTime(),
-        isInFuture: scheduledDateTime > now
+        formattedForUser: formatDateTimeForUser(scheduledDateTime),
+        isInFuture: scheduledDateTime > new Date()
       });
 
-      // Validate the scheduled time is in the future (must match ScheduledPostService requirement: 1 minute)
-      const oneMinuteFromNow = new Date(now.getTime() + 1 * 60 * 1000); // 1 minute buffer to match service
-
-      if (scheduledDateTime <= oneMinuteFromNow) {
-        throw new Error(`Scheduled time must be at least 1 minute in the future. Current time: ${now.toLocaleTimeString()}, Minimum time: ${oneMinuteFromNow.toLocaleTimeString()}`);
-      }
-
-      // Prepare the scheduling data for n8n
+      // Prepare the scheduling data - MUCH SIMPLER!
       const scheduleData = {
         content: generatedText,
-        platforms: [platform],
-        media_urls: getCurrentImage() ? [getCurrentImage()!] : [],
-        scheduled_for: scheduledDateTime
+        platform: platform, // Single platform, not array
+        scheduled_time: scheduledDateTime,
+        image_url: getCurrentImage() || undefined,
+        title: generatedText.length > 100 ? generatedText.substring(0, 100) : generatedText
       };
 
-      console.log('📅 [handleSchedulePost] Scheduling data:', scheduleData);
+      console.log('📅 [SimpleScheduling] Scheduling data:', scheduleData);
 
-      // Use the n8n scheduling service
-      const scheduledPost = await createScheduledPost(scheduleData);
+      // Use the SIMPLE scheduling service - just stores in database!
+      const scheduledPost = await SimpleSchedulingService.schedulePost(scheduleData);
 
-      console.log('✅ [handleSchedulePost] Post scheduled successfully:', scheduledPost?.id || 'unknown');
+      if (!scheduledPost) {
+        throw new Error('Failed to schedule post');
+      }
+
+      console.log('✅ [SimpleScheduling] Post scheduled successfully:', scheduledPost.id);
 
       toast({
-        title: "Post scheduled!",
-        description: `Your post has been scheduled for ${format(scheduledDateTime, "PPP 'at' p")} and will be processed by n8n.`,
+        title: "Post scheduled! 🎯",
+        description: `Your post will be automatically posted at ${formatDateTimeForDisplay(scheduledDateTime)}. Supabase pg_cron will handle it!`,
       });
 
       // Reset form
@@ -1086,6 +1128,8 @@ Create the post now:`;
       setTone('');
       setScheduleDate(undefined);
       setScheduleTime('');
+      // Reset flexible datetime to 2 minutes from now
+      setFlexibleDateTime(new Date(Date.now() + 2 * 60 * 1000));
       setUploadedImage(null);
       setGeneratedImage(null);
       setImageSource('none');
@@ -2094,30 +2138,93 @@ Create the post now:`;
                   <div className="p-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Publish Content</h3>
 
-                    {/* Scheduling */}
+                    {/* Scheduling - PostScheduler Style */}
                     <div className="space-y-4 mb-6">
                       <div className="flex items-center justify-between">
                         <Label className="text-sm font-medium text-gray-900">Schedule (Optional)</Label>
-                        <div className="flex items-center space-x-1 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                          <span>⚡</span>
-                          <span>Powered by n8n</span>
+                        <div className="flex items-center space-x-2">
+                          <div className="flex items-center space-x-1 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                            <span>⚡</span>
+                            <span>Powered by n8n</span>
+                          </div>
+                          <div className="flex items-center space-x-1 text-xs">
+                            <input
+                              type="checkbox"
+                              id="flexible-timing"
+                              checked={useFlexibleTiming}
+                              onChange={(e) => setUseFlexibleTiming(e.target.checked)}
+                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <label htmlFor="flexible-timing" className="text-blue-600 font-medium">
+                              Flexible Timing
+                            </label>
+                          </div>
                         </div>
                       </div>
                       <p className="text-xs text-gray-500 mb-3">
-                        Schedule posts at least 1 minute in the future for n8n processing
+                        {useFlexibleTiming
+                          ? "🎯 Select ANY specific time - like PostScheduler.co (7:23 PM, 2:47 AM, etc.)"
+                          : "Schedule posts at least 1 minute in the future for n8n processing"
+                        }
                       </p>
                       <div className="space-y-3">
-                        <ModernDateTimePicker
-                          value={scheduleDate}
-                          onChange={setScheduleDate}
-                          placeholder="Pick a date"
-                          disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                          timeValue={scheduleTime}
-                          onTimeChange={setScheduleTime}
-                          showTime={true}
-                          className="w-full"
-                        />
+                        {useFlexibleTiming ? (
+                          <div className="space-y-3">
+                            {/* Native HTML5 datetime-local input (most reliable) */}
+                            <NativeFlexibleTimePicker
+                              value={flexibleDateTime}
+                              onChange={(date) => {
+                                setFlexibleDateTime(date);
+                                logDateTimezoneDebug(date);
+                              }}
+                              minDate={new Date(Date.now() + 60 * 1000)} // 1 minute from now
+                              placeholder="Select date and time (PostScheduler style)"
+                              className="w-full"
+                            />
+
+                            {/* Alternative: Custom dropdown picker */}
+                            <div className="text-xs text-gray-500">
+                              Or try the custom picker:
+                            </div>
+                            <SimpleFlexibleTimePicker
+                              value={flexibleDateTime}
+                              onChange={(date) => {
+                                setFlexibleDateTime(date);
+                                logDateTimezoneDebug(date);
+                              }}
+                              minDate={new Date(Date.now() + 60 * 1000)}
+                              placeholder="Custom picker (PostScheduler style)"
+                              className="w-full"
+                            />
+                          </div>
+                        ) : (
+                          <ModernDateTimePicker
+                            value={scheduleDate}
+                            onChange={setScheduleDate}
+                            placeholder="Pick a date"
+                            disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                            timeValue={scheduleTime}
+                            onTimeChange={setScheduleTime}
+                            showTime={true}
+                            className="w-full"
+                          />
+                        )}
                       </div>
+
+                      {/* Preview of selected time */}
+                      {useFlexibleTiming && flexibleDateTime && (
+                        <div className="mt-3 p-3 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-green-600">🎯</span>
+                            <div>
+                              <div className="text-xs text-green-600 font-medium">Will post at:</div>
+                              <div className="text-sm font-semibold text-green-800">
+                                {formatDateTimeForDisplay(flexibleDateTime)}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Action Buttons */}
@@ -2142,7 +2249,11 @@ Create the post now:`;
 
                       <Button
                         onClick={handleSchedulePost}
-                        disabled={isPosting || socialMediaLoading || schedulingLoading || !generatedText.trim() || !platform || !scheduleDate || !scheduleTime}
+                        disabled={
+                          isPosting || socialMediaLoading || schedulingLoading ||
+                          !generatedText.trim() || !platform ||
+                          (useFlexibleTiming ? !flexibleDateTime : (!scheduleDate || !scheduleTime))
+                        }
                         variant="outline"
                         className="w-full h-12 border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                       >

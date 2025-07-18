@@ -1,4 +1,10 @@
 import { supabase } from '@/integrations/supabase/client';
+import { toLocalISOString } from '@/utils/timezone';
+
+/**
+ * SIMPLIFIED SCHEDULING SERVICE
+ * Now just stores posts - Supabase pg_cron handles the actual posting
+ */
 
 // Platform type definition
 export type Platform = 'twitter' | 'reddit' | 'linkedin' | 'facebook' | 'instagram';
@@ -60,7 +66,7 @@ export class CronPollingService {
         content: data.content,
         image_url: data.image_url,
         title: data.title,
-        scheduled_time: data.scheduled_time.toISOString(),
+        scheduled_time: toLocalISOString(data.scheduled_time), // Preserve local time
         posted: false
       };
 
@@ -187,7 +193,7 @@ export class CronPollingService {
       const updateData: any = {};
       if (updates.content !== undefined) updateData.content = updates.content;
       if (updates.platform !== undefined) updateData.platform = updates.platform;
-      if (updates.scheduled_time !== undefined) updateData.scheduled_time = updates.scheduled_time.toISOString();
+      if (updates.scheduled_time !== undefined) updateData.scheduled_time = toLocalISOString(updates.scheduled_time);
       if (updates.title !== undefined) updateData.title = updates.title;
       if (updates.image_url !== undefined) updateData.image_url = updates.image_url;
 

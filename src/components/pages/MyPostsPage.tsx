@@ -176,12 +176,13 @@ const MyPostsPage = () => {
   const formatDate = (dateString: string) => {
     if (!dateString) return 'No date';
     try {
-      return new Date(dateString).toLocaleDateString('en-US', {
+      return new Date(dateString).toLocaleString('en-US', {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
       });
     } catch (error) {
       console.error('Date formatting error:', error);
