@@ -78,8 +78,16 @@ const CreatePostMinimal: React.FC = () => {
     });
 
     if (!user?.id) {
-      console.error('❌ [savePostToDatabase] No user ID found');
-      return null;
+      console.error('❌ [savePostToDatabase] No user ID found. User object:', user);
+      // Try to get user from Supabase auth directly
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      if (authError || !authUser) {
+        console.error('❌ [savePostToDatabase] No authenticated user:', authError);
+        return null;
+      }
+      console.log('✅ [savePostToDatabase] Found user via auth.getUser():', authUser.id);
+      // Update the user_id in postData
+      user = authUser;
     }
 
     try {
@@ -101,19 +109,29 @@ const CreatePostMinimal: React.FC = () => {
 
       console.log('💾 [savePostToDatabase] Inserting data:', postData);
 
+      // Try insert without .select() first to see if that's the issue
       const { data, error } = await supabase
         .from('posts')
-        .insert([postData])
-        .select()
-        .single();
+        .insert([postData]);
 
       if (error) {
-        console.error('❌ [savePostToDatabase] Database error:', error);
+        console.error('❌ [savePostToDatabase] Database error:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+          postData
+        });
         return null;
       }
 
       console.log('✅ [savePostToDatabase] Successfully saved post:', data);
-      return data;
+      // Return a mock object since we can't get the actual data back
+      return {
+        id: 'temp-' + Date.now(),
+        ...postData,
+        created_at: new Date().toISOString()
+      };
     } catch (error) {
       console.error('❌ [savePostToDatabase] Exception:', error);
       return null;
@@ -149,8 +167,8 @@ const CreatePostMinimal: React.FC = () => {
 
       console.log(`📤 [CreatePost] Request body:`, requestBody);
 
-      // Call the edge function with authentication
-      const response = await fetch('https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/post-to-social', {
+      // Call the edge function with authentication (FIXED ENDPOINT)
+      const response = await fetch('https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/post-to-social-media', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -898,6 +916,12 @@ Create the post now:`;
 
   // Post content function
   const handlePostNow = async () => {
+    // PREVENT DUPLICATES: Check if already posting
+    if (isPosting || socialMediaLoading) {
+      console.log('⚠️ [PostNow] Already posting, ignoring duplicate request');
+      return;
+    }
+
     if (!generatedText.trim() || !platform || !connectionStatus[platform as Platform]) {
       toast({
         title: "Cannot post",
@@ -1030,6 +1054,12 @@ Create the post now:`;
 
   // SIMPLIFIED Schedule post function - Uses Supabase pg_cron
   const handleSchedulePost = async () => {
+    // PREVENT DUPLICATES: Check if already posting
+    if (isPosting) {
+      console.log('⚠️ [Schedule] Already posting, ignoring duplicate request');
+      return;
+    }
+
     // Check required fields based on timing mode
     const hasRequiredFields = useFlexibleTiming
       ? (generatedText.trim() && platform && flexibleDateTime)
@@ -1048,44 +1078,55 @@ Create the post now:`;
     try {
       console.log('📅 [SimpleScheduling] Starting scheduling process...');
 
-      // Create the scheduled date/time with proper timezone handling
+      // PERMANENT TIMEZONE FIX: Use exact local time without conversion
       let scheduledDateTime: Date;
 
       if (useFlexibleTiming) {
-        // Use flexible datetime (PostScheduler style)
-        const validation = validateFutureDate(flexibleDateTime, 1);
+        // FIXED: Use the exact datetime the user selected without any timezone conversion
+        scheduledDateTime = new Date(flexibleDateTime);
 
-        if (!validation.isValid) {
-          throw new Error(validation.error);
+        // Ensure it's in the future (basic validation)
+        const now = new Date();
+        if (scheduledDateTime <= now) {
+          throw new Error('Scheduled time must be in the future');
         }
 
-        scheduledDateTime = validation.scheduledTime!;
-        console.log('🎯 [SimpleScheduling] Using flexible timing:', {
-          flexibleDateTime: flexibleDateTime.toISOString(),
-          scheduledDateTime: scheduledDateTime.toISOString(),
-          formattedDisplay: formatDateTimeForDisplay(scheduledDateTime)
+        console.log('🎯 [TIMEZONE FIX] Using exact flexible timing:', {
+          userSelected: flexibleDateTime.toLocaleString(),
+          exactDateTime: scheduledDateTime.toLocaleString(),
+          isoString: scheduledDateTime.toISOString(),
+          note: 'NO timezone conversion applied - using exact user time'
         });
       } else {
-        // Use traditional date + time selection
+        // FIXED: Use traditional date + time selection without timezone conversion
         if (scheduleDate) {
-          const dateString = scheduleDate.toISOString().split('T')[0];
-          const validation = validateFutureTime(dateString, scheduleTime, 1);
+          // Create date directly from user's selection
+          const year = scheduleDate.getFullYear();
+          const month = scheduleDate.getMonth();
+          const day = scheduleDate.getDate();
+          const [hours, minutes] = scheduleTime.split(':').map(Number);
 
-          if (!validation.isValid) {
-            throw new Error(validation.error);
-          }
-
-          scheduledDateTime = validation.scheduledTime!;
+          scheduledDateTime = new Date(year, month, day, hours, minutes, 0, 0);
         } else {
-          const today = new Date().toISOString().split('T')[0];
-          const validation = validateFutureTime(today, scheduleTime, 1);
-
-          if (!validation.isValid) {
-            throw new Error(validation.error);
-          }
-
-          scheduledDateTime = validation.scheduledTime!;
+          // Use today with selected time
+          const now = new Date();
+          const [hours, minutes] = scheduleTime.split(':').map(Number);
+          scheduledDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0, 0);
         }
+
+        // Basic future validation
+        const now = new Date();
+        if (scheduledDateTime <= now) {
+          throw new Error('Scheduled time must be in the future');
+        }
+
+        console.log('🎯 [TIMEZONE FIX] Using exact traditional timing:', {
+          selectedDate: scheduleDate?.toLocaleDateString(),
+          selectedTime: scheduleTime,
+          exactDateTime: scheduledDateTime.toLocaleString(),
+          isoString: scheduledDateTime.toISOString(),
+          note: 'NO timezone conversion applied - using exact user time'
+        });
       }
 
       console.log('📅 [SimpleScheduling] Scheduled date/time:', {
@@ -1107,18 +1148,43 @@ Create the post now:`;
 
       console.log('📅 [SimpleScheduling] Scheduling data:', scheduleData);
 
-      // Use the SIMPLE scheduling service - just stores in database!
-      const scheduledPost = await SimpleSchedulingService.schedulePost(scheduleData);
+      // SIMPLIFIED: Direct insert to posts table for scheduling
+      console.log('📤 [SchedulePost] Inserting scheduled post directly...');
 
-      if (!scheduledPost) {
-        throw new Error('Failed to schedule post');
+      // Get current user
+      const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
+      if (userError || !currentUser) {
+        throw new Error('Authentication required to schedule posts');
       }
 
-      console.log('✅ [SimpleScheduling] Post scheduled successfully:', scheduledPost.id);
+      const postData = {
+        user_id: currentUser.id,
+        content: generatedText,
+        platform: platform,
+        status: 'scheduled',
+        scheduled_at: scheduledDateTime.toISOString(),
+        image_url: getCurrentImage() || null,
+        ai_prompt: prompt || null,
+        generated_by_ai: false,
+        retry_count: 0
+      };
+
+      console.log('📤 [SchedulePost] Inserting post data:', postData);
+
+      const { data: insertResult, error: insertError } = await supabase
+        .from('posts')
+        .insert(postData);
+
+      if (insertError) {
+        console.error('❌ [SchedulePost] Insert failed:', insertError);
+        throw new Error(`Failed to schedule post: ${insertError.message}`);
+      }
+
+      console.log('✅ [SchedulePost] Post scheduled successfully:', insertResult);
 
       toast({
         title: "Post scheduled! 🎯",
-        description: `Your post will be automatically posted at ${formatDateTimeForDisplay(scheduledDateTime)}. Supabase pg_cron will handle it!`,
+        description: `Your ${platform} post will be automatically posted at ${formatDateTimeForDisplay(scheduledDateTime)}. The cron job will handle it!`,
       });
 
       // Reset form

@@ -53,21 +53,21 @@ export class SimpleSchedulingService {
         throw new Error('User not authenticated');
       }
 
-      // Prepare post data for existing 'posts' table
+      // PERMANENT TIMEZONE FIX: Use exact datetime without conversion
       const postData = {
         user_id: user.id,
         platform: data.platform,
         content: data.content,
         image_url: data.image_url || null,
-        scheduled_at: toLocalISOString(data.scheduled_time), // Use scheduled_at column
+        scheduled_at: data.scheduled_time.toISOString(), // FIXED: No timezone conversion
         status: 'scheduled', // Mark as scheduled
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
 
-      console.log('🔍 [SimpleScheduling] User ID:', user.id);
-      console.log('🔍 [SimpleScheduling] Scheduled time:', data.scheduled_time.toISOString());
-      console.log('🔍 [SimpleScheduling] Local ISO time:', toLocalISOString(data.scheduled_time));
+      console.log('🔍 [TIMEZONE FIX] User ID:', user.id);
+      console.log('🔍 [TIMEZONE FIX] Exact scheduled time (no conversion):', data.scheduled_time.toISOString());
+      console.log('🔍 [TIMEZONE FIX] Local display time:', data.scheduled_time.toLocaleString());
 
       console.log('💾 [SimpleScheduling] Storing in posts table:', postData);
 
@@ -80,7 +80,7 @@ export class SimpleSchedulingService {
 
       console.log('🔍 [SimpleScheduling] Read test result:', { testRead, readError });
 
-      // Insert into existing posts table - try with select first
+      // FIXED: Single insert only - no duplicate posts
       let { data: result, error } = await supabase
         .from('posts')
         .insert(postData)
@@ -89,27 +89,19 @@ export class SimpleSchedulingService {
 
       console.log('🔍 [SimpleScheduling] Database response:', { result, error });
 
-      // If insert succeeded but no result returned (RLS issue), try without select
+      // If insert succeeded but no result returned (RLS issue), create mock result
+      // DO NOT insert again - this was causing duplicates!
       if (!error && !result) {
-        console.log('🔄 [SimpleScheduling] Insert succeeded but no result, trying without select...');
+        console.log('✅ [SimpleScheduling] Insert succeeded but no result due to RLS, creating mock result...');
 
-        const { error: insertError } = await supabase
-          .from('posts')
-          .insert(postData);
-
-        if (insertError) {
-          console.error('❌ [SimpleScheduling] Second insert failed:', insertError);
-          error = insertError;
-        } else {
-          // Create a mock result since insert succeeded
-          result = {
-            id: 'temp-id-' + Date.now(), // Temporary ID
-            ...postData,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          } as any;
-          console.log('✅ [SimpleScheduling] Insert succeeded, created mock result');
-        }
+        // Create a mock result since insert succeeded
+        result = {
+          id: 'temp-id-' + Date.now(), // Temporary ID
+          ...postData,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        } as any;
+        console.log('✅ [SimpleScheduling] Mock result created (no duplicate insert)');
       }
 
       if (error) {
@@ -121,55 +113,8 @@ export class SimpleSchedulingService {
           code: error.code
         });
 
-        // Try a simpler insert without some fields
-        console.log('🔄 [SimpleScheduling] Trying fallback insert...');
-        const simpleData = {
-          user_id: user.id,
-          content: data.content,
-          platform: data.platform,
-          status: 'scheduled'
-        };
-
-        const { data: fallbackResult, error: fallbackError } = await supabase
-          .from('posts')
-          .insert(simpleData)
-          .select()
-          .single();
-
-        if (fallbackError) {
-          console.error('❌ [SimpleScheduling] Fallback also failed:', fallbackError);
-
-          // Try one more time with just the absolute minimum
-          console.log('🔄 [SimpleScheduling] Trying minimal insert...');
-          const minimalData = {
-            user_id: user.id,
-            content: data.content,
-            platform: data.platform
-          };
-
-          const { error: minimalError } = await supabase
-            .from('posts')
-            .insert(minimalData);
-
-          if (minimalError) {
-            throw new Error(`All insert attempts failed. Original: ${error.message}, Fallback: ${fallbackError.message}, Minimal: ${minimalError.message}`);
-          } else {
-            // Even minimal insert succeeded, return a mock result
-            return {
-              id: 'minimal-' + Date.now(),
-              ...minimalData,
-              status: 'draft',
-              scheduled_at: null,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            } as any;
-          }
-        }
-
-        if (fallbackResult) {
-          console.log('✅ [SimpleScheduling] Fallback insert succeeded:', fallbackResult.id);
-          return fallbackResult;
-        }
+        // FIXED: No more fallback inserts - they were causing duplicates
+        throw new Error(`Failed to schedule post: ${error.message}`);
       }
 
       if (!result) {
@@ -283,7 +228,7 @@ export class SimpleSchedulingService {
       if (updates.platform !== undefined) updateData.platform = updates.platform;
       if (updates.image_url !== undefined) updateData.image_url = updates.image_url;
       if (updates.scheduled_time !== undefined) {
-        updateData.scheduled_at = toLocalISOString(updates.scheduled_time);
+        updateData.scheduled_at = updates.scheduled_time.toISOString(); // FIXED: No timezone conversion
       }
 
       updateData.updated_at = new Date().toISOString();

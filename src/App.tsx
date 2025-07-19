@@ -24,10 +24,18 @@ import { QuickSocialTest } from '@/components/QuickSocialTest';
 import { SocialPostingFix } from '@/components/SocialPostingFix';
 import { DatabaseTypeTest } from '@/components/DatabaseTypeTest';
 import { ManualPostProcessor } from '@/components/ManualPostProcessor';
+import { CronSystemMonitor } from '@/components/CronSystemMonitor';
+import { TimezonePostFixer } from '@/components/TimezonePostFixer';
 import TestCreatePost from '@/components/TestCreatePost';
 import CreatePostSimple from '@/components/CreatePostSimple';
 import OAuthCallback from '@/components/OAuthCallback';
 import MyPostsPage from '@/components/pages/MyPostsPage';
+import { TwitterSchedulingTest } from '@/components/TwitterSchedulingTest';
+import { DatabaseChecker } from '@/components/DatabaseChecker';
+import { DatabaseInspector } from '@/components/DatabaseInspector';
+import { DirectDatabaseTest } from '@/components/DirectDatabaseTest';
+import { CronJobDiagnostic } from '@/components/CronJobDiagnostic';
+import { TwitterPostProcessor } from '@/components/TwitterPostProcessor';
 
 
 
@@ -193,6 +201,87 @@ function App() {
         element={
           <ProtectedRoute>
             <ManualPostProcessor />
+          </ProtectedRoute>
+        }
+      />
+      {/* Production Cron Monitor Page */}
+      <Route
+        path="/cron-monitor"
+        element={
+          <ProtectedRoute>
+            <CronSystemMonitor />
+          </ProtectedRoute>
+        }
+      />
+      {/* Timezone Post Fixer Page */}
+      <Route
+        path="/timezone-fixer"
+        element={
+          <ProtectedRoute>
+            <TimezonePostFixer />
+          </ProtectedRoute>
+        }
+      />
+      {/* Cron System Monitor Page */}
+      <Route
+        path="/cron-monitor"
+        element={
+          <ProtectedRoute>
+            <CronSystemMonitor />
+          </ProtectedRoute>
+        }
+      />
+      {/* Twitter Scheduling Test Page */}
+      <Route
+        path="/test-twitter-scheduling"
+        element={
+          <ProtectedRoute>
+            <TwitterSchedulingTest />
+          </ProtectedRoute>
+        }
+      />
+      {/* Database Checker Page */}
+      <Route
+        path="/database-checker"
+        element={
+          <ProtectedRoute>
+            <DatabaseChecker />
+          </ProtectedRoute>
+        }
+      />
+      {/* Database Inspector Page */}
+      <Route
+        path="/database-inspector"
+        element={
+          <ProtectedRoute>
+            <DatabaseInspector />
+          </ProtectedRoute>
+        }
+      />
+      {/* Direct Database Test Page */}
+      <Route
+        path="/direct-database-test"
+        element={
+          <ProtectedRoute>
+            <DirectDatabaseTest />
+          </ProtectedRoute>
+        }
+      />
+      {/* Cron Job Diagnostic Page */}
+      <Route
+        path="/cron-diagnostic"
+        element={
+          <ProtectedRoute>
+            <CronJobDiagnostic />
+          </ProtectedRoute>
+        }
+      />
+      {/* Twitter Post Processor Page */}
+      <Route
+        path="/twitter-processor"
+        element={
+          <ProtectedRoute>
+            <TwitterPostProcessor />
           </ProtectedRoute>
         }
       />

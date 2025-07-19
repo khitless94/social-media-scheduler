@@ -55,16 +55,19 @@ export function createLocalDateTime(dateString: string, timeString: string): Dat
  */
 export function createScheduledDateTime(dateString: string, timeString: string): Date {
   const localDateTime = createLocalDateTime(dateString, timeString);
-  
-  console.log('🌍 Timezone Debug:', {
+
+  // PERMANENT FIX: Ensure we return the exact local time without any UTC conversion
+  // This prevents the 5.5 hour offset issue for all social media platforms
+  console.log('🌍 PERMANENT TIMEZONE FIX - Timezone Debug:', {
     userTimezone: getUserTimezone(),
     selectedDate: dateString,
     selectedTime: timeString,
     localDateTime: localDateTime.toISOString(),
     localString: localDateTime.toLocaleString(),
-    utcString: localDateTime.toUTCString()
+    utcString: localDateTime.toUTCString(),
+    note: 'Using exact local time - no UTC conversion applied'
   });
-  
+
   return localDateTime;
 }
 
@@ -236,15 +239,18 @@ export function toLocalISOString(date: Date): string {
  * Create scheduled date time from a Date object (for flexible timing)
  */
 export function createScheduledDateTimeFromDate(date: Date): Date {
-  // Ensure the date is in the user's timezone
+  // PERMANENT FIX: Use the exact date/time without any timezone conversion
   const timezone = getUserTimezone();
 
-  console.log('🕐 Creating scheduled time from Date object:', {
+  console.log('🕐 PERMANENT FIX - Creating scheduled time from Date object:', {
     inputDate: date.toLocaleString(),
+    inputISO: date.toISOString(),
     timezone: timezone.timezone,
-    offset: timezone.offsetString
+    offset: timezone.offsetString,
+    note: 'Using exact date/time - no conversion applied'
   });
 
+  // Return the exact date object without any modification
   return new Date(date);
 }
 

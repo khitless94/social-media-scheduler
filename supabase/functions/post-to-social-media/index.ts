@@ -25,9 +25,26 @@ serve(async (req) => {
   }
 
   try {
-    const { post_id, platform, content, image_url, title, access_token }: PostRequest = await req.json()
+    const requestBody = await req.json()
+    console.log('🚀 [EdgeFunction] Received request:', requestBody)
 
-    console.log(`🚀 Processing post ${post_id} for ${platform}`)
+    // Handle both old and new request formats
+    const {
+      post_id,
+      platform,
+      content,
+      image_url,
+      image,
+      title,
+      access_token
+    } = requestBody
+
+    const finalContent = content || requestBody.content
+    const finalPlatform = platform || requestBody.platform
+    const finalImage = image_url || image || requestBody.image
+
+    console.log(`🚀 Processing post for ${finalPlatform}`)
+    console.log(`📝 Content: ${finalContent?.substring(0, 100)}...`)
 
     let result;
     
@@ -85,28 +102,115 @@ serve(async (req) => {
 
 // Platform-specific posting functions
 async function postToTwitter(content: string, imageUrl?: string, accessToken?: string) {
-  // Twitter API v2 implementation
-  const tweetData: any = { text: content };
-  
-  if (imageUrl) {
-    // Upload media first, then attach to tweet
-    // Implementation depends on your Twitter API setup
+  console.log('🐦 [Twitter] Starting REAL Twitter API posting...');
+  console.log('🐦 [Twitter] Content:', content);
+  console.log('🐦 [Twitter] Image URL:', imageUrl);
+
+  // Get Twitter API credentials from environment
+  const TWITTER_BEARER_TOKEN = Deno.env.get('TWITTER_BEARER_TOKEN');
+  const TWITTER_API_KEY = Deno.env.get('TWITTER_API_KEY');
+  const TWITTER_API_SECRET = Deno.env.get('TWITTER_API_SECRET');
+  const TWITTER_ACCESS_TOKEN = Deno.env.get('TWITTER_ACCESS_TOKEN');
+  const TWITTER_ACCESS_TOKEN_SECRET = Deno.env.get('TWITTER_ACCESS_TOKEN_SECRET');
+
+  if (!TWITTER_BEARER_TOKEN && (!TWITTER_API_KEY || !TWITTER_API_SECRET)) {
+    throw new Error('Twitter API credentials not configured. Please set TWITTER_BEARER_TOKEN or OAuth 1.0a credentials in Supabase Edge Function secrets.');
   }
-  
+
+  // Prepare tweet data
+  const tweetData: any = { text: content };
+
+  // Handle media upload if image is provided
+  if (imageUrl) {
+    try {
+      console.log('🖼️ [Twitter] Processing image for upload...');
+
+      // For now, skip media upload and post text only
+      // Media upload requires additional OAuth 1.0a implementation
+      console.log('⚠️ [Twitter] Image upload not implemented yet, posting text only');
+
+    } catch (error) {
+      console.warn('⚠️ [Twitter] Image processing failed:', error);
+    }
+  }
+
+  console.log('📤 [Twitter] Posting tweet:', tweetData);
+
+  // Use OAuth 1.0a for Twitter API v2 (required for posting)
+  // Generate OAuth 1.0a signature using Web Crypto API
+  const oauth = {
+    oauth_consumer_key: TWITTER_API_KEY,
+    oauth_token: TWITTER_ACCESS_TOKEN,
+    oauth_signature_method: 'HMAC-SHA1',
+    oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
+    oauth_nonce: Math.random().toString(36).substring(2, 15),
+    oauth_version: '1.0'
+  };
+
+  // Create signature base string
+  const method = 'POST';
+  const url = 'https://api.twitter.com/2/tweets';
+  const parameterString = Object.keys(oauth)
+    .sort()
+    .map(key => `${key}=${encodeURIComponent(oauth[key])}`)
+    .join('&');
+
+  const signatureBaseString = `${method}&${encodeURIComponent(url)}&${encodeURIComponent(parameterString)}`;
+
+  // Create signing key
+  const signingKey = `${encodeURIComponent(TWITTER_API_SECRET)}&${encodeURIComponent(TWITTER_ACCESS_TOKEN_SECRET)}`;
+
+  // Generate signature using Web Crypto API (Deno compatible)
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(signingKey);
+  const messageData = encoder.encode(signatureBaseString);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-1' },
+    false,
+    ['sign']
+  );
+
+  const signatureBuffer = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
+  const signature = btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)));
+  oauth['oauth_signature'] = signature;
+
+  // Create Authorization header
+  const authHeader = 'OAuth ' + Object.keys(oauth)
+    .sort()
+    .map(key => `${key}="${encodeURIComponent(oauth[key])}"`)
+    .join(', ');
+
+  console.log('🔐 [Twitter] OAuth 1.0a Authorization header created');
+
   const response = await fetch('https://api.twitter.com/2/tweets', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${accessToken}`,
+      'Authorization': authHeader,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(tweetData)
   });
-  
+
+  console.log('📡 [Twitter] API Response Status:', response.status);
+
   if (!response.ok) {
-    throw new Error(`Twitter API error: ${response.statusText}`);
+    const errorText = await response.text();
+    console.error('❌ [Twitter] API Error:', errorText);
+    throw new Error(`Twitter API error (${response.status}): ${errorText}`);
   }
-  
-  return await response.json();
+
+  const result = await response.json();
+  console.log('✅ [Twitter] Tweet posted successfully:', result);
+
+  return {
+    success: true,
+    data: result.data,
+    postId: result.data?.id,
+    url: result.data?.id ? `https://twitter.com/user/status/${result.data.id}` : undefined
+  };
 }
 
 async function postToLinkedIn(content: string, imageUrl?: string, accessToken?: string) {
