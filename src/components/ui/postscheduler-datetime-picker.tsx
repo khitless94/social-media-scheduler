@@ -14,8 +14,8 @@ interface PostSchedulerDateTimePickerProps {
 }
 
 /**
- * PostScheduler-style DateTime Picker
- * Allows precise time selection like PostScheduler.co
+ * Flexible DateTime Picker
+ * Allows precise time selection with flexible timing
  */
 export function PostSchedulerDateTimePicker({
   value,
@@ -172,7 +172,7 @@ export function PostSchedulerDateTimePicker({
               <h3 className="font-semibold">Schedule Post</h3>
             </div>
             <div className="text-xs text-gray-500">
-              Like PostScheduler.co
+              Flexible Timing
             </div>
           </div>
 

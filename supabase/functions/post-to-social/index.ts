@@ -42,19 +42,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    console.log('📥 Request body received:', body);
-
     let { content, platforms, platform, image, subreddit } = body;
-
-    console.log('📥 Extracted parameters:', {
-      platform,
-      platforms,
-      content: content?.substring(0, 50) + '...',
-      hasImage: !!image,
-      imageType: typeof image,
-      imageValue: image ? image.substring(0, 100) + '...' : 'null',
-      subreddit: subreddit || 'not provided'
-    });
 
     // Handle both old format (platform: "linkedin") and new format (platforms: ["linkedin"])
     if (platform && !platforms) {
@@ -74,7 +62,7 @@ serve(async (req) => {
 
     for (const platform of platforms) {
       try {
-        console.log(`Processing platform: ${platform} for user: ${user.id}`);
+        // Processing platform
 
         // Get OAuth credentials for this platform and user
         const { data: credentials, error: credError } = await supabase
@@ -196,9 +184,7 @@ async function createHmacSha1Signature(baseString: string, signingKey: string): 
 // Twitter posting function using proper OAuth 1.0a (following guidelines)
 async function postToTwitter(content: string, image?: string, credentials?: any) {
   try {
-    console.log('[Twitter] Starting Twitter post process...');
-    console.log('[Twitter] Content preview:', content.substring(0, 50) + '...');
-    console.log('[Twitter] Has image:', !!image);
+    // Starting Twitter post process
 
     // Validate Twitter OAuth 1.0a credentials
     const twitterCredentials = {
@@ -208,12 +194,7 @@ async function postToTwitter(content: string, image?: string, credentials?: any)
       accessSecret: credentials?.access_token_secret,
     };
 
-    console.log('[Twitter] OAuth 1.0a credentials check:', {
-      appKey: !!twitterCredentials.appKey,
-      appSecret: !!twitterCredentials.appSecret,
-      accessToken: !!twitterCredentials.accessToken,
-      accessSecret: !!twitterCredentials.accessSecret,
-    });
+    // OAuth 1.0a credentials check
 
     // Check if we have proper OAuth 1.0a credentials
     if (!twitterCredentials.accessToken || !twitterCredentials.accessSecret) {
@@ -233,19 +214,14 @@ async function postToTwitter(content: string, image?: string, credentials?: any)
     // Step 1: Upload image if provided (following guidelines)
     if (image) {
       try {
-        console.log('[Twitter] 🖼️ Starting image upload process...');
-        console.log('[Twitter] 🔗 Image URL:', image);
-
-        // Download the image from Supabase (following guidelines)
-        console.log('[Twitter] 📥 Downloading image from Supabase...');
+        // Starting image upload process
         const imageResponse = await fetch(image);
         if (!imageResponse.ok) {
           throw new Error(`Failed to download image: ${imageResponse.status} ${imageResponse.statusText}`);
         }
 
         const imageBuffer = await imageResponse.arrayBuffer();
-        const imageSizeMB = (imageBuffer.byteLength / (1024 * 1024)).toFixed(2);
-        console.log('[Twitter] ✅ Image downloaded successfully, size:', imageSizeMB, 'MB');
+        // Image downloaded successfully
 
         // Validate image size (Twitter limit: 5MB for photos)
         if (imageBuffer.byteLength > 5 * 1024 * 1024) {
@@ -255,21 +231,17 @@ async function postToTwitter(content: string, image?: string, credentials?: any)
         // Upload image to Twitter using OAuth 1.0a
         mediaId = await uploadImageToTwitterOAuth1a(imageBuffer, twitterCredentials);
 
-        if (mediaId) {
-          console.log('[Twitter] ✅ Image uploaded successfully, media_id:', mediaId);
-        } else {
+        if (!mediaId) {
           throw new Error('Failed to upload image to Twitter');
         }
 
       } catch (imageError) {
         console.error('[Twitter] Image upload error:', imageError);
-        console.log('[Twitter] Continuing with text-only post...');
         mediaId = null;
       }
     }
 
-    // Step 2: Post tweet using OAuth 1.0a (following guidelines)
-    console.log('[Twitter] 🚀 Posting tweet...');
+    // Step 2: Post tweet using OAuth 1.0a
 
     // Validate content length (Twitter limit is 280 characters)
     if (content.length > 280) {
@@ -474,7 +446,7 @@ async function postToLinkedIn(content: string, image?: string, credentials?: any
       throw new Error('No LinkedIn access token found');
     }
 
-    console.log('[LinkedIn] Starting post with access token');
+    // Starting LinkedIn post
 
     // Try to get user profile using the correct endpoint for available scopes
     let personUrn = null;
@@ -490,9 +462,9 @@ async function postToLinkedIn(content: string, image?: string, credentials?: any
       if (profileResponse.ok) {
         const profile = await profileResponse.json();
         personUrn = `urn:li:person:${profile.sub}`;
-        console.log('[LinkedIn] Got profile from userinfo endpoint:', personUrn);
+        // Got profile from userinfo endpoint
       } else {
-        console.log('[LinkedIn] userinfo endpoint failed, trying lite profile');
+        // userinfo endpoint failed, trying lite profile
         throw new Error('userinfo failed');
       }
     } catch (userinfoError) {

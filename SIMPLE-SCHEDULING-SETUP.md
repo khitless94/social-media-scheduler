@@ -179,7 +179,7 @@ Your social media scheduler now has:
 2. **✅ Cost-effective** - Uses existing Supabase
 3. **✅ Error-free** - Simple, proven technology
 4. **✅ Easy maintenance** - SQL-based monitoring
-5. **✅ Perfect timing** - PostScheduler.co style flexibility
+5. **✅ Perfect timing** - Flexible scheduling capabilities
 
 **🎯 The scheduling function now works perfectly with zero complexity!**
 

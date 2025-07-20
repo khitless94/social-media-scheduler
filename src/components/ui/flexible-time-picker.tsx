@@ -14,7 +14,7 @@ interface FlexibleTimePickerProps {
 }
 
 /**
- * Flexible Time Picker - Like PostScheduler.co
+ * Flexible Time Picker - Advanced Scheduling
  * Allows users to select ANY specific time (not limited to intervals)
  */
 export function FlexibleTimePicker({

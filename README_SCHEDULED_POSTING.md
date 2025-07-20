@@ -23,11 +23,6 @@ User App → Supabase → n8n Cloud → Social Media APIs
 │   ├── scheduled_posting_utilities.sql         # Utility functions
 │   ├── test_scheduled_posting.sql             # Testing and verification
 │   └── fix_scheduling_migration.sql           # Migration fixes
-├── n8n/                              # n8n Cloud workflows
-│   ├── enhanced-scheduled-posting-workflow.json    # Recommended workflow
-│   ├── production-ready-workflow.json             # Production version
-│   ├── http-based-workflow.json                   # HTTP API fallback
-│   └── scheduled-posting-workflow.json            # Basic version
 ├── src/
 │   ├── services/scheduledPostService.ts       # Backend service
 │   ├── hooks/useScheduledPosts.ts             # React hook

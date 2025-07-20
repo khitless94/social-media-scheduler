@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
@@ -130,20 +130,9 @@ export const usePosts = (filters: PostFilters = {}) => {
   const [error, setError] = useState<string | null>(null);
   const { user, session } = useAuth();
 
-  // Only fetch real data when user is available
-  useEffect(() => {
-    if (!user?.id) {
-      console.log('🔍 [usePosts] No user yet, waiting for authentication');
-      setPosts([]);
-      setError(null);
-      setLoading(false);
-      return;
-    }
-    console.log('🔍 [usePosts] User available, fetching posts');
-    fetchPosts();
-  }, [user]);
 
-  const fetchPosts = async () => {
+
+  const fetchPosts = useCallback(async () => {
     console.log('🔍 [usePosts] fetchPosts called');
     console.log('🔍 [usePosts] user:', user);
     console.log('🔍 [usePosts] user.id:', user?.id);
@@ -217,7 +206,20 @@ export const usePosts = (filters: PostFilters = {}) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id, filters.status, filters.platform, filters.search]);
+
+  // Only fetch real data when user is available
+  useEffect(() => {
+    if (!user?.id) {
+      console.log('🔍 [usePosts] No user yet, waiting for authentication');
+      setPosts([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+    console.log('🔍 [usePosts] User available, fetching posts');
+    fetchPosts();
+  }, [user?.id, fetchPosts]);
 
   const createPost = async (postData: Partial<Post>) => {
     if (!user?.id) {
@@ -296,9 +298,7 @@ export const usePosts = (filters: PostFilters = {}) => {
     return { total, drafts, scheduled, published, failed };
   };
 
-  useEffect(() => {
-    fetchPosts();
-  }, [user?.id, filters.status, filters.platform, filters.search]);
+
 
   return {
     posts,

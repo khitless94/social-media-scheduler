@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -6,7 +6,8 @@ import { useSocialMediaConnection } from "@/hooks/useSocialMediaConnection";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import StorageDebugPanel from "@/components/StorageDebugPanel";
+
+import SocialMediaConfig from "@/components/settings/SocialMediaConfig";
 import {
   Settings as SettingsIcon,
   User,
@@ -42,7 +43,7 @@ function dataURItoBlob(dataURI: string) {
 }
 
 const SettingsPage = () => {
-  const [activeTab, setActiveTab] = useState("profile");
+  const [activeTab, setActiveTab] = useState("connections");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -94,15 +95,9 @@ const SettingsPage = () => {
     }
   }, [hookConnectionStatus]);
 
-  // Fetch user profile data
-  useEffect(() => {
-    if (user) {
-      fetchUserProfile();
-      fetchNotificationSettings();
-    }
-  }, [user]);
 
-  const fetchUserProfile = async () => {
+
+  const fetchUserProfile = useCallback(async () => {
     if (!user) return;
 
     setLoading(true);
@@ -204,9 +199,9 @@ const SettingsPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
-  const fetchNotificationSettings = async () => {
+  const fetchNotificationSettings = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -258,7 +253,15 @@ const SettingsPage = () => {
       marketing_notifications: true,
       security_notifications: true
     });
-  };
+  }, [user]);
+
+  // Fetch user profile data
+  useEffect(() => {
+    if (user) {
+      fetchUserProfile();
+      fetchNotificationSettings();
+    }
+  }, [user, fetchUserProfile, fetchNotificationSettings]);
 
   const handleProfilePictureUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -321,7 +324,7 @@ const SettingsPage = () => {
     return errors;
   };
 
-  const saveProfile = async () => {
+  const saveProfile = useCallback(async () => {
     if (!user) return;
 
     // Validate profile data
@@ -461,9 +464,9 @@ const SettingsPage = () => {
     } finally {
       setSaving(false);
     }
-  };
+  }, [user, profileData, toast]);
 
-  const saveNotifications = async () => {
+  const saveNotifications = useCallback(async () => {
     if (!user) return;
 
     setSaving(true);
@@ -526,9 +529,9 @@ const SettingsPage = () => {
     } finally {
       setSaving(false);
     }
-  };
+  }, [user, notifications, toast]);
 
-  const saveAllSettings = async () => {
+  const saveAllSettings = useCallback(async () => {
     setSaving(true);
     try {
       // Save both profile and notifications
@@ -548,7 +551,7 @@ const SettingsPage = () => {
     } finally {
       setSaving(false);
     }
-  };
+  }, [saveProfile, saveNotifications]);
 
   const resetSettings = () => {
     fetchUserProfile();
@@ -762,8 +765,8 @@ const SettingsPage = () => {
               <SettingsIcon className="h-8 w-8 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-              <p className="text-gray-600">Manage your account and preferences</p>
+              <h1 className="text-3xl font-bold text-gray-900">Connect Accounts</h1>
+              <p className="text-gray-600">Connect and manage your social media accounts</p>
             </div>
           </div>
           <div className="flex space-x-2">
@@ -828,20 +831,20 @@ const SettingsPage = () => {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             {/* Tab Navigation */}
             <div className="border-b border-gray-100 bg-gray-50/50">
-              <TabsList className="grid w-full grid-cols-5 bg-transparent p-0 h-auto">
-                <TabsTrigger
-                  value="profile"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 data-[state=active]:shadow-none py-4 px-6 font-semibold transition-all"
-                >
-                  <User className="h-4 w-4 mr-2" />
-                  Profile
-                </TabsTrigger>
+              <TabsList className="grid w-full grid-cols-3 bg-transparent p-0 h-auto">
                 <TabsTrigger
                   value="connections"
                   className="rounded-none border-b-2 border-transparent data-[state=active]:border-green-500 data-[state=active]:bg-transparent data-[state=active]:text-green-600 data-[state=active]:shadow-none py-4 px-6 font-semibold transition-all"
                 >
                   <Link className="h-4 w-4 mr-2" />
-                  Connections
+                  Social Accounts
+                </TabsTrigger>
+                <TabsTrigger
+                  value="profile"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 data-[state=active]:shadow-none py-4 px-6 font-semibold transition-all"
+                >
+                  <User className="h-4 w-4 mr-2" />
+                  Profile Settings
                 </TabsTrigger>
                 <TabsTrigger
                   value="notifications"
@@ -849,20 +852,6 @@ const SettingsPage = () => {
                 >
                   <Bell className="h-4 w-4 mr-2" />
                   Notifications
-                </TabsTrigger>
-                <TabsTrigger
-                  value="security"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-red-500 data-[state=active]:bg-transparent data-[state=active]:text-red-600 data-[state=active]:shadow-none py-4 px-6 font-semibold transition-all"
-                >
-                  <Shield className="h-4 w-4 mr-2" />
-                  Security
-                </TabsTrigger>
-                <TabsTrigger
-                  value="diagnostic"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-purple-500 data-[state=active]:bg-transparent data-[state=active]:text-purple-600 data-[state=active]:shadow-none py-4 px-6 font-semibold transition-all"
-                >
-                  <Wrench className="h-4 w-4 mr-2" />
-                  Diagnostic
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -1043,83 +1032,11 @@ const SettingsPage = () => {
 
               {/* Connections Tab */}
               <TabsContent value="connections" className="mt-0 space-y-6">
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-4">Social Media Connections</h3>
-                  <p className="text-gray-600 mb-6">Connect your social media accounts to start scheduling posts</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {platforms.map((platform) => {
-                      const isConnected = connectionStatus[platform.key as keyof typeof connectionStatus];
-                      const isLoading = isConnecting[platform.key as keyof typeof isConnecting];
-
-                      return (
-                        <div
-                          key={platform.key}
-                          className={`p-6 rounded-xl border-2 transition-all ${
-                            isConnected
-                              ? `${platform.bgColor} ${platform.borderColor}`
-                              : "bg-gray-50 border-gray-200"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <div className={`${platform.color}`}>{platform.logo}</div>
-                              <div>
-                                <h4 className={`font-semibold ${platform.color}`}>{platform.name}</h4>
-                                <p className="text-sm text-gray-600">
-                                  {isConnected ? "Connected" : "Not connected"}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              {isConnected ? (
-                                <>
-                                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={async () => {
-                                      try {
-                                        console.log(`🔌 [Settings] Disconnecting from ${platform.key}...`);
-                                        await disconnectPlatform(platform.key as keyof typeof connectionStatus);
-                                        console.log(`✅ [Settings] Successfully disconnected from ${platform.key}`);
-                                      } catch (error) {
-                                        console.error(`❌ [Settings] Failed to disconnect from ${platform.key}:`, error);
-                                      }
-                                    }}
-                                    disabled={isLoading}
-                                    className="text-red-600 border-red-200 hover:bg-red-50"
-                                  >
-                                    {isLoading ? "Disconnecting..." : "Disconnect"}
-                                  </Button>
-                                </>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  onClick={async () => {
-                                    try {
-                                      console.log(`🔌 [Settings] Connecting to ${platform.key}...`);
-                                      await connectPlatform(platform.key as keyof typeof connectionStatus);
-                                      console.log(`✅ [Settings] Successfully connected to ${platform.key}`);
-                                    } catch (error) {
-                                      console.error(`❌ [Settings] Failed to connect to ${platform.key}:`, error);
-                                    }
-                                  }}
-                                  disabled={isLoading}
-                                  className={`bg-gradient-to-r ${platform.color.includes('sky') ? 'from-sky-500 to-sky-600' :
-                                    platform.color.includes('blue') && platform.name === 'LinkedIn' ? 'from-blue-500 to-blue-600' :
-                                    platform.color.includes('blue') ? 'from-blue-600 to-blue-700' :
-                                    platform.color.includes('pink') ? 'from-pink-500 to-pink-600' :
-                                    'from-orange-500 to-orange-600'} text-white hover:opacity-90 disabled:opacity-50`}
-                                >
-                                  {isLoading ? "Connecting..." : "Connect"}
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                <div className="-m-8">
+                  <SocialMediaConfig
+                    connectionStatus={connectionStatus}
+                    onConnectionStatusChange={setConnectionStatus}
+                  />
                 </div>
               </TabsContent>
 
@@ -1187,135 +1104,9 @@ const SettingsPage = () => {
                 </div>
               </TabsContent>
 
-              {/* Security Tab */}
-              <TabsContent value="security" className="mt-0 space-y-6">
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-4">Security Settings</h3>
-                  <div className="space-y-6">
-                    <div className="p-6 bg-gray-50 rounded-xl">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center space-x-3">
-                          <Key className="h-5 w-5 text-blue-600" />
-                          <div>
-                            <h4 className="font-medium text-gray-900">Change Password</h4>
-                            <p className="text-sm text-gray-600">Update your account password</p>
-                          </div>
-                        </div>
-                        <Button
-                          variant="outline"
-                          onClick={() => setShowPasswordForm(!showPasswordForm)}
-                          className="flex items-center space-x-2"
-                        >
-                          <span>{showPasswordForm ? "Cancel" : "Change Password"}</span>
-                          {showPasswordForm ? (
-                            <ChevronUp className="h-4 w-4" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </div>
 
-                      {showPasswordForm && (
-                        <div className="space-y-4 pt-4 border-t border-gray-200">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
-                            <input
-                              type="password"
-                              placeholder="Enter current password"
-                              value={passwordData.currentPassword}
-                              onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
-                              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
-                            <input
-                              type="password"
-                              placeholder="Enter new password"
-                              value={passwordData.newPassword}
-                              onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
-                              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
-                            <input
-                              type="password"
-                              placeholder="Confirm new password"
-                              value={passwordData.confirmPassword}
-                              onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                            />
-                          </div>
-                          <Button
-                            onClick={changePassword}
-                            disabled={saving || !passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
-                            className="bg-blue-600 hover:bg-blue-700 text-white"
-                          >
-                            {saving ? "Updating..." : "Update Password"}
-                          </Button>
-                        </div>
-                      )}
-                    </div>
 
-                    <div className="p-6 bg-gray-50 rounded-xl">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center space-x-3">
-                          <Shield className="h-5 w-5 text-green-600" />
-                          <div>
-                            <h4 className="font-medium text-gray-900">Two-Factor Authentication</h4>
-                            <p className="text-sm text-gray-600">Add an extra layer of security (Available with Supabase Auth)</p>
-                          </div>
-                        </div>
-                        <Button
-                          className="bg-green-600 hover:bg-green-700 text-white"
-                          onClick={() => {
-                            toast({
-                              title: "2FA Setup",
-                              description: "2FA setup will be available in the next update. Your account is secured with Supabase Auth.",
-                            });
-                          }}
-                        >
-                          Enable 2FA
-                        </Button>
-                      </div>
-                    </div>
 
-                    <div className="p-6 bg-red-50 rounded-xl border border-red-200">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center space-x-3">
-                          <X className="h-5 w-5 text-red-600" />
-                          <div>
-                            <h4 className="font-medium text-red-900">Delete Account</h4>
-                            <p className="text-sm text-red-700">Permanently delete your account and all associated data</p>
-                            <p className="text-xs text-red-600 mt-1">This action cannot be undone!</p>
-                          </div>
-                        </div>
-                        <Button
-                          variant="outline"
-                          className="text-red-600 border-red-300 hover:bg-red-50"
-                          onClick={deleteAccount}
-                          disabled={saving}
-                        >
-                          {saving ? "Deleting..." : "Delete Account"}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-
-              {/* Diagnostic Tab */}
-              <TabsContent value="diagnostic" className="mt-0 space-y-6">
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-4">Image Upload Diagnostic</h3>
-                  <p className="text-gray-600 mb-6">
-                    Use this tool to diagnose and fix image upload issues. This will check your authentication,
-                    storage bucket configuration, and test the upload functionality.
-                  </p>
-                  <StorageDebugPanel />
-                </div>
-              </TabsContent>
             </div>
           </Tabs>
         </div>

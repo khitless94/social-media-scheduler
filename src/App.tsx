@@ -12,6 +12,8 @@ import LandingPage from '@/components/LandingPage';
 import UnifiedDashboard from '@/components/UnifiedDashboard';
 import CreatePost from '@/components/CreatePost';
 import CreatePostMinimal from '@/components/CreatePostMinimal';
+import SettingsPage from '@/components/pages/SettingsPage';
+import MyPostsPage from '@/components/pages/MyPostsPage';
 import CreatePostTest from '@/components/CreatePostTest';
 import { TimePickerTest } from '@/components/TimePickerTest';
 import { SimpleSchedulingTest } from '@/components/SimpleSchedulingTest';
@@ -29,7 +31,6 @@ import { TimezonePostFixer } from '@/components/TimezonePostFixer';
 import TestCreatePost from '@/components/TestCreatePost';
 import CreatePostSimple from '@/components/CreatePostSimple';
 import OAuthCallback from '@/components/OAuthCallback';
-import MyPostsPage from '@/components/pages/MyPostsPage';
 import { TwitterSchedulingTest } from '@/components/TwitterSchedulingTest';
 import { DatabaseChecker } from '@/components/DatabaseChecker';
 import { DatabaseInspector } from '@/components/DatabaseInspector';
@@ -204,30 +205,12 @@ function App() {
           </ProtectedRoute>
         }
       />
-      {/* Production Cron Monitor Page */}
-      <Route
-        path="/cron-monitor"
-        element={
-          <ProtectedRoute>
-            <CronSystemMonitor />
-          </ProtectedRoute>
-        }
-      />
       {/* Timezone Post Fixer Page */}
       <Route
         path="/timezone-fixer"
         element={
           <ProtectedRoute>
             <TimezonePostFixer />
-          </ProtectedRoute>
-        }
-      />
-      {/* Cron System Monitor Page */}
-      <Route
-        path="/cron-monitor"
-        element={
-          <ProtectedRoute>
-            <CronSystemMonitor />
           </ProtectedRoute>
         }
       />
@@ -303,6 +286,15 @@ function App() {
       />
       <Route
         path="/settings"
+        element={
+          <ProtectedRoute>
+            <SettingsPage />
+          </ProtectedRoute>
+        }
+      />
+      {/* Catch-all route - redirect to dashboard for authenticated users */}
+      <Route
+        path="*"
         element={
           <ProtectedRoute>
             <UnifiedDashboard />

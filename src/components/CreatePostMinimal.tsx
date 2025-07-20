@@ -67,17 +67,10 @@ const CreatePostMinimal: React.FC = () => {
     generatedByAI?: boolean,
     aiPrompt?: string
   ) => {
-    console.log('💾 [savePostToDatabase] Starting save with params:', {
-      content: content?.substring(0, 50) + '...',
-      platforms,
-      status,
-      image,
-      userId: user?.id,
-      generatedByAI,
-      aiPrompt
-    });
+    // Production: Minimal logging for database saves
 
-    if (!user?.id) {
+    let currentUser = user;
+    if (!currentUser?.id) {
       console.error('❌ [savePostToDatabase] No user ID found. User object:', user);
       // Try to get user from Supabase auth directly
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
@@ -85,14 +78,14 @@ const CreatePostMinimal: React.FC = () => {
         console.error('❌ [savePostToDatabase] No authenticated user:', authError);
         return null;
       }
-      console.log('✅ [savePostToDatabase] Found user via auth.getUser():', authUser.id);
+      // User found via auth
       // Update the user_id in postData
-      user = authUser;
+      currentUser = authUser;
     }
 
     try {
       const postData = {
-        user_id: user.id,
+        user_id: currentUser.id,
         content,
         platform: platforms[0] || 'instagram',
         status,
@@ -107,7 +100,7 @@ const CreatePostMinimal: React.FC = () => {
         retry_count: 0
       };
 
-      console.log('💾 [savePostToDatabase] Inserting data:', postData);
+      // Inserting post data
 
       // Try insert without .select() first to see if that's the issue
       const { data, error } = await supabase
@@ -125,7 +118,7 @@ const CreatePostMinimal: React.FC = () => {
         return null;
       }
 
-      console.log('✅ [savePostToDatabase] Successfully saved post:', data);
+      // Post saved successfully
       // Return a mock object since we can't get the actual data back
       return {
         id: 'temp-' + Date.now(),
@@ -148,10 +141,6 @@ const CreatePostMinimal: React.FC = () => {
     try {
       setSocialMediaLoading(true);
 
-      console.log(`🚀 [CreatePost] Posting to ${platform} with OAuth authentication`);
-      console.log(`📝 [CreatePost] Content: "${content.substring(0, 100)}..."`);
-      console.log(`🖼️ [CreatePost] Image: ${image ? 'Yes' : 'No'}`);
-
       // Get the current session token
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -165,8 +154,6 @@ const CreatePostMinimal: React.FC = () => {
         ...(image && { image })
       };
 
-      console.log(`📤 [CreatePost] Request body:`, requestBody);
-
       // Call the edge function with authentication (FIXED ENDPOINT)
       const response = await fetch('https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/post-to-social-media', {
         method: 'POST',
@@ -177,7 +164,7 @@ const CreatePostMinimal: React.FC = () => {
         body: JSON.stringify(requestBody)
       });
 
-      console.log(`📡 [CreatePost] Response status: ${response.status} ${response.statusText}`);
+      // Check response status
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -190,13 +177,9 @@ const CreatePostMinimal: React.FC = () => {
       }
 
       const result = await response.json();
-      console.log(`📡 [CreatePost] Edge function response:`, result);
 
       if (result.success) {
-        console.log(`[CreatePost] Success: ${platform} post completed`);
-
         // Save successful post to database
-        console.log(`💾 [CreatePost] Saving successful ${platform} post to database...`);
         const platformPostIds = result.postId ? { [platform]: result.postId } : {};
         const savedPost = await savePostToDatabase(
           content,
@@ -210,9 +193,7 @@ const CreatePostMinimal: React.FC = () => {
           undefined
         );
 
-        if (savedPost) {
-          console.log(`✅ [CreatePost] Post saved to database with ID:`, savedPost.id);
-        } else {
+        if (!savedPost) {
           console.error(`❌ [CreatePost] Failed to save post to database`);
         }
 
@@ -223,7 +204,7 @@ const CreatePostMinimal: React.FC = () => {
           platform
         };
       } else {
-        console.log(`[CreatePost] Failed: ${platform} post failed - ${result.error}`);
+        // Post failed
         return {
           success: false,
           error: result.error || 'Failed to post',
@@ -254,13 +235,15 @@ const CreatePostMinimal: React.FC = () => {
     const twoMinutesFromNow = new Date(Date.now() + 2 * 60 * 1000);
     return twoMinutesFromNow.toTimeString().slice(0, 5); // HH:MM format
   });
-  // New flexible datetime state (PostScheduler style)
+  // New flexible datetime state (flexible timing)
   const [flexibleDateTime, setFlexibleDateTime] = useState<Date>(() => {
     // Default to 2 minutes from now
     return new Date(Date.now() + 2 * 60 * 1000);
   });
   const [useFlexibleTiming, setUseFlexibleTiming] = useState(true); // Enable by default
-  const [isPosting, setIsPosting] = useState(false);
+  const [isPostingNow, setIsPostingNow] = useState(false);
+  const [isScheduling, setIsScheduling] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [postType, setPostType] = useState<'now' | 'schedule'>('now');
 
   // Import the scheduling hook
@@ -527,7 +510,7 @@ Create the post now:`;
       const randomId = Math.random().toString(36).substring(2, 15);
       const fileName = `${timestamp}-${randomId}.${fileExt}`;
 
-      console.log('Uploading file:', fileName, 'Size:', file.size, 'Type:', file.type);
+      // Uploading file
 
       // Upload to user-images bucket with minimal options to avoid RLS issues
       const { data, error } = await supabase.storage
@@ -552,7 +535,7 @@ Create the post now:`;
         throw new Error('Failed to get public URL for uploaded image');
       }
 
-      console.log('Upload successful! Public URL:', publicUrl);
+      // Upload successful
 
       // Success! Set the uploaded image
       setUploadedImage(publicUrl);
@@ -782,9 +765,7 @@ Create the post now:`;
       // Create expert-level prompt for AI
       const expertPrompt = createExpertPrompt(prompt, tone, platform);
 
-      console.log('🚀 Starting content generation...');
-      console.log('Platform:', platform, 'Tone:', tone, 'Prompt:', prompt);
-      console.log('Expert prompt:', expertPrompt);
+      // Starting content generation
 
       // First try the Supabase function with expert prompting
       const { data, error } = await supabase.functions.invoke('generate-content', {
@@ -799,26 +780,18 @@ Create the post now:`;
         }
       });
 
-      console.log('🔍 Detailed Supabase function response:', {
-        data,
-        error,
-        hasData: !!data,
-        dataKeys: data ? Object.keys(data) : [],
-        dataContent: data?.content,
-        dataGeneratedText: data?.generatedText,
-        dataType: typeof data
-      });
+      // Processing AI response
 
       // Check for AI-generated content in the response
       let aiGeneratedContent = null;
       if (data) {
         // Try different possible response fields
         aiGeneratedContent = data.generatedText || data.content || data.message || data.text;
-        console.log('🤖 AI Generated Content found:', aiGeneratedContent);
+        // AI Generated Content found
       }
 
       if (aiGeneratedContent && aiGeneratedContent.trim().length > 0) {
-        console.log('✅ Using AI-generated content');
+        // Using AI-generated content
 
         // Clean up any potential AI artifacts
         let cleanContent = aiGeneratedContent.trim();
@@ -853,9 +826,6 @@ Create the post now:`;
       }
 
       // If Supabase function fails or returns no content, use enhanced fallback
-      console.log('❌ Supabase function failed or returned no content, using enhanced fallback');
-      console.log('Error details:', error);
-      console.log('Data received:', data);
 
       let fallbackContent = createFallbackContent(prompt, tone, platform);
 
@@ -917,8 +887,8 @@ Create the post now:`;
   // Post content function
   const handlePostNow = async () => {
     // PREVENT DUPLICATES: Check if already posting
-    if (isPosting || socialMediaLoading) {
-      console.log('⚠️ [PostNow] Already posting, ignoring duplicate request');
+    if (isPostingNow) {
+      // Already posting, ignoring duplicate request
       return;
     }
 
@@ -931,7 +901,17 @@ Create the post now:`;
       return;
     }
 
-    setIsPosting(true);
+    // Instagram requires an image
+    if (platform === 'instagram' && !getCurrentImage()) {
+      toast({
+        title: "Instagram requires an image",
+        description: "Please upload or generate an image for Instagram posts.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsPostingNow(true);
     try {
       const result = await postToSocial({
         content: generatedText,
@@ -963,7 +943,7 @@ Create the post now:`;
         variant: "destructive",
       });
     } finally {
-      setIsPosting(false);
+      setIsPostingNow(false);
     }
   };
 
@@ -978,9 +958,9 @@ Create the post now:`;
       return;
     }
 
-    setIsPosting(true);
+    setIsSavingDraft(true);
     try {
-      console.log('💾 [handleSaveAsDraft] Starting draft save...');
+      // Starting draft save
 
       const savedPost = await savePostToDatabase(
         generatedText,
@@ -994,10 +974,8 @@ Create the post now:`;
         prompt // aiPrompt
       );
 
-      console.log('💾 [handleSaveAsDraft] Save result:', savedPost);
-
       if (savedPost) {
-        console.log('✅ [handleSaveAsDraft] Draft saved successfully');
+        // Draft saved successfully
         toast({
           title: "Draft saved!",
           description: `Your post has been saved as a draft. You can edit and publish it later.`,
@@ -1017,7 +995,7 @@ Create the post now:`;
             .limit(1);
 
           if (recentDrafts && recentDrafts.length > 0) {
-            console.log('✅ [handleSaveAsDraft] Verified draft was saved successfully');
+            // Verified draft was saved successfully
             toast({
               title: "Draft saved!",
               description: "Your draft has been saved successfully. Check the Content Library to view it.",
@@ -1048,15 +1026,15 @@ Create the post now:`;
         variant: "destructive",
       });
     } finally {
-      setIsPosting(false);
+      setIsSavingDraft(false);
     }
   };
 
   // SIMPLIFIED Schedule post function - Uses Supabase pg_cron
   const handleSchedulePost = async () => {
-    // PREVENT DUPLICATES: Check if already posting
-    if (isPosting) {
-      console.log('⚠️ [Schedule] Already posting, ignoring duplicate request');
+    // PREVENT DUPLICATES: Check if already scheduling
+    if (isScheduling) {
+      // Already scheduling, ignoring duplicate request
       return;
     }
 
@@ -1074,9 +1052,19 @@ Create the post now:`;
       return;
     }
 
-    setIsPosting(true);
+    // Instagram requires an image
+    if (platform === 'instagram' && !getCurrentImage()) {
+      toast({
+        title: "Instagram requires an image",
+        description: "Please upload or generate an image for Instagram posts.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsScheduling(true);
     try {
-      console.log('📅 [SimpleScheduling] Starting scheduling process...');
+      // Starting scheduling process
 
       // PERMANENT TIMEZONE FIX: Use exact local time without conversion
       let scheduledDateTime: Date;
@@ -1091,12 +1079,7 @@ Create the post now:`;
           throw new Error('Scheduled time must be in the future');
         }
 
-        console.log('🎯 [TIMEZONE FIX] Using exact flexible timing:', {
-          userSelected: flexibleDateTime.toLocaleString(),
-          exactDateTime: scheduledDateTime.toLocaleString(),
-          isoString: scheduledDateTime.toISOString(),
-          note: 'NO timezone conversion applied - using exact user time'
-        });
+        // Using exact flexible timing
       } else {
         // FIXED: Use traditional date + time selection without timezone conversion
         if (scheduleDate) {
@@ -1120,22 +1103,10 @@ Create the post now:`;
           throw new Error('Scheduled time must be in the future');
         }
 
-        console.log('🎯 [TIMEZONE FIX] Using exact traditional timing:', {
-          selectedDate: scheduleDate?.toLocaleDateString(),
-          selectedTime: scheduleTime,
-          exactDateTime: scheduledDateTime.toLocaleString(),
-          isoString: scheduledDateTime.toISOString(),
-          note: 'NO timezone conversion applied - using exact user time'
-        });
+        // Using exact traditional timing
       }
 
-      console.log('📅 [SimpleScheduling] Scheduled date/time:', {
-        scheduleDate: scheduleDate?.toISOString(),
-        scheduleTime,
-        scheduledDateTime: scheduledDateTime.toISOString(),
-        formattedForUser: formatDateTimeForUser(scheduledDateTime),
-        isInFuture: scheduledDateTime > new Date()
-      });
+      // Scheduled date/time prepared
 
       // Prepare the scheduling data - MUCH SIMPLER!
       const scheduleData = {
@@ -1146,10 +1117,7 @@ Create the post now:`;
         title: generatedText.length > 100 ? generatedText.substring(0, 100) : generatedText
       };
 
-      console.log('📅 [SimpleScheduling] Scheduling data:', scheduleData);
-
       // SIMPLIFIED: Direct insert to posts table for scheduling
-      console.log('📤 [SchedulePost] Inserting scheduled post directly...');
 
       // Get current user
       const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
@@ -1169,7 +1137,7 @@ Create the post now:`;
         retry_count: 0
       };
 
-      console.log('📤 [SchedulePost] Inserting post data:', postData);
+      // Inserting post data
 
       const { data: insertResult, error: insertError } = await supabase
         .from('posts')
@@ -1180,11 +1148,11 @@ Create the post now:`;
         throw new Error(`Failed to schedule post: ${insertError.message}`);
       }
 
-      console.log('✅ [SchedulePost] Post scheduled successfully:', insertResult);
+      // Post scheduled successfully
 
       toast({
         title: "Post scheduled! 🎯",
-        description: `Your ${platform} post will be automatically posted at ${formatDateTimeForDisplay(scheduledDateTime)}. The cron job will handle it!`,
+        description: `Your ${platform} post will be automatically posted at ${formatDateTimeForDisplay(scheduledDateTime)}.`,
       });
 
       // Reset form
@@ -1208,7 +1176,7 @@ Create the post now:`;
         variant: "destructive",
       });
     } finally {
-      setIsPosting(false);
+      setIsScheduling(false);
     }
   };
 
@@ -2204,14 +2172,14 @@ Create the post now:`;
                   <div className="p-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Publish Content</h3>
 
-                    {/* Scheduling - PostScheduler Style */}
+                    {/* Scheduling - Flexible Timing */}
                     <div className="space-y-4 mb-6">
                       <div className="flex items-center justify-between">
                         <Label className="text-sm font-medium text-gray-900">Schedule (Optional)</Label>
                         <div className="flex items-center space-x-2">
                           <div className="flex items-center space-x-1 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
                             <span>⚡</span>
-                            <span>Powered by n8n</span>
+                            <span>Smart Scheduling</span>
                           </div>
                           <div className="flex items-center space-x-1 text-xs">
                             <input
@@ -2229,8 +2197,8 @@ Create the post now:`;
                       </div>
                       <p className="text-xs text-gray-500 mb-3">
                         {useFlexibleTiming
-                          ? "🎯 Select ANY specific time - like PostScheduler.co (7:23 PM, 2:47 AM, etc.)"
-                          : "Schedule posts at least 1 minute in the future for n8n processing"
+                          ? "🎯 Select ANY specific time (7:23 PM, 2:47 AM, etc.)"
+                          : "Schedule posts at least 1 minute in the future"
                         }
                       </p>
                       <div className="space-y-3">
@@ -2244,7 +2212,7 @@ Create the post now:`;
                                 logDateTimezoneDebug(date);
                               }}
                               minDate={new Date(Date.now() + 60 * 1000)} // 1 minute from now
-                              placeholder="Select date and time (PostScheduler style)"
+                              placeholder="Select date and time"
                               className="w-full"
                             />
 
@@ -2259,7 +2227,7 @@ Create the post now:`;
                                 logDateTimezoneDebug(date);
                               }}
                               minDate={new Date(Date.now() + 60 * 1000)}
-                              placeholder="Custom picker (PostScheduler style)"
+                              placeholder="Custom picker (flexible timing)"
                               className="w-full"
                             />
                           </div>
@@ -2297,10 +2265,10 @@ Create the post now:`;
                     <div className="space-y-3">
                       <Button
                         onClick={handlePostNow}
-                        disabled={isPosting || socialMediaLoading || !generatedText.trim() || !platform || !connectionStatus[platform as Platform]}
+                        disabled={isPostingNow || !generatedText.trim() || !platform || !connectionStatus[platform as Platform]}
                         className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {(isPosting || socialMediaLoading) ? (
+                        {isPostingNow ? (
                           <>
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                             Posting...
@@ -2316,33 +2284,33 @@ Create the post now:`;
                       <Button
                         onClick={handleSchedulePost}
                         disabled={
-                          isPosting || socialMediaLoading || schedulingLoading ||
+                          isScheduling || schedulingLoading ||
                           !generatedText.trim() || !platform ||
                           (useFlexibleTiming ? !flexibleDateTime : (!scheduleDate || !scheduleTime))
                         }
                         variant="outline"
                         className="w-full h-12 border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {(isPosting || socialMediaLoading || schedulingLoading) ? (
+                        {(isScheduling || schedulingLoading) ? (
                           <>
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            {schedulingLoading ? 'Scheduling with n8n...' : 'Scheduling...'}
+                            {schedulingLoading ? 'Scheduling post...' : 'Scheduling...'}
                           </>
                         ) : (
                           <>
                             <CalendarDays className="h-4 w-4 mr-2" />
-                            Schedule Post (n8n)
+                            Schedule Post
                           </>
                         )}
                       </Button>
 
                       <Button
                         onClick={handleSaveAsDraft}
-                        disabled={isPosting || socialMediaLoading || !generatedText.trim() || !platform}
+                        disabled={isSavingDraft || !generatedText.trim() || !platform}
                         variant="outline"
                         className="w-full h-12 border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {(isPosting || socialMediaLoading) ? (
+                        {isSavingDraft ? (
                           <>
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                             Saving...

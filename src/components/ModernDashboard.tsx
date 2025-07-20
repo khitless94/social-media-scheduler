@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,7 +47,7 @@ const ModernDashboard = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     try {
       console.log('Skipping database calls for testing mode');
       setPosts([]);
@@ -57,11 +57,11 @@ const ModernDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [fetchDashboardData]);
 
   const handleSignOut = async () => {
     try {

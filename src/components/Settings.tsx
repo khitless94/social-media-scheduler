@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -31,7 +31,7 @@ const Settings = () => {
   });
 
   // Use the social media connection hook to load connection status
-  const { loadConnectionStatus, connectionStatus: hookConnectionStatus } = useSocialMediaConnection(setConnectionStatus);
+  const { refreshConnectionStatus, connectionStatus: hookConnectionStatus } = useSocialMediaConnection(setConnectionStatus);
 
   // Sync connection status from hook
   useEffect(() => {
@@ -46,16 +46,16 @@ const Settings = () => {
     if (user) {
       console.log('🚀 [Settings] User available, loading profile and connection status...');
       loadProfile();
-      loadConnectionStatus(); // Load connection status when user is available
+      refreshConnectionStatus(); // Load connection status when user is available
     }
-  }, [user, loadConnectionStatus]);
+  }, [user, loadProfile, refreshConnectionStatus]);
 
   // Debug connection status changes
   useEffect(() => {
     console.log('📊 [Settings] Connection status updated:', connectionStatus);
   }, [connectionStatus]);
 
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -87,7 +87,7 @@ const Settings = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   const saveProfile = async () => {
     if (!user) return;

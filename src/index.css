@@ -1,3 +1,6 @@
+/* Import mobile-first responsive enhancements */
+@import './styles/mobile-enhancements.css';
+
 /* Ocoya-inspired Design System */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
@@ -5,8 +8,33 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Import mobile-first responsive enhancements */
-@import './styles/mobile-enhancements.css';
+/* Blob Animation */
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
 
 @layer base {
   :root {
@@ -123,25 +151,25 @@
 }
 
 @layer components {
-  /* Ocoya-style gradients */
+  /* Solid color alternatives */
   .gradient-primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #667eea;
   }
 
   .gradient-secondary {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    background: #f093fb;
   }
 
   .gradient-accent {
-    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    background: #4facfe;
   }
 
   .gradient-success {
-    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    background: #11998e;
   }
 
   .gradient-warning {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    background: #f093fb;
   }
 
   /* Glass morphism effects */
@@ -163,13 +191,13 @@
   }
 
   .card-gradient {
-    background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+    background: #ffffff;
     @apply rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg transition-all duration-300;
   }
 
   /* Button styles */
   .btn-primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #667eea;
     @apply text-white font-medium px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5;
   }
 
@@ -201,19 +229,13 @@
 }
 
 @layer utilities {
-  /* Text gradients */
+  /* Solid text colors */
   .text-gradient-primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: #667eea;
   }
 
   .text-gradient-secondary {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: #f093fb;
   }
 
   /* Responsive text sizes */
@@ -311,8 +333,7 @@
   }
 
   .animate-shimmer {
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-    background-size: 200% 100%;
+    background: rgba(255,255,255,0.4);
     animation: shimmer 2s infinite;
   }
 

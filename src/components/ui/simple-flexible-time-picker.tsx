@@ -281,7 +281,7 @@ export function NativeFlexibleTimePicker({
         style={{ fontSize: '16px' }} // Prevents zoom on iOS
       />
       <div className="text-xs text-gray-500">
-        🎯 Select ANY specific time - like PostScheduler.co
+        🎯 Select ANY specific time with flexible scheduling
       </div>
     </div>
   );

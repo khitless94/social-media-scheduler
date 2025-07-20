@@ -1,7 +1,8 @@
 
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useRoutePreservation } from '@/hooks/useRoutePreservation';
 import { Loader2 } from 'lucide-react';
 
 interface AuthGuardProps {
@@ -11,10 +12,14 @@ interface AuthGuardProps {
 const AuthGuard = ({ children }: AuthGuardProps) => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { getLastVisitedRoute } = useRoutePreservation();
 
   useEffect(() => {
     if (!loading && !user) {
-      navigate('/');
+      // Only redirect to landing page if user is not authenticated
+      // This preserves the current URL structure for proper routing
+      navigate('/', { replace: true });
     }
   }, [user, loading, navigate]);
 

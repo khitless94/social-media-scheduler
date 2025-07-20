@@ -261,7 +261,6 @@ const ProfessionalDashboard = () => {
       title: "Team & Settings",
       items: [
         { id: "collaboration", label: "Team Collaboration", icon: Users, shortcut: "⌘U" },
-        { id: "integrations", label: "Integrations", icon: Link, shortcut: "⌘I" },
         { id: "settings", label: "Settings", icon: Settings, shortcut: "⌘," }
       ]
     }
@@ -354,7 +353,7 @@ const ProfessionalDashboard = () => {
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200/60">
           {!sidebarCollapsed && (
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-r from-violet-600 to-purple-600 rounded-lg flex items-center justify-center shadow-sm">
+              <div className="w-8 h-8 bg-violet-600 rounded-lg flex items-center justify-center shadow-sm">
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
               <div>
@@ -434,7 +433,7 @@ const ProfessionalDashboard = () => {
           } flex items-center`}>
             {!sidebarCollapsed && (
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-gradient-to-r from-violet-600 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                <div className="w-8 h-8 bg-violet-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
                   {user?.email?.charAt(0).toUpperCase() || 'U'}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -509,7 +508,7 @@ const ProfessionalDashboard = () => {
             </button>
 
             {/* Profile */}
-            <div className="w-8 h-8 bg-gradient-to-r from-violet-600 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
+            <div className="w-8 h-8 bg-violet-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
               {user?.email?.charAt(0).toUpperCase() || 'U'}
             </div>
           </div>
@@ -1280,434 +1279,15 @@ const ProfessionalDashboard = () => {
               </div>
             )}
 
-            {/* Integrations */}
-            {activeTab === "integrations" && (
-              <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/30 relative overflow-hidden -m-6 p-6">
-                {/* Background decorations matching landing page */}
-                <div className="absolute inset-0 opacity-10">
-                  <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full blur-3xl animate-pulse"></div>
-                  <div className="absolute bottom-20 right-20 w-40 h-40 bg-gradient-to-r from-pink-400 to-orange-400 rounded-full blur-3xl animate-pulse delay-1000"></div>
-                  <div className="absolute top-1/2 left-1/4 w-24 h-24 bg-gradient-to-r from-indigo-400 to-purple-400 rounded-full blur-2xl animate-pulse delay-500"></div>
-                </div>
 
-                <div className="relative z-10 space-y-12">
-                  {/* Hero Section */}
-                  <div className="text-center">
-                    <div className="flex items-center justify-center mb-6">
-                      <div className="relative">
-                        <span className="text-6xl animate-bounce">🔗</span>
-                        <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full animate-pulse"></div>
-                      </div>
-                      <div className="ml-6">
-                        <h2 className="text-5xl font-bold bg-gradient-to-r from-gray-900 via-blue-900 to-purple-900 bg-clip-text text-transparent">
-                          Connect to 5 major platforms
-                        </h2>
-                        <div className="h-1.5 w-40 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full mt-3 mx-auto animate-pulse"></div>
-                      </div>
-                    </div>
-                    <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed mb-8">
-                      Publish your content across the most important social media platforms with one click.
-                      <span className="font-semibold text-transparent bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text"> Seamless integration</span> for maximum reach.
-                    </p>
-                  </div>
 
-                  {/* Social Media Platforms */}
-                  <div className="mb-16">
-                    <div className="text-center mb-8">
-                      <h3 className="text-2xl font-bold text-gray-900 mb-2">Social Media Platforms</h3>
-                      <p className="text-gray-600">Connect your social media accounts for seamless publishing</p>
-                    </div>
 
-                    <div className="grid lg:grid-cols-5 gap-6">
-                      {[
-                        {
-                          id: 'facebook',
-                          name: 'Facebook',
-                          icon: Facebook,
-                          color: 'text-blue-600',
-                          bgColor: 'from-blue-50 to-blue-100',
-                          hoverColor: 'hover:from-blue-100 hover:to-blue-200',
-                          shadowColor: 'hover:shadow-blue-200/50',
-                          gradient: 'from-blue-500 to-blue-600',
-                          features: ['Pages & Groups', 'Auto-posting', 'Analytics']
-                        },
-                        {
-                          id: 'instagram',
-                          name: 'Instagram',
-                          icon: Instagram,
-                          color: 'text-pink-500',
-                          bgColor: 'from-pink-50 to-purple-100',
-                          hoverColor: 'hover:from-pink-100 hover:to-purple-200',
-                          shadowColor: 'hover:shadow-pink-200/50',
-                          gradient: 'from-pink-500 to-purple-600',
-                          features: ['Photos & Videos', 'Stories', 'Reels']
-                        },
-                        {
-                          id: 'twitter',
-                          name: 'Twitter',
-                          icon: Twitter,
-                          color: 'text-sky-500',
-                          bgColor: 'from-sky-50 to-blue-100',
-                          hoverColor: 'hover:from-sky-100 hover:to-blue-200',
-                          shadowColor: 'hover:shadow-sky-200/50',
-                          gradient: 'from-sky-500 to-blue-600',
-                          features: ['Tweets', 'Threads', 'Engagement']
-                        },
-                        {
-                          id: 'linkedin',
-                          name: 'LinkedIn',
-                          icon: Linkedin,
-                          color: 'text-blue-700',
-                          bgColor: 'from-blue-50 to-indigo-100',
-                          hoverColor: 'hover:from-blue-100 hover:to-indigo-200',
-                          shadowColor: 'hover:shadow-blue-200/50',
-                          gradient: 'from-blue-600 to-blue-700',
-                          features: ['Professional Posts', 'Articles', 'Company Pages']
-                        },
-                        {
-                          id: 'reddit',
-                          name: 'Reddit',
-                          icon: MessageCircle,
-                          color: 'text-orange-600',
-                          bgColor: 'from-orange-50 to-red-100',
-                          hoverColor: 'hover:from-orange-100 hover:to-red-200',
-                          shadowColor: 'hover:shadow-orange-200/50',
-                          gradient: 'from-orange-500 to-red-600',
-                          features: ['Subreddits', 'Community Posts', 'Discussions']
-                        }
-                      ].map((platform) => {
-                        const isConnected = connectionStatus[platform.id as keyof typeof connectionStatus];
-                        const isLoading = isConnecting[platform.id as keyof typeof isConnecting];
 
-                        return (
-                          <div key={platform.id} className={`group relative p-6 text-center bg-gradient-to-br ${platform.bgColor} ${platform.hoverColor} rounded-3xl border border-white/60 shadow-lg ${platform.shadowColor} hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer backdrop-blur-sm`}>
-                            {/* Hover overlay */}
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
 
-                            {/* Animated border */}
-                            <div className={`absolute inset-0 rounded-3xl bg-gradient-to-r ${platform.gradient} opacity-0 group-hover:opacity-20 transition-opacity duration-300 blur-sm`}></div>
 
-                            <div className="relative z-10">
-                              <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform duration-300 shadow-lg group-hover:shadow-xl border border-gray-100">
-                                <platform.icon className={`w-7 h-7 ${platform.color} group-hover:scale-110 transition-transform duration-300`} />
-                              </div>
-                              <h4 className="font-bold text-gray-900 text-base group-hover:text-gray-800 transition-colors duration-300 mb-2">{platform.name}</h4>
 
-                              {/* Features */}
-                              <div className="mb-3">
-                                {platform.features.map((feature, index) => (
-                                  <div key={index} className="text-xs text-gray-600 mb-1">{feature}</div>
-                                ))}
-                              </div>
 
-                              {/* Connection Status */}
-                              <div className="flex items-center justify-center mb-3">
-                                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400 animate-pulse' : 'bg-gray-300'} mr-2`}></div>
-                                <span className={`text-xs font-medium ${isConnected ? 'text-green-600' : 'text-gray-500'}`}>
-                                  {isConnected ? 'Connected' : 'Not Connected'}
-                                </span>
-                              </div>
 
-                              {/* Action Button */}
-                              {isConnected ? (
-                                <Button
-                                  onClick={() => disconnectPlatform(platform.id as any)}
-                                  disabled={isLoading}
-                                  variant="outline"
-                                  size="sm"
-                                  className="w-full text-xs group-hover:scale-105 transition-transform duration-300"
-                                >
-                                  {isLoading ? (
-                                    <RefreshCw className="w-3 h-3 animate-spin mr-1" />
-                                  ) : (
-                                    <X className="w-3 h-3 mr-1" />
-                                  )}
-                                  Disconnect
-                                </Button>
-                              ) : (
-                                <Button
-                                  onClick={() => connectPlatform(platform.id as any)}
-                                  disabled={isLoading}
-                                  className={`w-full text-xs bg-gradient-to-r ${platform.gradient} hover:opacity-90 text-white group-hover:scale-105 transition-all duration-300 shadow-lg`}
-                                >
-                                  {isLoading ? (
-                                    <RefreshCw className="w-3 h-3 animate-spin mr-1" />
-                                  ) : (
-                                    <Link className="w-3 h-3 mr-1" />
-                                  )}
-                                  Connect
-                                </Button>
-                              )}
-
-                              {/* Bottom accent line */}
-                              <div className={`absolute bottom-0 left-1/2 transform -translate-x-1/2 w-0 h-1 bg-gradient-to-r ${platform.gradient} rounded-full group-hover:w-16 transition-all duration-500`}></div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Third-Party Integrations */}
-                  <div className="mb-16">
-                    <div className="text-center mb-8">
-                      <h3 className="text-2xl font-bold text-gray-900 mb-2">Third-Party Integrations</h3>
-                      <p className="text-gray-600">Enhance your workflow with powerful integrations</p>
-                    </div>
-
-                    <div className="grid lg:grid-cols-4 gap-6">
-                      {[
-                        {
-                          name: 'Zapier',
-                          icon: Zap,
-                          description: 'Automate workflows with 5000+ apps',
-                          status: 'Coming Soon',
-                          gradient: 'from-orange-500 to-red-500',
-                          bgColor: 'from-orange-50 to-red-50',
-                          features: ['Workflow Automation', 'Trigger Actions', 'Data Sync']
-                        },
-                        {
-                          name: 'Google Analytics',
-                          icon: BarChart3,
-                          description: 'Track website traffic and conversions',
-                          status: 'Coming Soon',
-                          gradient: 'from-green-500 to-blue-500',
-                          bgColor: 'from-green-50 to-blue-50',
-                          features: ['Traffic Analytics', 'Conversion Tracking', 'Custom Reports']
-                        },
-                        {
-                          name: 'Canva',
-                          icon: Image,
-                          description: 'Create stunning visuals and graphics',
-                          status: 'Coming Soon',
-                          gradient: 'from-purple-500 to-pink-500',
-                          bgColor: 'from-purple-50 to-pink-50',
-                          features: ['Design Templates', 'Brand Assets', 'Auto-resize']
-                        },
-                        {
-                          name: 'Slack',
-                          icon: MessageCircle,
-                          description: 'Get notifications in your workspace',
-                          status: 'Coming Soon',
-                          gradient: 'from-indigo-500 to-purple-500',
-                          bgColor: 'from-indigo-50 to-purple-50',
-                          features: ['Post Notifications', 'Team Updates', 'Analytics Reports']
-                        }
-                      ].map((integration, index) => (
-                        <div key={index} className={`group relative p-6 bg-gradient-to-br ${integration.bgColor} hover:from-white hover:to-gray-50 rounded-3xl border border-white/60 shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer backdrop-blur-sm`}>
-                          {/* Hover overlay */}
-                          <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-
-                          <div className="relative z-10">
-                            <div className={`w-14 h-14 bg-gradient-to-r ${integration.gradient} rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg group-hover:shadow-xl`}>
-                              <integration.icon className="w-7 h-7 text-white group-hover:scale-110 transition-transform duration-300" />
-                            </div>
-                            <h4 className="font-bold text-gray-900 text-lg group-hover:text-gray-800 transition-colors duration-300 mb-2">{integration.name}</h4>
-                            <p className="text-sm text-gray-600 mb-4 group-hover:text-gray-700 transition-colors duration-300">{integration.description}</p>
-
-                            {/* Features */}
-                            <div className="mb-4">
-                              {integration.features.map((feature, featureIndex) => (
-                                <div key={featureIndex} className="flex items-center text-xs text-gray-500 mb-1">
-                                  <CheckCircle className="w-3 h-3 text-green-500 mr-2" />
-                                  {feature}
-                                </div>
-                              ))}
-                            </div>
-
-                            {/* Status Badge */}
-                            <div className="flex items-center justify-center mb-4">
-                              <Badge
-                                variant={integration.status === 'Available' ? 'default' : 'secondary'}
-                                className={`text-xs ${integration.status === 'Available' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}
-                              >
-                                {integration.status}
-                              </Badge>
-                            </div>
-
-                            {/* Action Button */}
-                            <Button
-                              disabled={integration.status !== 'Available'}
-                              className={`w-full text-sm ${integration.status === 'Available'
-                                ? `bg-gradient-to-r ${integration.gradient} hover:opacity-90 text-white`
-                                : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                              } group-hover:scale-105 transition-all duration-300 shadow-lg`}
-                            >
-                              {integration.status === 'Available' ? (
-                                <>
-                                  <Link className="w-4 h-4 mr-2" />
-                                  Connect
-                                </>
-                              ) : (
-                                <>
-                                  <Clock className="w-4 h-4 mr-2" />
-                                  Coming Soon
-                                </>
-                              )}
-                            </Button>
-
-                            {/* Bottom accent line */}
-                            <div className={`absolute bottom-0 left-1/2 transform -translate-x-1/2 w-0 h-1 bg-gradient-to-r ${integration.gradient} rounded-full group-hover:w-16 transition-all duration-500`}></div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* API & Webhook Management */}
-                  <div className="mb-16">
-                    <div className="text-center mb-8">
-                      <h3 className="text-2xl font-bold text-gray-900 mb-2">API & Webhook Management</h3>
-                      <p className="text-gray-600">Manage your API keys, webhooks, and developer settings</p>
-                    </div>
-
-                    <div className="grid lg:grid-cols-3 gap-6">
-                      {/* API Keys */}
-                      <div className="group relative p-6 bg-gradient-to-br from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 rounded-3xl border border-white/60 shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer backdrop-blur-sm">
-                        <div className="relative z-10">
-                          <div className="w-14 h-14 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                            <Command className="w-7 h-7 text-white" />
-                          </div>
-                          <h4 className="font-bold text-gray-900 text-lg mb-2">API Keys</h4>
-                          <p className="text-sm text-gray-600 mb-4">Manage your API keys for external integrations</p>
-                          <div className="space-y-2 mb-4">
-                            <div className="flex justify-between text-xs">
-                              <span className="text-gray-500">Active Keys</span>
-                              <span className="font-medium text-gray-900">3</span>
-                            </div>
-                            <div className="flex justify-between text-xs">
-                              <span className="text-gray-500">Last Used</span>
-                              <span className="font-medium text-gray-900">2 hours ago</span>
-                            </div>
-                          </div>
-                          <Button size="sm" className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white">
-                            <Settings className="w-4 h-4 mr-2" />
-                            Manage Keys
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Webhooks */}
-                      <div className="group relative p-6 bg-gradient-to-br from-green-50 to-teal-50 hover:from-green-100 hover:to-teal-100 rounded-3xl border border-white/60 shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer backdrop-blur-sm">
-                        <div className="relative z-10">
-                          <div className="w-14 h-14 bg-gradient-to-r from-green-500 to-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                            <Zap className="w-7 h-7 text-white" />
-                          </div>
-                          <h4 className="font-bold text-gray-900 text-lg mb-2">Webhooks</h4>
-                          <p className="text-sm text-gray-600 mb-4">Configure webhooks for real-time notifications</p>
-                          <div className="space-y-2 mb-4">
-                            <div className="flex justify-between text-xs">
-                              <span className="text-gray-500">Active Hooks</span>
-                              <span className="font-medium text-gray-900">5</span>
-                            </div>
-                            <div className="flex justify-between text-xs">
-                              <span className="text-gray-500">Success Rate</span>
-                              <span className="font-medium text-green-600">99.2%</span>
-                            </div>
-                          </div>
-                          <Button size="sm" className="w-full bg-gradient-to-r from-green-500 to-teal-500 text-white">
-                            <Link className="w-4 h-4 mr-2" />
-                            Configure
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Rate Limits */}
-                      <div className="group relative p-6 bg-gradient-to-br from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 rounded-3xl border border-white/60 shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer backdrop-blur-sm">
-                        <div className="relative z-10">
-                          <div className="w-14 h-14 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                            <Activity className="w-7 h-7 text-white" />
-                          </div>
-                          <h4 className="font-bold text-gray-900 text-lg mb-2">Rate Limits</h4>
-                          <p className="text-sm text-gray-600 mb-4">Monitor API usage and rate limits</p>
-                          <div className="space-y-2 mb-4">
-                            <div className="flex justify-between text-xs">
-                              <span className="text-gray-500">Usage Today</span>
-                              <span className="font-medium text-gray-900">847/1000</span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full" style={{ width: '84.7%' }}></div>
-                            </div>
-                          </div>
-                          <Button size="sm" className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white">
-                            <BarChart3 className="w-4 h-4 mr-2" />
-                            View Usage
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Integration Status Dashboard */}
-                  <div className="mb-16">
-                    <div className="text-center mb-8">
-                      <h3 className="text-2xl font-bold text-gray-900 mb-2">Integration Status</h3>
-                      <p className="text-gray-600">Real-time status of all your integrations and connections</p>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-white via-blue-50/50 to-purple-50/50 rounded-3xl p-8 shadow-2xl border border-white/60 backdrop-blur-sm">
-                      <div className="grid lg:grid-cols-4 gap-6">
-                        {[
-                          { label: 'Connected Platforms', value: '5/5', status: 'excellent', color: 'text-green-600' },
-                          { label: 'Active Integrations', value: '12', status: 'good', color: 'text-blue-600' },
-                          { label: 'API Health', value: '99.9%', status: 'excellent', color: 'text-green-600' },
-                          { label: 'Last Sync', value: '2 min ago', status: 'good', color: 'text-blue-600' }
-                        ].map((stat, index) => (
-                          <div key={index} className="text-center">
-                            <div className={`text-2xl font-bold ${stat.color} mb-1`}>{stat.value}</div>
-                            <div className="text-sm text-gray-600">{stat.label}</div>
-                            <div className={`w-2 h-2 rounded-full mx-auto mt-2 ${
-                              stat.status === 'excellent' ? 'bg-green-400 animate-pulse' : 'bg-blue-400 animate-pulse'
-                            }`}></div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Call to Action */}
-                  <div className="text-center">
-                    <div className="bg-gradient-to-br from-white via-blue-50/50 to-purple-50/50 rounded-3xl p-12 shadow-2xl border border-white/60 backdrop-blur-sm relative overflow-hidden">
-                      {/* Background gradient overlay */}
-                      <div className="absolute inset-0 bg-gradient-to-br from-blue-50/20 to-purple-50/20 rounded-3xl"></div>
-
-                      <div className="relative z-10">
-                        <div className="flex items-center justify-center mb-6">
-                          <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg animate-pulse">
-                            <Sparkles className="w-8 h-8 text-white" />
-                          </div>
-                        </div>
-                        <h3 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-purple-900 bg-clip-text text-transparent mb-4">
-                          Ready to get started?
-                        </h3>
-                        <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
-                          Connect your social media accounts and start publishing amazing content with AI assistance.
-                        </p>
-                        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                          <Button
-                            onClick={() => navigate('/create')}
-                            size="lg"
-                            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-4 text-lg shadow-lg hover:shadow-xl transition-all duration-300"
-                          >
-                            <Wand2 className="w-5 h-5 mr-2" />
-                            Create Your First Post
-                          </Button>
-                          <Button
-                            onClick={() => setActiveTab("overview")}
-                            variant="outline"
-                            size="lg"
-                            className="px-8 py-4 text-lg border-2 hover:bg-gray-50"
-                          >
-                            <ArrowUpRight className="w-5 h-5 mr-2" />
-                            View Dashboard
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Settings */}
             {activeTab === "settings" && (

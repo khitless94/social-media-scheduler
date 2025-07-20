@@ -38,7 +38,7 @@ export function TimePickerTest() {
           🧪 Time Picker Test
         </h1>
         <p className="text-gray-600">
-          Testing flexible time selection - like PostScheduler.co
+          Testing flexible time selection capabilities
         </p>
       </div>
 
@@ -98,7 +98,7 @@ export function TimePickerTest() {
         {/* PostScheduler Style Picker */}
         <Card className="p-6">
           <h3 className="font-semibold text-purple-800 mb-4">
-            🚀 PostScheduler Style
+            🚀 Flexible Timing Style
           </h3>
           <div className="space-y-4">
             <PostSchedulerDateTimePicker

@@ -28,7 +28,7 @@ class ToastManager {
   canShowToast(platform: string, type: string = 'success'): boolean {
     // Check if toasts are disabled for this platform
     if (this.disabledToasts.has(platform)) {
-      console.log(`Toast disabled for ${platform}`);
+      // Toast disabled
       return false;
     }
 
@@ -38,11 +38,11 @@ class ToastManager {
 
     if (!lastShown || now - lastShown > this.DEBOUNCE_TIME) {
       this.recentToasts.set(key, now);
-      console.log(`Showing toast for ${platform}`);
+      // Showing toast
       return true;
     }
 
-    console.log(`Toast blocked for ${platform} - too recent`);
+    // Toast blocked - too recent
     return false;
   }
 
@@ -68,7 +68,7 @@ const toastManager = ToastManager.getInstance();
 // Helper function to format platform names properly
 const formatPlatformName = (platform: string): string => {
   if (!platform || typeof platform !== 'string') {
-    console.warn('Invalid platform value:', platform);
+    // Invalid platform value
     return 'Social Media';
   }
 
@@ -137,7 +137,7 @@ export const useSocialMediaConnection = (
       try {
         return await fn();
       } catch (error: any) {
-        console.warn(`Attempt ${i + 1} failed:`, error.message);
+        // Retry attempt failed
         if (i === retries - 1) throw error;
 
         // Exponential backoff: wait 1s, 2s, 4s
@@ -152,7 +152,7 @@ export const useSocialMediaConnection = (
     if (!user) return;
 
     try {
-      console.log('Using alternative connection status loading method...');
+      // Using alternative connection status loading method
 
       // Use production Supabase URLs
       const supabaseUrl = SUPABASE_URL;
@@ -178,7 +178,7 @@ export const useSocialMediaConnection = (
         const data = await oauthResponse.value.json();
         if (Array.isArray(data)) {
           allCredentials.push(...data);
-          console.log('OAuth credentials found:', data);
+          // OAuth credentials found
         }
       }
 
@@ -187,7 +187,7 @@ export const useSocialMediaConnection = (
         const data = await socialResponse.value.json();
         if (Array.isArray(data)) {
           allCredentials.push(...data);
-          console.log('Social tokens found:', data);
+          // Social tokens found
         }
       }
 
@@ -201,7 +201,7 @@ export const useSocialMediaConnection = (
       // Update both the ref and the callback
       currentConnectionStatus.current = newStatus;
       onConnectionStatusChange(newStatus);
-      console.log('Alternative method - Successfully loaded connection status:', newStatus);
+      // Alternative method - Successfully loaded connection status
 
     } catch (error) {
       console.error('Alternative connection status loading failed:', error);
@@ -212,47 +212,46 @@ export const useSocialMediaConnection = (
   const loadConnectionStatusFromDB = useCallback(async () => {
     if (!user) return;
 
-    // Use localStorage as the primary source and force UI update
+    // IMMEDIATE: Use localStorage as the primary source for instant UI updates
     const localStatus = loadFromLocalStorage();
     if (localStatus) {
-      // Force update even if status seems the same
+      // Immediately update UI without waiting
       currentConnectionStatus.current = localStatus;
       onConnectionStatusChange(localStatus);
-
-      // Force re-render to ensure UI updates
       forceRender();
-    } else {
-
-      // Check individual platform connection keys directly
-      const platforms: Platform[] = ['twitter', 'linkedin', 'reddit', 'facebook', 'instagram'];
-      const directStatus: ConnectionStatus = {
-        twitter: false, linkedin: false, instagram: false, facebook: false, reddit: false,
-      };
-
-      let hasAnyConnection = false;
-      platforms.forEach(platform => {
-        const connectionKey = `connected_${platform}_${user.id}`;
-        const isConnected = localStorage.getItem(connectionKey) === 'true';
-        directStatus[platform] = isConnected;
-        if (isConnected) {
-          hasAnyConnection = true;
-          console.log(`✅ Direct check: ${platform} is connected`);
-        }
-      });
-
-      if (hasAnyConnection) {
-        console.log('✅ Found connections via direct check:', directStatus);
-        currentConnectionStatus.current = directStatus;
-        onConnectionStatusChange(directStatus);
-        forceRender();
-      } else {
-        console.log('📭 No connections found, setting empty status');
-        currentConnectionStatus.current = directStatus;
-        onConnectionStatusChange(directStatus);
-      }
+      // Immediate localStorage update
+      return; // Exit early for faster UI updates
     }
 
-    console.log('✅ Connection status loading complete');
+    // FALLBACK: Check individual platform connection keys directly
+    const platforms: Platform[] = ['twitter', 'linkedin', 'reddit', 'facebook', 'instagram'];
+    const directStatus: ConnectionStatus = {
+      twitter: false, linkedin: false, instagram: false, facebook: false, reddit: false,
+    };
+
+    let hasAnyConnection = false;
+    platforms.forEach(platform => {
+      const connectionKey = `connected_${platform}_${user.id}`;
+      const isConnected = localStorage.getItem(connectionKey) === 'true';
+      directStatus[platform] = isConnected;
+      if (isConnected) {
+        hasAnyConnection = true;
+        // Direct check: platform is connected
+      }
+    });
+
+    if (hasAnyConnection) {
+      // Found connections via direct check
+      currentConnectionStatus.current = directStatus;
+      onConnectionStatusChange(directStatus);
+      forceRender();
+    } else {
+      // No connections found, setting empty status
+      currentConnectionStatus.current = directStatus;
+      onConnectionStatusChange(directStatus);
+    }
+
+    // Connection status loading complete
   }, [user, onConnectionStatusChange, forceRender]);
 
   // Load from localStorage
@@ -300,16 +299,16 @@ export const useSocialMediaConnection = (
 
   // Debounce mechanism to prevent excessive calls
   const lastLoadTime = useRef<number>(0);
-  const LOAD_DEBOUNCE_MS = 2000; // Increased to 2 seconds to reduce calls
+  const LOAD_DEBOUNCE_MS = 100; // Reduced to 100ms for much faster updates
 
   const debouncedLoadConnectionStatus = useCallback(async (forceLoad = false) => {
     const now = Date.now();
     if (!forceLoad && now - lastLoadTime.current < LOAD_DEBOUNCE_MS) {
-      console.log('Skipping connection status load due to debounce');
+      // Skipping connection status load due to debounce
       return;
     }
     lastLoadTime.current = now;
-    console.log('🔄 LOADING CONNECTION STATUS - Force:', forceLoad);
+    // Loading connection status
     await loadConnectionStatusFromDB();
   }, [loadConnectionStatusFromDB]);
 
@@ -338,7 +337,7 @@ export const useSocialMediaConnection = (
 
             // Only process if it's recent (within last 30 seconds) and for current user
             if (Date.now() - timestamp < 30000 && userId === user?.id) {
-              console.log(`🎯 POLLING DETECTED: ${platform} OAuth success!`);
+              // OAuth success detected
 
               // Trigger immediate UI update
               currentConnectionStatus.current = {
@@ -356,19 +355,17 @@ export const useSocialMediaConnection = (
 
               // Clear any previous toast state
               toastManager.clearPlatform(platform);
-              console.log('🎯 TOAST DEBUG: platform =', platform, 'type =', typeof platform);
               const platformName = formatPlatformName(platform);
-              console.log('🎯 TOAST DEBUG: platformName =', platformName);
 
-              // Trigger manual refresh to ensure UI updates (force load)
+              // Trigger immediate refresh to ensure UI updates (force load)
               setTimeout(() => {
                 debouncedLoadConnectionStatus(true);
-              }, 200);
+              }, 50);
 
-              console.log(`✅ POLLING SUCCESS: ${platform} UI updated`);
+              // UI updated
             }
           } catch (e) {
-            console.warn('Failed to parse OAuth success flag:', e);
+            // Failed to parse OAuth success flag
             localStorage.removeItem('oauth_success_flag');
           }
         }
@@ -401,7 +398,7 @@ export const useSocialMediaConnection = (
           if (successValue || completeValue) {
             const timestamp = successValue ? parseInt(successValue) : Date.now();
             if (Date.now() - timestamp < 60000) { // Within last 60 seconds (increased window)
-              console.log(`🎯 INDIVIDUAL POLLING: ${platform} success detected!`);
+              // Individual polling success detected
 
               // Update UI immediately + PERSIST
               const newStatus = {
@@ -427,7 +424,7 @@ export const useSocialMediaConnection = (
 
               const platformName = formatPlatformName(platform);
 
-              console.log(`✅ INDIVIDUAL POLLING SUCCESS: ${platform} UI updated`);
+              // Individual polling UI updated
             }
           }
         });
@@ -438,7 +435,7 @@ export const useSocialMediaConnection = (
           try {
             const { platform, timestamp, userId } = JSON.parse(lastSuccess);
             if (Date.now() - timestamp < 60000 && userId === user?.id) {
-              console.log(`🎯 LAST SUCCESS POLLING: ${platform} detected!`);
+              // Last success polling detected
 
               const newStatus = {
                 ...currentConnectionStatus.current,
@@ -456,10 +453,10 @@ export const useSocialMediaConnection = (
               toastManager.clearPlatform(platform);
               const platformName = formatPlatformName(platform);
 
-              // Trigger manual refresh to ensure UI updates (force load)
+              // Trigger immediate refresh to ensure UI updates (force load)
               setTimeout(() => {
                 debouncedLoadConnectionStatus(true);
-              }, 200);
+              }, 50);
             }
           } catch (e) {
             localStorage.removeItem('last_oauth_success');
@@ -469,7 +466,7 @@ export const useSocialMediaConnection = (
         // Check for force refresh flag - triggers immediate DB check
         const forceRefresh = localStorage.getItem('force_connection_refresh');
         if (forceRefresh) {
-          console.log('🎯 FORCE REFRESH DETECTED: Triggering immediate DB check');
+          // Force refresh detected
           localStorage.removeItem('force_connection_refresh');
 
           // Force immediate database refresh
@@ -477,7 +474,7 @@ export const useSocialMediaConnection = (
             debouncedLoadConnectionStatus();
           }, 100);
         }
-      }, 2000); // Poll every 2 seconds to reduce excessive calls
+      }, 1000); // Poll every 1 second for faster updates
 
       return interval;
     };
@@ -496,7 +493,7 @@ export const useSocialMediaConnection = (
   useEffect(() => {
     // GLOBAL FUNCTION - Can be called directly from OAuth callback
     const handleOAuthSuccess = (platform: string) => {
-      console.log(`🎯 GLOBAL FUNCTION: OAuth success for ${platform} - IMMEDIATE UI UPDATE`);
+      // Global function: OAuth success - immediate UI update
 
       // GUARANTEED UI UPDATE STRATEGY + PERSISTENCE
 
@@ -523,7 +520,7 @@ export const useSocialMediaConnection = (
         const currentStatus = JSON.parse(localStorage.getItem(statusKey) || '{}');
         currentStatus[platform] = true;
         localStorage.setItem(statusKey, JSON.stringify(currentStatus));
-        console.log(`✅ PERSISTED: Updated general status object:`, currentStatus);
+        // Persisted: Updated general status object
       }
 
       // 4. Force component re-render
@@ -545,12 +542,12 @@ export const useSocialMediaConnection = (
       // Single immediate update to reduce excessive calls
       immediateUpdate(); // Immediate
 
-      // Trigger manual refresh to ensure UI updates (force load)
+      // Trigger immediate refresh to ensure UI updates (force load)
       setTimeout(() => {
         debouncedLoadConnectionStatus(true);
-      }, 100);
+      }, 50);
 
-      console.log(`✅ GLOBAL FUNCTION: ${platform} UI update complete`);
+      // Global function: UI update complete
     };
 
     // Make function globally accessible
@@ -572,7 +569,7 @@ export const useSocialMediaConnection = (
       if (event.key?.startsWith('oauth_success_')) {
         const platform = event.key.replace('oauth_success_', '');
         if (event.newValue) {
-          console.log(`🎯 Storage event: ${platform} connected`);
+          // Storage event: platform connected
           handleOAuthSuccess(platform);
           // Clean up storage
           localStorage.removeItem(event.key);
@@ -584,7 +581,7 @@ export const useSocialMediaConnection = (
 
     // Listen for custom refresh events
     const handleRefreshEvent = () => {
-      console.log('🔄 Custom refresh event triggered');
+      // Custom refresh event triggered
       debouncedLoadConnectionStatus(true); // Force load on custom refresh
     };
 
@@ -599,7 +596,7 @@ export const useSocialMediaConnection = (
     };
   }, [onConnectionStatusChange, toast, forceRender]);
 
-  const connectPlatform = async (platform: Platform) => {
+  const connectPlatform = useCallback(async (platform: Platform) => {
     if (!user) {
       toast({ title: "Authentication required", variant: "destructive" });
       return;
@@ -607,7 +604,7 @@ export const useSocialMediaConnection = (
 
     // Prevent multiple simultaneous connection attempts
     if (isConnecting[platform]) {
-      console.log(`Connection already in progress for ${platform}`);
+      // Connection already in progress
       return;
     }
 
@@ -638,31 +635,24 @@ export const useSocialMediaConnection = (
         throw new Error('User not authenticated. Please log in first.');
       }
 
-      console.log(`[OAuth] User authenticated, proceeding with ${platform} connection`);
-
-      console.log(`[OAuth] Delegating session management to auth-redirect function for ${platform}`);
-
-      // Use the auth-redirect function which handles session management
-      console.log(`[OAuth] Starting OAuth flow for ${platform} using auth-redirect function`);
+      // User authenticated, proceeding with platform connection
 
       const clientId = getClientIdForPlatform(platform);
       let authorizationUrl = '';
 
       // Use the auth-redirect function instead of building OAuth URL directly
       // This ensures consistent redirect URI without platform parameters
-      console.log(`[OAuth] Using auth-redirect function for ${platform}`);
-      console.log(`[OAuth] Client ID for ${platform}: ${clientId}`);
 
       // Use the auth-redirect function which handles OAuth URL generation properly
       authorizationUrl = `${SUPABASE_URL}/functions/v1/auth-redirect?platform=${platform}&user_id=${user.id}`;
 
-      console.log(`[OAuth] Auth-redirect URL: ${authorizationUrl}`);
+      // Auth-redirect URL prepared
 
       if (!authorizationUrl) {
         throw new Error(`Platform "${platform}" is not configured for OAuth connection.`);
       }
 
-      console.log(`[OAuth] Opening OAuth popup for ${platform}:`, authorizationUrl);
+      // Opening OAuth popup
 
       // Store OAuth attempt timestamp for fallback detection
       localStorage.setItem(`oauth_attempt_${platform}`, Date.now().toString());
@@ -715,9 +705,9 @@ export const useSocialMediaConnection = (
         variant: "destructive"
       });
     }
-  };
+  }, [user, toast, setIsConnecting, debouncedLoadConnectionStatus]);
 
-  const disconnectPlatform = async (platform: Platform) => {
+  const disconnectPlatform = useCallback(async (platform: Platform) => {
     if (!user) return;
     try {
       setIsConnecting(prev => ({ ...prev, [platform]: true }));
@@ -744,7 +734,7 @@ export const useSocialMediaConnection = (
       }
 
       const result = await response.json();
-      console.log(`✅ DISCONNECTED: ${platform} via edge function:`, result);
+      // Platform disconnected via edge function
 
       // CLEAR FROM LOCALSTORAGE FOR IMMEDIATE UI UPDATE
       const key = `connected_${platform}_${user.id}`;
@@ -774,10 +764,10 @@ export const useSocialMediaConnection = (
     } finally {
       setIsConnecting(prev => ({ ...prev, [platform]: false }));
     }
-  };
+  }, [user, toast, setIsConnecting, debouncedLoadConnectionStatus]);
 
-  const refreshConnectionStatus = async () => {
-    console.log('🔄 Manual refresh triggered - FORCE UPDATE');
+  const refreshConnectionStatus = useCallback(async () => {
+    // Manual refresh triggered
 
     // Force refresh by resetting debounce timer
     lastLoadTime.current = 0;
@@ -788,15 +778,22 @@ export const useSocialMediaConnection = (
     // Also trigger the debounced version for good measure
     setTimeout(() => {
       debouncedLoadConnectionStatus();
-    }, 100);
+    }, 50);
 
     // Force re-render
     forceRender();
 
-    console.log('✅ Manual refresh complete');
-  };
+    // Manual refresh complete
+  }, [loadConnectionStatusFromDB, debouncedLoadConnectionStatus, forceRender]);
 
-
+  // Initialize connection status immediately when user is available
+  useEffect(() => {
+    if (user) {
+      // User available, loading status immediately
+      // Load immediately without debounce for initial load
+      loadConnectionStatusFromDB();
+    }
+  }, [user, loadConnectionStatusFromDB]);
 
   return { isConnecting, connectPlatform, disconnectPlatform, refreshConnectionStatus };
 };

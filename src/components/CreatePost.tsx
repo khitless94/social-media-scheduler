@@ -247,7 +247,7 @@ const CreatePost: React.FC = () => {
   });
 
   // Use the wrapper social media connection hook
-  const { connectPlatform: connectToSocialPlatform, isConnecting, connectionStatus: hookConnectionStatus, loadConnectionStatus } = useSocialMediaConnection(setConnectionStatus);
+  const { connectPlatform: connectToSocialPlatform, isConnecting, connectionStatus: hookConnectionStatus, refreshConnectionStatus } = useSocialMediaConnection(setConnectionStatus);
 
   // Sync connection status from hook
   useEffect(() => {
@@ -261,8 +261,8 @@ const CreatePost: React.FC = () => {
   // Load connection status when component mounts
   useEffect(() => {
     console.log('🚀 [CreatePost] Component mounted, loading connection status...');
-    loadConnectionStatus();
-  }, [loadConnectionStatus]);
+    refreshConnectionStatus();
+  }, [refreshConnectionStatus]);
 
   // Debug current connection status
   useEffect(() => {
