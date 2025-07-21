@@ -2,12 +2,12 @@ import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, X, Share2 } from 'lucide-react';
-import { FaInstagram, FaFacebook, FaLinkedin, FaTwitter } from 'react-icons/fa';
+import { FaInstagram, FaFacebook, FaLinkedin, FaTwitter, FaReddit } from 'react-icons/fa';
 
 interface PlatformRequirementModalProps {
   isOpen: boolean;
   onClose: () => void;
-  platform: 'instagram' | 'facebook' | 'linkedin' | 'twitter' | null;
+  platform: 'instagram' | 'facebook' | 'linkedin' | 'twitter' | 'reddit' | null;
   onContinue: () => void;
 }
 
@@ -59,6 +59,17 @@ const PlatformRequirementModal: React.FC<PlatformRequirementModalProps> = ({
         'Account must comply with X\'s developer policies',
         'Account must have appropriate permissions',
         'Account must be verified for business use'
+      ]
+    },
+    reddit: {
+      name: 'Reddit',
+      icon: FaReddit,
+      color: 'bg-orange-600',
+      requirements: [
+        'Account must have appropriate karma and age requirements',
+        'Account must comply with Reddit\'s content policy',
+        'Account must have permissions to post in target subreddits',
+        'Account must follow subreddit-specific rules and guidelines'
       ]
     }
   };

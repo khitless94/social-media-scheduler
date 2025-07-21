@@ -755,7 +755,6 @@ export const useSocialMediaConnection = (
 
       debouncedLoadConnectionStatus(); // Refresh the UI after disconnecting
     } catch (error: any) {
-      console.error(`Error disconnecting ${platform}:`, error);
       toast({
         title: "Error",
         description: `Failed to disconnect ${platform} account: ${error.message}`,

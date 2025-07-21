@@ -96,8 +96,6 @@ export const DatabaseChecker: React.FC = () => {
   const checkRecentPosts = async () => {
     setIsLoading(true);
     try {
-      console.log('🔍 [DatabaseChecker] Checking recent posts...');
-
       const { data: recentPosts, error } = await supabase
         .from('posts')
         .select('*')
@@ -105,7 +103,6 @@ export const DatabaseChecker: React.FC = () => {
         .limit(15);
 
       if (error) {
-        console.error('❌ [DatabaseChecker] Error:', error);
         toast({
           title: "❌ Database Error",
           description: error.message,
@@ -114,7 +111,6 @@ export const DatabaseChecker: React.FC = () => {
         return;
       }
 
-      console.log('📊 [DatabaseChecker] Recent posts:', recentPosts);
       setResults({ type: 'recent', data: recentPosts });
 
       toast({

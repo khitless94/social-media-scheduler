@@ -54,8 +54,6 @@ export function QuickSocialTest() {
 
       for (const platform of selectedPlatforms) {
         try {
-          console.log(`🚀 Testing direct post to ${platform}...`);
-          
           const response = await fetch('https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/post-to-social', {
             method: 'POST',
             headers: {

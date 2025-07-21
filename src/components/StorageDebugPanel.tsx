@@ -24,7 +24,7 @@ export function StorageDebugPanel() {
       const diagnosticResults = await runFullDiagnostic();
       setResults(diagnosticResults);
     } catch (error) {
-      console.error('Diagnostic failed:', error);
+      // Diagnostic failed - handled silently
     } finally {
       setIsRunning(false);
     }

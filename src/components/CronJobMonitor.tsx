@@ -55,7 +55,7 @@ export function CronJobMonitor() {
       }
 
     } catch (error) {
-      console.error('Error loading data:', error);
+      // Error loading data - handled silently
     }
   };
 
@@ -78,7 +78,6 @@ export function CronJobMonitor() {
 
       await loadData();
     } catch (error: any) {
-      console.error('Test error:', error);
       toast({
         title: "❌ Test Failed",
         description: error.message,

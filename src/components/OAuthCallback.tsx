@@ -660,7 +660,6 @@ Please check your Twitter app configuration and try again.`;
           setStatus('error');
           setMessage('OAuth flow incomplete. Please try connecting again.');
 
-          console.warn("OAuth flow completed but no clear success/error state");
           toast({
             title: "OAuth Flow Incomplete",
             description: "Please try connecting again.",
@@ -680,7 +679,6 @@ Please check your Twitter app configuration and try again.`;
         }
 
       } catch (error: any) {
-        console.error('Callback handling error:', error);
         setStatus('error');
         setMessage('Failed to process authentication callback.');
         

@@ -94,7 +94,6 @@ export function CleanupScheduledPosts() {
 
       await loadPosts();
     } catch (error: any) {
-      console.error('Cleanup error:', error);
       toast({
         title: "❌ Cleanup Failed",
         description: error.message,

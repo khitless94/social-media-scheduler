@@ -99,8 +99,6 @@ export const DirectDatabaseTest: React.FC = () => {
         return;
       }
 
-      console.log('✅ [DirectTest] Scheduled insert succeeded:', scheduledResult);
-
       setResults({
         type: 'success',
         minimal: minimalResult,
@@ -114,7 +112,6 @@ export const DirectDatabaseTest: React.FC = () => {
       });
 
     } catch (error: any) {
-      console.error('❌ [DirectTest] Exception:', error);
       setResults({
         type: 'exception',
         message: error.message,
@@ -162,7 +159,6 @@ export const DirectDatabaseTest: React.FC = () => {
       });
 
     } catch (error: any) {
-      console.error('❌ [DirectTest] Query failed:', error);
       setResults({
         type: 'query_failed',
         message: error.message

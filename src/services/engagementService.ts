@@ -122,7 +122,6 @@ export class EngagementService {
             try {
               // Only sync if we have platform post IDs
               if (!post.platform_post_ids || Object.keys(post.platform_post_ids).length === 0) {
-                console.log(`Skipping post ${post.id} - no platform post IDs`);
                 return;
               }
 
@@ -136,12 +135,7 @@ export class EngagementService {
               // Add delay to respect rate limits
               await new Promise(resolve => setTimeout(resolve, 500));
             } catch (error) {
-              // Only log non-connection errors to reduce noise
-              if (!error.message.includes('not connected')) {
-                console.error(`Error syncing engagement for post ${post.id}:`, error);
-              } else {
-                console.log(`ℹ️ Skipping post ${post.id} - platforms not connected`);
-              }
+              // Handle errors silently in production
             }
           })
         );

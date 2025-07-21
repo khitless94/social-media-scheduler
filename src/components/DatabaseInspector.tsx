@@ -107,9 +107,8 @@ export const DatabaseInspector: React.FC = () => {
         .single();
 
       if (error) {
-        console.error('❌ [DatabaseInspector] Minimal insert failed:', error);
-        setSchemaInfo({ 
-          type: 'minimal_error', 
+        setSchemaInfo({
+          type: 'minimal_error',
           message: error.message,
           details: error.details,
           hint: error.hint,
@@ -117,9 +116,8 @@ export const DatabaseInspector: React.FC = () => {
           data: minimalData
         });
       } else {
-        console.log('✅ [DatabaseInspector] Minimal insert succeeded:', data);
         setSchemaInfo({ type: 'minimal_success', data });
-        
+
         toast({
           title: "✅ Minimal Insert Worked!",
           description: "Basic insert is working. Issue might be with optional fields.",
@@ -127,9 +125,8 @@ export const DatabaseInspector: React.FC = () => {
       }
 
     } catch (error: any) {
-      console.error('❌ [DatabaseInspector] Exception:', error);
-      setSchemaInfo({ 
-        type: 'exception', 
+      setSchemaInfo({
+        type: 'exception',
         message: error.message
       });
       

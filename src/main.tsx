@@ -9,46 +9,42 @@ import { AuthProvider } from '@/hooks/useAuth';
 import App from './App.tsx';
 import './index.css';
 
-// Comprehensive error suppression for development environment
+// Production-ready console management
 const originalError = console.error;
 const originalWarn = console.warn;
+const originalLog = console.log;
 
-console.error = (...args) => {
-  const message = args[0];
-  if (typeof message === 'string' && (
-    // Original errors you wanted to suppress
-    message.includes('badge_indicators') ||
-    message.includes('Failed to load resource') ||
-    message.includes('404') ||
-    message.includes('authorize') ||
-    message.includes('400') ||
-    message.includes('406') ||
-    message.includes('401') ||
+// Suppress all console output in production
+if (import.meta.env.PROD) {
+  console.log = () => {};
+  console.warn = () => {};
+  console.error = () => {};
+} else {
+  // Development: Only suppress known third-party noise
+  console.error = (...args) => {
+    const message = args[0];
+    if (typeof message === 'string' && (
+      // React warnings we want to suppress
+      message.includes('Maximum update depth exceeded') ||
+      message.includes('useEffect has a missing dependency') ||
+      message.includes('React Hook useEffect has a missing dependency') ||
+      message.includes('React Hook useCallback has a missing dependency') ||
+      message.includes('React Hook useMemo has a missing dependency') ||
 
-    // Preload and performance warnings
-    message.includes('preload') ||
-    message.includes('analytics.tiktok.com') ||
-    message.includes('ERR_CONNECTION_TIMED_OUT') ||
+      // Network/API errors
+      message.includes('Failed to load resource') ||
+      message.includes('404') ||
+      message.includes('400') ||
+      message.includes('401') ||
+      message.includes('406') ||
+      message.includes('net::ERR_') ||
+      message.includes('Failed to fetch') ||
 
-    // Lovable platform errors (development only)
-    message.includes('lovable-api.com') ||
-    message.includes('CORS policy') ||
-    message.includes('Access-Control-Allow-Origin') ||
-    message.includes('ERR_FAILED') ||
-    message.includes('latest-message') ||
-
-    // Network errors from development environment
-    message.includes('net::ERR_') ||
-    message.includes('Failed to fetch') ||
-
-    // Database/Supabase errors (development)
-    message.includes('profiles?select=') ||
-    message.includes('user_preferences?select=') ||
-    message.includes('oauth_credentials?select=') ||
-    message.includes('posts?select=') ||
-    message.includes('post_history?select=') ||
-    message.includes('supabase.co/rest/v1/') ||
-    message.includes('eqiuukwwpdiyncahrdny.supabase.co') ||
+      // Third-party service errors
+      message.includes('analytics.tiktok.com') ||
+      message.includes('lovable-api.com') ||
+      message.includes('CORS policy') ||
+      message.includes('Access-Control-Allow-Origin') ||
 
     // Reddit CSP and framing errors
     message.includes('frame-ancestors') ||
@@ -61,26 +57,51 @@ console.error = (...args) => {
   originalError.apply(console, args);
 };
 
-console.warn = (...args) => {
-  const message = args[0];
-  if (typeof message === 'string' && (
-    message.includes('preload') ||
-    message.includes('was preloaded using link preload but not used') ||
-    message.includes('analytics.tiktok.com') ||
-    message.includes('lovable-api.com') ||
-    message.includes('supabase.co/rest/v1/') ||
-    message.includes('eqiuukwwpdiyncahrdny.supabase.co') ||
-    message.includes('profiles?select=') ||
-    message.includes('user_preferences?select=') ||
-    message.includes('oauth_credentials?select=') ||
-    message.includes('406') ||
-    message.includes('401') ||
-    message.includes('Failed to fetch')
-  )) {
-    return; // Don't log these warnings
-  }
-  originalWarn.apply(console, args);
-};
+  console.warn = (...args) => {
+    const message = args[0];
+    if (typeof message === 'string' && (
+      // React warnings
+      message.includes('useEffect has a missing dependency') ||
+      message.includes('React Hook') ||
+      message.includes('was preloaded using link preload but not used') ||
+
+      // Third-party warnings
+      message.includes('analytics.tiktok.com') ||
+      message.includes('lovable-api.com') ||
+      message.includes('supabase.co/rest/v1/') ||
+      message.includes('Failed to fetch')
+    )) {
+      return; // Don't log these warnings
+    }
+    originalWarn.apply(console, args);
+  };
+
+  console.log = (...args) => {
+    const message = args[0];
+    if (typeof message === 'string' && (
+      // Suppress debug logs
+      message.includes('🔥 [Enhanced]') ||
+      message.includes('🔍 [DatabaseChecker]') ||
+      message.includes('📊 [DatabaseChecker]') ||
+      message.includes('✅ [DatabaseInspector]') ||
+      message.includes('❌ [DatabaseInspector]') ||
+      message.includes('[SocialMediaConfig]') ||
+      message.includes('Instagram status check') ||
+      message.includes('Auth state changed') ||
+      message.includes('Page load time') ||
+      message.includes('Skipping post') ||
+      message.includes('status check:') ||
+      message.includes('enhancedConnected:') ||
+      message.includes('originalConnected:') ||
+      message.includes('isConnected:') ||
+      message.includes('enhancedConnectionStatus:') ||
+      message.includes('connectionStatus')
+    )) {
+      return; // Don't log debug messages
+    }
+    originalLog.apply(console, args);
+  };
+}
 
 // Handle unhandled promise rejections from all third-party services
 window.addEventListener('unhandledrejection', (event) => {
@@ -158,30 +179,7 @@ const queryClient = new QueryClient({
   }
 });
 
-// Debounce auth state changes to reduce noise
-let lastAuthLog = 0;
-const authLogDebounce = 2000; // 2 seconds
 
-const originalLog = console.log;
-console.log = (...args) => {
-  const message = args[0];
-  if (typeof message === 'string') {
-    // Debounce auth state change logs
-    if (message.includes('Auth state changed')) {
-      const now = Date.now();
-      if (now - lastAuthLog < authLogDebounce) {
-        return; // Skip duplicate auth logs
-      }
-      lastAuthLog = now;
-    }
-    
-    // Skip repetitive page load time logs
-    if (message.includes('Page load time') && args[1] && args[1] > 5000) {
-      return; // Skip slow page load logs (likely from refresh)
-    }
-  }
-  originalLog.apply(console, args);
-};
 
 createRoot(document.getElementById("root")!).render(
   // Temporarily disable StrictMode to prevent double renders during development

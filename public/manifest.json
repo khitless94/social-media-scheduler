@@ -1,6 +1,6 @@
 {
-  "name": "Scribe - Social Media Scheduler",
-  "short_name": "Scribe",
+  "name": "ScribeSchedule - Social Media Scheduler",
+  "short_name": "ScribeSchedule",
   "description": "AI-powered social media content scheduler",
   "start_url": "/",
   "display": "standalone",

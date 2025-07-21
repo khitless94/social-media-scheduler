@@ -64,7 +64,6 @@ export class SocialPostingProcessor {
         error = result.error;
       } catch (funcError) {
         // Fallback to direct query if function doesn't exist
-        console.log('📋 [SocialProcessor] Function not found, using direct query fallback');
         const result = await supabase
           .from('posts')
           .select('id, user_id, content, platform, image_url, scheduled_at, updated_at')
@@ -75,16 +74,12 @@ export class SocialPostingProcessor {
       }
 
       if (error) {
-        console.error('❌ [SocialProcessor] Error fetching ready posts:', error);
         return;
       }
 
       if (!readyPosts || readyPosts.length === 0) {
-        console.log('📭 [SocialProcessor] No posts ready for processing');
         return;
       }
-
-      console.log(`📬 [SocialProcessor] Found ${readyPosts.length} posts ready for processing`);
 
       // Process each post
       for (const post of readyPosts) {
@@ -95,7 +90,7 @@ export class SocialPostingProcessor {
       }
 
     } catch (error) {
-      console.error('❌ [SocialProcessor] Error in processReadyPosts:', error);
+      // Error in processReadyPosts - handled silently
     } finally {
       this.isProcessing = false;
     }
@@ -106,12 +101,9 @@ export class SocialPostingProcessor {
    */
   private static async processPost(post: any) {
     try {
-      console.log(`🚀 [SocialProcessor] Processing post ${post.id} for ${post.platform}`);
-
       // Get current session for API calls
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        console.error('❌ [SocialProcessor] No active session');
         await this.markPostAsFailed(post.id, 'No active session');
         return;
       }
@@ -122,8 +114,6 @@ export class SocialPostingProcessor {
         platform: post.platform,
         ...(post.image_url && { image: post.image_url })
       };
-
-      console.log(`📤 [SocialProcessor] Calling social media API for ${post.platform}`);
 
       // Call your existing social media API
       const response = await fetch('https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/post-to-social', {
@@ -213,7 +203,6 @@ export class SocialPostingProcessor {
    * Manual trigger for processing (for testing)
    */
   static async triggerProcessing() {
-    console.log('🧪 [SocialProcessor] Manual trigger requested');
     await this.processReadyPosts();
   }
 

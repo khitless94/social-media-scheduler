@@ -52,21 +52,17 @@ export const EnhancedPlatformCard: React.FC<EnhancedPlatformCardProps> = ({
   const isReddit = platform.key === 'reddit';
 
   const handleConnect = () => {
-    console.log('🔥 [EnhancedPlatformCard] handleConnect called for:', platform.key, { isConnected, hasMultipleAccounts, isReddit });
     if (isConnected && hasMultipleAccounts) {
       // Show multiple accounts modal if already connected and has multiple accounts
-      console.log('🔥 [EnhancedPlatformCard] Showing multiple accounts modal');
       onShowMultipleAccounts(platform.key as Platform);
     } else if (!isConnected) {
       // For new connections, directly connect without showing requirements modal
-      console.log('🔥 [EnhancedPlatformCard] Directly connecting to:', platform.key);
       onConnect(platform.key);
     }
     // Note: If connected but no multiple accounts, the button won't be shown (handled in render logic)
   };
 
   const handleConnectAnother = () => {
-    console.log('🔥 [EnhancedPlatformCard] handleConnectAnother called for:', platform.key);
     onShowRequirements(platform.key as Platform);
   };
 
@@ -163,10 +159,7 @@ export const EnhancedPlatformCard: React.FC<EnhancedPlatformCardProps> = ({
             {/* Manage Accounts Button */}
             <Button
               variant="outline"
-              onClick={() => {
-                console.log('🔥 [EnhancedPlatformCard] Manage Accounts clicked for:', platform.key);
-                onShowMultipleAccounts(platform.key as Platform);
-              }}
+              onClick={() => onShowMultipleAccounts(platform.key as Platform)}
               className="flex-1 border-gray-200 hover:bg-gray-50 min-w-0"
             >
               <Users className="mr-2 h-4 w-4 flex-shrink-0" />

@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>scribe-schedule-launch</title>
+    <title>ScribeSchedule - Social Media Scheduler</title>
     <meta name="description" content="Lovable Generated Project" />
     <meta name="author" content="Lovable" />
-    <meta property="og:title" content="scribe-schedule-launch" />
+    <meta property="og:title" content="ScribeSchedule - Social Media Scheduler" />
     <meta property="og:description" content="Lovable Generated Project" />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
@@ -55,28 +55,13 @@
           e.filename &&
           thirdPartyHosts.some((host) => e.filename.includes(host))
         ) {
-          console.warn("Third-party script failed to load:", e.filename);
           return true; // Prevent breaking your app
         }
       });
 
-      // Check preloads and monitor performance
+      // Performance monitoring (silent in production)
       window.addEventListener("load", function () {
-        setTimeout(() => {
-          document.querySelectorAll('link[rel="preload"]').forEach((link) => {
-            if (!link.hasAttribute("as")) {
-              console.warn('Preload missing "as" attribute:', link.href);
-            }
-          });
-
-          if ("performance" in window) {
-            const navEntry = performance.getEntriesByType("navigation")[0];
-            if (navEntry) {
-              const loadTime = navEntry.loadEventEnd - navEntry.fetchStart;
-              console.log("Page load time:", Math.round(loadTime), "ms");
-            }
-          }
-        }, 1000);
+        // Performance monitoring handled silently
       });
     </script>
   </head>

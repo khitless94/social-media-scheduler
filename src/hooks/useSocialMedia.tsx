@@ -117,15 +117,13 @@ export const useSocialMedia = () => {
         };
       });
 
-      console.log('📋 [useSocialMedia] Final connection status:', connectionStatus);
       setConnections(connectionStatus);
       return connectionStatus;
     } catch (error) {
-      console.error('Error checking connection status:', error);
+      // Error checking connection status - handled silently
 
       // Fallback to localStorage only if database fails
       if (user) {
-        console.log('🔄 [useSocialMedia] Database failed, using localStorage fallback');
         const fallbackStatus = platforms.map(platform => {
           const key = `connected_${platform.id}_${user.id}`;
           const isConnected = localStorage.getItem(key) === 'true';

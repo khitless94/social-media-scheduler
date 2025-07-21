@@ -221,14 +221,7 @@ const SettingsPage = () => {
         });
         return;
       } else if (error) {
-        // Handle database errors gracefully
-        if (error.code === '42P01' || error.message?.includes('relation "user_preferences" does not exist')) {
-          console.log("User preferences table doesn't exist, using localStorage fallback");
-        } else if (error.code === 'PGRST116') {
-          console.log("No user preferences found, using defaults");
-        } else {
-          console.warn("User preferences fetch error (non-critical):", error);
-        }
+        // Handle database errors gracefully - use defaults
       }
     } catch (error) {
       console.log("Failed to fetch notifications from database, trying localStorage");

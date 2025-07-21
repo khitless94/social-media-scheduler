@@ -155,10 +155,9 @@ export const CronJobDiagnostic: React.FC = () => {
       }
 
     } catch (error: any) {
-      console.error('❌ [CronDiagnostic] API test error:', error);
-      setResults({ 
+      setResults({
         type: 'api_test_error',
-        error: error.message 
+        error: error.message
       });
       
       toast({

@@ -39,8 +39,6 @@ export const useSocialMediaConnectionWrapper = (
     }
 
     try {
-      console.log('Loading connection status for user:', user.id);
-
       // Initialize default status
       const defaultStatus: ConnectionStatus = {
         twitter: false,
@@ -65,7 +63,6 @@ export const useSocialMediaConnectionWrapper = (
 
       // If we have local data, use it immediately
       if (hasLocalData) {
-        console.log('Using localStorage connection status:', defaultStatus);
         setConnectionStatus(defaultStatus);
         onConnectionStatusChange(defaultStatus);
         return;
@@ -82,10 +79,9 @@ export const useSocialMediaConnectionWrapper = (
       if (cachedStatus) {
         try {
           const parsed = JSON.parse(cachedStatus);
-          console.log('Found cached connection status:', parsed);
           initialStatus = { ...defaultStatus, ...parsed };
         } catch (e) {
-          console.warn('Failed to parse cached status:', e);
+          // Failed to parse cached status - use defaults
         }
       }
 
@@ -114,7 +110,7 @@ export const useSocialMediaConnectionWrapper = (
       });
 
     } catch (error) {
-      console.error('Failed to load connection status:', error);
+      // Failed to load connection status - handled silently
       // Fallback to default status
       const defaultStatus: ConnectionStatus = {
         twitter: false,

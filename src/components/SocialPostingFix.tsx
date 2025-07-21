@@ -63,7 +63,7 @@ export function SocialPostingFix() {
       }
 
     } catch (error) {
-      console.error('Error loading data:', error);
+      // Error loading data - handled silently
     }
   };
 

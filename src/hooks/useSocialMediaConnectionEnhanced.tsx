@@ -55,13 +55,16 @@ export const useSocialMediaConnectionEnhanced = (
   const { user } = useAuth();
   const { toast } = useToast();
 
+  // Stabilize the callback to prevent infinite re-renders
+  const stableOnConnectionStatusChange = useCallback(onConnectionStatusChange, []);
+
   // Use the existing hook for core functionality
   const {
     isConnecting,
     connectPlatform: originalConnectPlatform,
     disconnectPlatform: originalDisconnectPlatform,
-    loadConnectionStatus: originalLoadConnectionStatus
-  } = useSocialMediaConnection(onConnectionStatusChange);
+    refreshConnectionStatus: originalRefreshConnectionStatus
+  } = useSocialMediaConnection(stableOnConnectionStatusChange);
 
   // Initialize with cached status or localStorage immediately
   const getInitialConnectionStatus = useCallback((): ConnectionStatus => {
@@ -147,10 +150,10 @@ export const useSocialMediaConnectionEnhanced = (
       const currentStatus = getInitialConnectionStatus();
       globalConnectionCache.set(loadCacheKey, currentStatus);
       setConnectionStatus(currentStatus);
-      onConnectionStatusChange(currentStatus);
+      stableOnConnectionStatusChange(currentStatus);
 
       // Load basic connection status
-      await originalLoadConnectionStatus();
+      await originalRefreshConnectionStatus();
 
       // Load detailed account information for each platform
       const platforms: Platform[] = ['twitter', 'linkedin', 'instagram', 'facebook', 'reddit'];
@@ -250,22 +253,22 @@ export const useSocialMediaConnectionEnhanced = (
       globalConnectionCache.set(updateCacheKey, newStatus);
 
       setConnectionStatus(newStatus);
-      onConnectionStatusChange(newStatus);
+      stableOnConnectionStatusChange(newStatus);
 
     } catch (error) {
       console.error('Error loading enhanced connection status:', error);
     }
-  }, [user, originalLoadConnectionStatus, onConnectionStatusChange, getInitialConnectionStatus]);
+  }, [user, originalRefreshConnectionStatus, stableOnConnectionStatusChange, getInitialConnectionStatus]);
 
   // Initialize connection status immediately when user changes
   useEffect(() => {
     if (user) {
       const initialStatus = getInitialConnectionStatus();
       setConnectionStatus(initialStatus);
-      onConnectionStatusChange(initialStatus);
+      stableOnConnectionStatusChange(initialStatus);
       // Initialized with immediate status
     }
-  }, [user, getInitialConnectionStatus, onConnectionStatusChange]);
+  }, [user, getInitialConnectionStatus, stableOnConnectionStatusChange]);
 
   // Load accounts for a specific platform
   const loadAccountsForPlatform = useCallback(async (platform: Platform): Promise<SocialAccount[]> => {
@@ -308,11 +311,9 @@ export const useSocialMediaConnectionEnhanced = (
     }
 
     // Proceed with actual connection for all platforms (including Reddit)
-    // Proceeding with actual connection
     await originalConnectPlatform(platform);
 
-    // Immediately update connection status
-    // Updating connection status after connection
+    // Refresh connection status after connection
     await loadConnectionStatus();
   }, [user, toast, originalConnectPlatform, loadConnectionStatus]);
 
@@ -339,18 +340,17 @@ export const useSocialMediaConnectionEnhanced = (
         await originalDisconnectPlatform(platform);
       }
 
-      // Reload connection status
+      // Refresh connection status after disconnection
       await loadConnectionStatus();
 
     } catch (error: any) {
-      console.error(`Error disconnecting ${platform}:`, error);
       toast({
         title: "Error",
         description: `Failed to disconnect from ${platform}`,
         variant: "destructive"
       });
     }
-  }, [user, toast, originalDisconnectPlatform, loadConnectionStatus]);
+  }, [user, toast, originalDisconnectPlatform, loadConnectionStatus, connectionStatus, stableOnConnectionStatusChange]);
 
   // Modal control functions
   const showRequirementModal = useCallback((platform: Platform) => {
