@@ -313,27 +313,65 @@ async function postToInstagram(content: string, imageUrl?: string, accessToken?:
 }
 
 async function postToReddit(title: string, content: string, accessToken?: string) {
-  // Reddit API implementation
-  const postData = {
-    sr: 'test', // subreddit name
-    kind: 'self',
-    title: title,
-    text: content
-  };
-  
-  const response = await fetch('https://oauth.reddit.com/api/submit', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'User-Agent': 'SocialMediaScheduler/1.0',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(postData)
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Reddit API error: ${response.statusText}`);
+  try {
+    if (!accessToken) {
+      throw new Error('Reddit account not connected. Please connect your Reddit account in Settings.');
+    }
+
+    // First, test the token by getting user info
+    const userResponse = await fetch('https://oauth.reddit.com/api/v1/me', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'User-Agent': 'SocialMediaScheduler/1.0 by YourUsername'
+      }
+    });
+
+    if (!userResponse.ok) {
+      throw new Error(`Reddit authentication failed. Please reconnect your Reddit account in Settings.`);
+    }
+
+    const postData = {
+      kind: 'self',
+      title: title,
+      text: content,
+      sr: 'test', // Use 'test' subreddit as default
+      api_type: 'json'
+    };
+
+    const formData = new URLSearchParams();
+    Object.keys(postData).forEach(key => {
+      formData.append(key, postData[key]);
+    });
+
+    const response = await fetch('https://oauth.reddit.com/api/submit', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'User-Agent': 'SocialMediaScheduler/1.0 by YourUsername',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      if (response.status === 403) {
+        throw new Error("Reddit posting forbidden. Please check: 1) Reddit account is connected, 2) You have permission to post to this subreddit, 3) Try 'test' or 'testingground4bots' subreddit.");
+      } else if (response.status === 401) {
+        throw new Error("Reddit authentication failed. Please reconnect your Reddit account in Settings.");
+      }
+      throw new Error(`Reddit API error: ${response.status} - ${errorText}`);
+    }
+
+    const result = await response.json();
+
+    if (result.json?.errors && result.json.errors.length > 0) {
+      throw new Error(`Reddit error: ${result.json.errors[0][1]}`);
+    }
+
+    return result;
+  } catch (error) {
+    console.error('[Reddit] Error:', error);
+    throw error;
   }
-  
-  return await response.json();
 }

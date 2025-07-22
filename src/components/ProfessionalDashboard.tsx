@@ -344,10 +344,18 @@ const ProfessionalDashboard = () => {
 
   return (
     <div className="h-screen bg-gray-50/50 flex overflow-hidden">
+      {/* Mobile Overlay */}
+      {!sidebarCollapsed && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
+          onClick={() => setSidebarCollapsed(true)}
+        />
+      )}
+      
       {/* Professional Sidebar */}
       <aside className={`${
-        sidebarCollapsed ? 'w-16' : 'w-72'
-      } bg-white border-r border-gray-200/60 flex flex-col transition-all duration-300 ease-in-out relative z-10`}>
+        sidebarCollapsed ? '-translate-x-full lg:translate-x-0 lg:w-16' : 'translate-x-0 w-72'
+      } fixed lg:relative inset-y-0 left-0 bg-white border-r border-gray-200/60 flex flex-col transition-all duration-300 ease-in-out z-30 lg:z-10`}>
         
         {/* Sidebar Header */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200/60">
@@ -356,7 +364,7 @@ const ProfessionalDashboard = () => {
               <div className="w-8 h-8 bg-violet-600 rounded-lg flex items-center justify-center shadow-sm">
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
-              <div>
+              <div className="hidden lg:block">
                 <h1 className="text-sm font-semibold text-gray-900">ScribeSchedule</h1>
                 <p className="text-xs text-gray-500">Professional</p>
               </div>
@@ -364,9 +372,9 @@ const ProfessionalDashboard = () => {
           )}
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+            className="p-2 rounded-md hover:bg-gray-100 transition-colors lg:p-1.5"
           >
-            <Menu className="w-4 h-4 text-gray-600" />
+            {sidebarCollapsed ? <Menu className="w-5 h-5 text-gray-600 lg:w-4 lg:h-4" /> : <X className="w-5 h-5 text-gray-600 lg:w-4 lg:h-4" />}
           </button>
         </div>
 
@@ -388,10 +396,20 @@ const ProfessionalDashboard = () => {
                   return (
                     <button
                       key={item.id}
-                      onClick={() => item.action ? item.action() : setActiveTab(item.id)}
+                      onClick={() => {
+                        if (item.action) {
+                          item.action();
+                        } else {
+                          setActiveTab(item.id);
+                        }
+                        // Close sidebar on mobile after navigation
+                        if (window.innerWidth < 1024) {
+                          setSidebarCollapsed(true);
+                        }
+                      }}
                       className={`${
-                        sidebarCollapsed ? 'w-8 h-8 p-0 justify-center' : 'w-full px-3 py-2 justify-start'
-                      } flex items-center rounded-lg transition-all duration-200 group relative ${
+                        sidebarCollapsed ? 'w-8 h-8 p-0 justify-center lg:w-8 lg:h-8' : 'w-full px-3 py-3 justify-start lg:py-2'
+                      } flex items-center rounded-lg transition-all duration-200 group relative touch-manipulation ${
                         isActive
                           ? 'bg-violet-50 text-violet-700 shadow-sm'
                           : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
@@ -455,13 +473,20 @@ const ProfessionalDashboard = () => {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex-1 flex flex-col overflow-hidden lg:ml-0">
         {/* Top Header */}
-        <header className="h-16 bg-white border-b border-gray-200/60 flex items-center justify-between px-6">
-          <div className="flex items-center space-x-4">
-            <div>
-              <h1 className="text-lg font-semibold text-gray-900 capitalize">{activeTab}</h1>
-              <p className="text-sm text-gray-500">
+        <header className="h-16 bg-white border-b border-gray-200/60 flex items-center justify-between px-4 lg:px-6">
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setSidebarCollapsed(false)}
+            className="p-2 rounded-md hover:bg-gray-100 transition-colors lg:hidden"
+          >
+            <Menu className="w-5 h-5 text-gray-600" />
+          </button>
+          <div className="flex items-center space-x-4 flex-1 lg:flex-initial">
+            <div className="min-w-0 flex-1 lg:flex-initial">
+              <h1 className="text-lg font-semibold text-gray-900 capitalize truncate">{activeTab}</h1>
+              <p className="text-sm text-gray-500 hidden sm:block">
                 {activeTab === 'overview' && 'Your social media command center'}
                 {activeTab === 'posts' && 'Manage your content library'}
                 {activeTab === 'calendar' && 'Schedule and plan your posts'}
@@ -471,30 +496,35 @@ const ProfessionalDashboard = () => {
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2 lg:space-x-3">
             {/* Search */}
-            <div className="relative">
+            <div className="relative hidden sm:block">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search..."
-                className="w-64 pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                className="w-32 sm:w-48 lg:w-64 pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
               />
-              <kbd className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-400 font-mono">⌘K</kbd>
+              <kbd className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-400 font-mono hidden lg:block">⌘K</kbd>
             </div>
+            
+            {/* Mobile Search Button */}
+            <button className="p-2 rounded-lg hover:bg-gray-100 transition-colors sm:hidden">
+              <Search className="w-5 h-5 text-gray-600" />
+            </button>
 
             {/* View Toggle */}
             {activeTab === 'posts' && (
-              <div className="flex items-center bg-gray-100 rounded-lg p-1">
+              <div className="hidden sm:flex items-center bg-gray-100 rounded-lg p-1">
                 <button
                   onClick={() => setViewMode('grid')}
-                  className={`p-1.5 rounded ${viewMode === 'grid' ? 'bg-white shadow-sm' : ''}`}
+                  className={`p-1.5 rounded touch-manipulation ${viewMode === 'grid' ? 'bg-white shadow-sm' : ''}`}
                 >
                   <Grid3X3 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setViewMode('list')}
-                  className={`p-1.5 rounded ${viewMode === 'list' ? 'bg-white shadow-sm' : ''}`}
+                  className={`p-1.5 rounded touch-manipulation ${viewMode === 'list' ? 'bg-white shadow-sm' : ''}`}
                 >
                   <List className="w-4 h-4" />
                 </button>
@@ -502,7 +532,7 @@ const ProfessionalDashboard = () => {
             )}
 
             {/* Notifications */}
-            <button className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors">
+            <button className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors touch-manipulation">
               <Bell className="w-5 h-5 text-gray-600" />
               <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
             </button>
@@ -516,11 +546,11 @@ const ProfessionalDashboard = () => {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto bg-gray-50/50">
-          <div className="p-6 space-y-6">
+          <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
             {activeTab === "overview" && (
               <>
                 {/* Metrics Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
                   {metrics.map((metric, index) => {
                     const Icon = metric.icon;
                     const colorClasses = {
@@ -574,7 +604,7 @@ const ProfessionalDashboard = () => {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                       {quickActions.map((action, index) => {
                         const Icon = action.icon;
                         return (

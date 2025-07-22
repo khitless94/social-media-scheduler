@@ -6,6 +6,7 @@ export interface PostToSocialParams {
   platform: 'facebook' | 'instagram' | 'linkedin' | 'twitter' | 'reddit';
   subreddit?: string;
   image?: string;
+  title?: string;
 }
 
 export interface PostResponse {
@@ -152,7 +153,8 @@ export const useSocialMedia = () => {
     platformPostIds?: Record<string, string>,
     errorMessage?: string,
     generatedByAI?: boolean,
-    aiPrompt?: string
+    aiPrompt?: string,
+    title?: string
   ) => {
     console.log('💾 [savePostToDatabase] Starting save with params:', {
       content: content?.substring(0, 50) + '...',
@@ -183,7 +185,8 @@ export const useSocialMedia = () => {
         generated_by_ai: generatedByAI || false,
         ai_prompt: aiPrompt,
         error_message: errorMessage,
-        retry_count: 0
+        retry_count: 0,
+        ...(title && { title })
       };
 
       console.log('💾 [savePostToDatabase] Inserting data:', postData);
@@ -238,7 +241,7 @@ export const useSocialMedia = () => {
   };
 
   // Post to a single social media platform
-  const postToSocial = async ({ content, platform, subreddit, image }: PostToSocialParams): Promise<PostResponse> => {
+  const postToSocial = async ({ content, platform, subreddit, image, title }: PostToSocialParams): Promise<PostResponse> => {
     try {
       setLoading(true);
 
@@ -268,6 +271,11 @@ export const useSocialMedia = () => {
       // Only include subreddit for Reddit posts
       if (platform === 'reddit' && subreddit) {
         requestBody.subreddit = subreddit;
+      }
+
+      // Only include title for Reddit posts
+      if (platform === 'reddit' && title) {
+        requestBody.title = title;
       }
 
       console.log(`📤 [useSocialMedia] Request body:`, requestBody);

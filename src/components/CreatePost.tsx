@@ -54,7 +54,8 @@ const CreatePost: React.FC = () => {
     platformPostIds?: Record<string, string>,
     errorMessage?: string,
     generatedByAI?: boolean,
-    aiPrompt?: string
+    aiPrompt?: string,
+    title?: string
   ) => {
     console.log('💾 [savePostToDatabase] Starting save with params:', {
       content: content?.substring(0, 50) + '...',
@@ -85,7 +86,8 @@ const CreatePost: React.FC = () => {
         generated_by_ai: generatedByAI || false,
         ai_prompt: aiPrompt,
         error_message: errorMessage,
-        retry_count: 0
+        retry_count: 0,
+        ...(title && { title })
       };
 
       console.log('💾 [savePostToDatabase] Inserting data:', postData);
@@ -110,11 +112,12 @@ const CreatePost: React.FC = () => {
   };
 
   // Post to social media function
-  const postToSocial = async ({ content, platform, subreddit, image }: {
+  const postToSocial = async ({ content, platform, subreddit, image, title }: {
     content: string;
     platform: Platform;
     subreddit?: string;
     image?: string;
+    title?: string;
   }) => {
     try {
       setSocialMediaLoading(true);
@@ -133,7 +136,8 @@ const CreatePost: React.FC = () => {
         content,
         platform,
         ...(subreddit && { subreddit }),
-        ...(image && { image })
+        ...(image && { image }),
+        ...(title && { title })
       };
 
       console.log(`📤 [CreatePost] Request body:`, requestBody);
@@ -217,6 +221,11 @@ const CreatePost: React.FC = () => {
   const [prompt, setPrompt] = useState('');
   const [platform, setPlatform] = useState('');
   const [tone, setTone] = useState('');
+  const [title, setTitle] = useState(''); // For Reddit posts
+  const [selectedSubreddit, setSelectedSubreddit] = useState('test'); // For Reddit posts
+  const [userSubreddits, setUserSubreddits] = useState<string[]>(['test']); // User's saved subreddits
+  const [customSubreddit, setCustomSubreddit] = useState(''); // For custom subreddit input
+  const [showCustomSubreddit, setShowCustomSubreddit] = useState(false); // Toggle custom input
   const [generatedText, setGeneratedText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [scheduleDate, setScheduleDate] = useState<Date>();
@@ -268,6 +277,41 @@ const CreatePost: React.FC = () => {
   useEffect(() => {
     console.log('📊 [CreatePost] Current connection status:', connectionStatus);
   }, [connectionStatus]);
+
+  // Load user's subreddit preferences
+  useEffect(() => {
+    const loadSubredditPreferences = async () => {
+      if (!user) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('user_preferences')
+          .select('reddit_subreddits, default_reddit_subreddit')
+          .eq('user_id', user.id)
+          .single();
+
+        if (data && !error) {
+          const userSubs = Array.isArray(data.reddit_subreddits) ? data.reddit_subreddits : ['test'];
+          setUserSubreddits(userSubs.length > 0 ? userSubs : ['test']);
+          setSelectedSubreddit(data.default_reddit_subreddit || 'test');
+        } else if (error && error.code !== 'PGRST116') {
+          console.error('Error loading subreddit preferences:', error);
+          setUserSubreddits(['test']);
+          setSelectedSubreddit('test');
+        } else {
+          // No data found, use defaults
+          setUserSubreddits(['test']);
+          setSelectedSubreddit('test');
+        }
+      } catch (error) {
+        console.error('Error loading subreddit preferences:', error);
+        setUserSubreddits(['test']);
+        setSelectedSubreddit('test');
+      }
+    };
+
+    loadSubredditPreferences();
+  }, [user]);
 
   // Configuration
   const platforms = [
@@ -903,13 +947,28 @@ Create the post now:`;
       return;
     }
 
+    // For Reddit, title is required
+    if (platform === 'reddit' && !title.trim()) {
+      toast({
+        title: "Title required",
+        description: "Reddit posts require a title.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsPosting(true);
     try {
+      // Get the actual subreddit to use (custom or selected)
+      const actualSubreddit = platform === 'reddit' ?
+        (showCustomSubreddit ? customSubreddit : selectedSubreddit) : undefined;
+
       const result = await postToSocial({
         content: generatedText,
         platform: platform as Platform,
-        subreddit: platform === 'reddit' ? 'test' : undefined,
-        image: getCurrentImage()
+        subreddit: actualSubreddit,
+        image: getCurrentImage(),
+        title: platform === 'reddit' ? title : undefined
       });
 
       if (result.success) {
@@ -921,6 +980,7 @@ Create the post now:`;
         setPrompt('');
         setPlatform('');
         setTone('');
+        setTitle('');
         setUploadedImage(null);
         setGeneratedImage(null);
         setImageSource('none');
@@ -963,7 +1023,8 @@ Create the post now:`;
         {}, // platformPostIds
         undefined, // errorMessage
         false, // generatedByAI
-        prompt // aiPrompt
+        prompt, // aiPrompt
+        platform === 'reddit' ? title : undefined // title
       );
 
       console.log('💾 [handleSaveAsDraft] Save result:', savedPost);
@@ -1008,6 +1069,7 @@ Create the post now:`;
       setPrompt('');
       setPlatform('');
       setTone('');
+      setTitle('');
       setUploadedImage(null);
       setGeneratedImage(null);
       setImageSource('none');
@@ -1030,6 +1092,16 @@ Create the post now:`;
       toast({
         title: "Missing information",
         description: "Please fill in all required fields for scheduling.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // For Reddit, title is required
+    if (platform === 'reddit' && !title.trim()) {
+      toast({
+        title: "Title required",
+        description: "Reddit posts require a title.",
         variant: "destructive",
       });
       return;
@@ -1059,7 +1131,8 @@ Create the post now:`;
         {}, // platformPostIds
         undefined, // errorMessage
         false, // generatedByAI
-        prompt // aiPrompt
+        prompt, // aiPrompt
+        platform === 'reddit' ? title : undefined // title
       );
 
       if (savedPost) {
@@ -1086,6 +1159,7 @@ Create the post now:`;
         setPrompt('');
         setPlatform('');
         setTone('');
+        setTitle('');
         setScheduleDate(undefined);
         setScheduleTime('');
         setUploadedImage(null);
@@ -1282,6 +1356,161 @@ Create the post now:`;
                 })}
               </div>
             </div>
+
+            {/* Title Input for Reddit */}
+            {platform === 'reddit' && (
+              <div className="mb-8">
+                <Card className="bg-white border border-gray-200 shadow-sm rounded-lg">
+                  <div className="p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Reddit Post Details</h3>
+                    <div className="space-y-4">
+                      {/* Title Input */}
+                      <div>
+                        <Label htmlFor="reddit-title" className="text-sm font-medium text-gray-700 mb-2 block">
+                          Post Title *
+                        </Label>
+                        <Input
+                          id="reddit-title"
+                          placeholder="Enter your Reddit post title (required)..."
+                          value={title}
+                          onChange={(e) => setTitle(e.target.value)}
+                          className="border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg p-4 text-sm transition-all duration-200 bg-white"
+                          maxLength={300}
+                        />
+                        <div className="text-right mt-1">
+                          <span className="text-xs text-gray-500">{title.length}/300</span>
+                        </div>
+                      </div>
+
+                      {/* Subreddit Selection */}
+                      <div>
+                        <Label htmlFor="reddit-subreddit" className="text-sm font-medium text-gray-700 mb-2 block">
+                          Subreddit *
+                        </Label>
+                        <Select
+                          value={showCustomSubreddit ? "__custom__" : selectedSubreddit}
+                          onValueChange={(value) => {
+                            if (value === "__custom__") {
+                              setShowCustomSubreddit(true);
+                              setSelectedSubreddit('');
+                            } else {
+                              setShowCustomSubreddit(false);
+                              setSelectedSubreddit(value);
+                              setCustomSubreddit('');
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg">
+                            <SelectValue placeholder="Select a subreddit" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {/* User's Saved Subreddits */}
+                            {userSubreddits.length > 0 && (
+                              <>
+                                <div className="px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-50">
+                                  Your Subreddits
+                                </div>
+                                {userSubreddits.map((subreddit) => (
+                                  <SelectItem key={subreddit} value={subreddit}>
+                                    <div className="flex items-center space-x-2">
+                                      <span className="text-orange-600">r/</span>
+                                      <span>{subreddit}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                                <div className="border-t border-gray-200 my-1"></div>
+                              </>
+                            )}
+
+                            {/* Popular/Safe Subreddits for Testing */}
+                            <div className="px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-50">
+                              Safe for Testing
+                            </div>
+                            <SelectItem value="test">
+                              <div className="flex items-center space-x-2">
+                                <span className="text-orange-600">r/</span>
+                                <span>test</span>
+                                <span className="text-xs text-gray-500">(recommended)</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="testingground4bots">
+                              <div className="flex items-center space-x-2">
+                                <span className="text-orange-600">r/</span>
+                                <span>testingground4bots</span>
+                                <span className="text-xs text-gray-500">(bot-friendly)</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="SandBoxTest">
+                              <div className="flex items-center space-x-2">
+                                <span className="text-orange-600">r/</span>
+                                <span>SandBoxTest</span>
+                                <span className="text-xs text-gray-500">(sandbox)</span>
+                              </div>
+                            </SelectItem>
+
+                            {/* Custom Subreddit Option */}
+                            <div className="border-t border-gray-200 my-1"></div>
+                            <SelectItem value="__custom__">
+                              <div className="flex items-center space-x-2">
+                                <span className="text-blue-600">+</span>
+                                <span>Enter custom subreddit...</span>
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+
+                        {/* Custom Subreddit Input */}
+                        {showCustomSubreddit && (
+                          <div className="mt-3 space-y-2">
+                            <div className="flex space-x-2">
+                              <div className="flex-1 relative">
+                                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">r/</span>
+                                <Input
+                                  placeholder="Enter subreddit name (e.g., programming, webdev)"
+                                  value={customSubreddit}
+                                  onChange={(e) => {
+                                    const value = e.target.value.replace(/^r\//, ''); // Remove r/ prefix if user types it
+                                    setCustomSubreddit(value);
+                                    setSelectedSubreddit(value);
+                                  }}
+                                  className="pl-8 border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg"
+                                />
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  setShowCustomSubreddit(false);
+                                  setSelectedSubreddit('test');
+                                  setCustomSubreddit('');
+                                }}
+                                className="px-3"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                            <p className="text-xs text-yellow-600">
+                              ⚠️ Make sure you have permission to post in this subreddit
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between mt-1">
+                          <p className="text-xs text-gray-500">
+                            Manage your subreddits in <span className="text-blue-600 cursor-pointer" onClick={() => navigate('/settings')}>Settings</span>
+                          </p>
+                          <div className="text-xs text-gray-500">
+                            Selected: <span className="font-medium text-orange-600">
+                              r/{showCustomSubreddit ? (customSubreddit || 'custom') : selectedSubreddit}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            )}
 
             {/* Content Creation Section */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -1984,7 +2213,9 @@ Create the post now:`;
 
                           {/* Reddit Content */}
                           <div className="p-4">
-                            <h3 className="font-semibold text-gray-900 mb-2">Post Title</h3>
+                            <h3 className="font-semibold text-gray-900 mb-2">
+                              {title || "Enter your Reddit post title..."}
+                            </h3>
                             <div className="w-full text-sm leading-relaxed whitespace-pre-wrap">
                               {generatedText || "Your content will appear here..."}
                             </div>

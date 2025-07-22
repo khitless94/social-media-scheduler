@@ -843,502 +843,105 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
               <p className="text-gray-600">Describe your post and let our AI create engaging content</p>
             </div>
 
-            <div className="space-y-6">
-              {/* Content Description */}
-              <div>
-                <label className="block text-sm font-medium mb-2">Describe your post *</label>
-                <Textarea
-                  placeholder="Advertisement for a 2 week holiday in Mexico for under $999"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  className="min-h-[100px]"
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Content Idea</label>
+              <Textarea
+                placeholder="Describe what you want to post about... (e.g., 'Launch of our new product', 'Tips for remote work', 'Company milestone celebration')"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                className="min-h-[80px] sm:min-h-[100px] resize-none text-sm sm:text-base"
+              />
+            </div>
 
-              {/* Platform Selection */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <label className="block text-sm font-medium">Target Platforms *</label>
-                    <p className="text-xs text-gray-500">
-                      Connected: {connectedPlatforms.length} of {platforms.length} platforms
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
-                      await checkConnectionStatus();
-                    }}
-                    className="text-xs"
-                  >
-                    🔄 Refresh
-                  </Button>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {platforms.map((platform) => {
-                    const Icon = platform.icon;
-                    const isConnected = connectedPlatforms.includes(platform.id);
-                    const isSelected = selectedTargetPlatforms.includes(platform.id);
+            <div>
+              <label className="block text-sm font-medium mb-3">Target Platforms (Optional)</label>
+              <p className="text-xs text-gray-500 mb-3">Select platforms to optimize content for their specific requirements</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                {platforms.map((platform) => {
+                  const Icon = platform.icon;
+                  const isSelected = selectedTargetPlatforms.includes(platform.id);
 
-                    return (
-                      <div
-                        key={platform.id}
-                        className={`relative p-3 border rounded-lg cursor-pointer transition-all ${
-                          isSelected ? 'border-blue-300 bg-blue-50 ring-2 ring-blue-200' : 'border-gray-200 hover:border-gray-300'
-                        } ${!isConnected ? 'opacity-50' : ''}`}
-                        onClick={() => {
-                          if (!isConnected) {
-                            if (onOpenSettings) {
-                              onOpenSettings();
-                              onClose();
-                            } else {
-                              toast({
-                                title: "Platform not connected",
-                                description: `Please connect your ${platform.name} account in Settings`,
-                                variant: "destructive",
-                              });
-                            }
-                            return;
-                          }
-                          setSelectedTargetPlatforms(prev =>
-                            prev.includes(platform.id)
-                              ? prev.filter(p => p !== platform.id)
-                              : [...prev, platform.id]
-                          );
-                        }}
-                      >
-                        <div className="flex flex-col items-center space-y-2">
-                          <div className={`p-2 rounded-full ${platform.color}`}>
-                            <Icon className="w-4 h-4 text-white" />
-                          </div>
-                          <span className="text-sm font-medium">{platform.name}</span>
-                          {!isConnected && (
-                            <Badge variant="secondary" className="text-xs cursor-pointer hover:bg-blue-100">
-                              Click to Connect
-                            </Badge>
-                          )}
-                          {isSelected && (
-                            <div className="absolute top-2 right-2">
-                              <div className="w-5 h-5 gradient-primary rounded-full flex items-center justify-center">
-                                <span className="text-white text-xs">✓</span>
-                              </div>
+                  return (
+                    <div
+                      key={platform.id}
+                      className={`relative p-3 border rounded-lg cursor-pointer transition-all touch-manipulation ${
+                        isSelected ? 'border-purple-300 bg-purple-50 ring-2 ring-purple-200' : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      onClick={() => {
+                        setSelectedTargetPlatforms((prev) =>
+                          prev.includes(platform.id)
+                            ? prev.filter((p) => p !== platform.id)
+                            : [...prev, platform.id]
+                        );
+                      }}
+                    >
+                      <div className="text-center space-y-2">
+                        <div className={`mx-auto w-6 h-6 sm:w-8 sm:h-8 rounded-full ${platform.color} flex items-center justify-center`}>
+                          <Icon className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                        </div>
+                        <div className="text-xs font-medium">{platform.name}</div>
+                        {isSelected && (
+                          <div className="absolute top-1 right-1">
+                            <div className="w-4 h-4 bg-purple-600 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs">✓</span>
                             </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Tone Selection */}
-              <div>
-                <label className="block text-sm font-medium mb-3">Content Tone</label>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {toneOptions.map((tone) => (
-                    <div
-                      key={tone.id}
-                      className={`p-3 border rounded-lg cursor-pointer transition-all ${
-                        selectedTone === tone.id ? 'border-blue-300 bg-blue-50 ring-2 ring-blue-200' : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                      onClick={() => setSelectedTone(tone.id)}
-                    >
-                      <div className="text-center space-y-1">
-                        <div className="text-2xl">{tone.emoji}</div>
-                        <div className="font-medium text-sm">{tone.name}</div>
-                        <div className="text-xs text-gray-500">{tone.description}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Content Type Selection */}
-              <div>
-                <label className="block text-sm font-medium mb-3">Content Type</label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {contentTypes.map((type) => (
-                    <div
-                      key={type.id}
-                      className={`p-3 border rounded-lg cursor-pointer transition-all ${
-                        selectedContentType === type.id ? 'border-blue-300 bg-blue-50 ring-2 ring-blue-200' : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                      onClick={() => setSelectedContentType(type.id)}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="text-2xl">{type.emoji}</div>
-                        <div>
-                          <div className="font-medium text-sm">{type.name}</div>
-                          <div className="text-xs text-gray-500">{type.description}</div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Image Options Section */}
-              <div className="border-t pt-6">
-                <div className="mb-6">
-                  <label className="block text-sm font-medium mb-3">Image Options</label>
-                  <p className="text-xs text-gray-500 mb-4">Add an image to make your posts more engaging</p>
-
-                  {/* Image Source Selection */}
-                  <div className="grid grid-cols-4 gap-2 mb-4">
-                    <Button
-                      variant={imageSource === 'none' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => {
-                        setImageSource('none');
-                        setGenerateImage(false);
-                        setGeneratedImage(null);
-                        setUploadedImage(null);
-                        setImageUrl('');
-                      }}
-                      className="text-xs"
-                    >
-                      No Image
-                    </Button>
-                    <Button
-                      variant={imageSource === 'generate' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => {
-                        setImageSource('generate');
-                        setGenerateImage(true);
-                        setUploadedImage(null);
-                        setImageUrl('');
-                      }}
-                      className="text-xs"
-                    >
-                      🤖 AI Generate
-                    </Button>
-                    <Button
-                      variant={imageSource === 'upload' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => {
-                        setImageSource('upload');
-                        setGenerateImage(false);
-                        setGeneratedImage(null);
-                        setImageUrl('');
-                      }}
-                      className="text-xs"
-                    >
-                      📁 Upload
-                    </Button>
-                    <Button
-                      variant={imageSource === 'url' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => {
-                        setImageSource('url');
-                        setGenerateImage(false);
-                        setGeneratedImage(null);
-                        setUploadedImage(null);
-                      }}
-                      className="text-xs"
-                    >
-                      🔗 URL
-                    </Button>
-                  </div>
-                </div>
-
-                {/* AI Image Generation */}
-                {imageSource === 'generate' && (
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium mb-2">AI Image Generation</h4>
-                    <p className="text-xs text-gray-500 mb-4">Generate a custom image for your post using DALL-E</p>
-
-                    <div className="space-y-4">
-                      <Button
-                        onClick={generateImageForPost}
-                        disabled={generatingImage || !prompt.trim()}
-                        variant="outline"
-                        className="w-full"
-                      >
-                        {generatingImage ? (
-                          <div className="flex items-center space-x-2">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
-                            <span>Generating Image...</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center space-x-2">
-                            <Wand2 className="w-4 h-4" />
-                            <span>Generate AI Image</span>
                           </div>
                         )}
-                      </Button>
-
-                      {generatedImage && (
-                        <div className="space-y-3">
-                          <div className="relative">
-                            <img
-                              src={generatedImage}
-                              alt="Generated image"
-                              className="w-full h-48 object-cover rounded-lg border"
-                            />
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              className="absolute top-2 right-2"
-                              onClick={() => {
-                                const link = document.createElement('a');
-                                link.href = generatedImage;
-                                link.download = 'generated-image.png';
-                                link.click();
-                              }}
-                            >
-                              <Download className="w-4 h-4" />
-                            </Button>
-                          </div>
-                          <p className="text-xs text-gray-500 text-center">
-                            ✓ AI image generated successfully
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Manual Image Upload */}
-                {imageSource === 'upload' && (
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium mb-2">Upload Your Own Image</h4>
-                    <p className="text-xs text-gray-500 mb-4">Upload your own image to use with your posts</p>
-
-                    <div className="space-y-4">
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-purple-400 transition-colors">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) uploadImageFile(file);
-                          }}
-                          className="hidden"
-                          id="image-upload"
-                        />
-                        <label htmlFor="image-upload" className="cursor-pointer">
-                          <div className="flex flex-col items-center space-y-2">
-                            <Image className="w-8 h-8 text-gray-400" />
-                            <div className="text-sm text-gray-600">
-                              <span className="font-medium text-purple-600">Click to upload</span> or drag and drop
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              PNG, JPG, GIF up to 5MB
-                            </div>
-                          </div>
-                        </label>
                       </div>
-
-                      {uploadingImage && (
-                        <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
-                          <span>Uploading image...</span>
-                        </div>
-                      )}
-
-                      {uploadedImage && (
-                        <div className="space-y-3">
-                          <div className="relative">
-                            <img
-                              src={uploadedImage}
-                              alt="Uploaded image"
-                              className="w-full h-48 object-cover rounded-lg border"
-                            />
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              className="absolute top-2 right-2"
-                              onClick={() => window.open(uploadedImage, '_blank')}
-                            >
-                              <Download className="w-4 h-4" />
-                            </Button>
-                          </div>
-                          <p className="text-xs text-gray-500 text-center">
-                            ✓ Image uploaded successfully
-                          </p>
-                        </div>
-                      )}
                     </div>
-                  </div>
-                )}
-
-                {/* Image URL Input */}
-                {imageSource === 'url' && (
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium mb-2">Image URL</h4>
-                    <p className="text-xs text-gray-500 mb-4">Enter a direct link to an image</p>
-
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <div className="flex space-x-2">
-                          <Input
-                            type="url"
-                            placeholder="https://example.com/image.jpg"
-                            value={imageUrl}
-                            onChange={(e) => setImageUrl(e.target.value)}
-                            className="flex-1"
-                            onKeyPress={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                const url = imageUrl.trim();
-                                if (url) {
-                                  try {
-                                    new URL(url);
-                                    setImageUrl(url);
-                                  } catch {
-                                    toast({
-                                      title: "Invalid URL",
-                                      description: "Please enter a valid image URL",
-                                      variant: "destructive",
-                                    });
-                                  }
-                                }
-                              }
-                            }}
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              const url = imageUrl.trim();
-                              if (url) {
-                                try {
-                                  new URL(url);
-                                  toast({
-                                    title: "URL validated!",
-                                    description: "Image URL is ready to use",
-                                  });
-                                } catch {
-                                  toast({
-                                    title: "Invalid URL",
-                                    description: "Please enter a valid image URL",
-                                    variant: "destructive",
-                                  });
-                                }
-                              }
-                            }}
-                          >
-                            Validate
-                          </Button>
-                        </div>
-                        <p className="text-xs text-gray-500">
-                          Enter a direct link to an image (JPG, PNG, GIF, WebP)
-                        </p>
-                      </div>
-
-                      {imageUrl.trim() && (() => {
-                        try {
-                          new URL(imageUrl.trim());
-                          return (
-                            <div className="space-y-3">
-                              <div className="relative">
-                                <img
-                                  src={imageUrl.trim()}
-                                  alt="Image from URL"
-                                  className="w-full h-48 object-cover rounded-lg border"
-                                  onLoad={(e) => {
-                                    e.currentTarget.style.display = 'block';
-                                    const errorDiv = e.currentTarget.nextElementSibling as HTMLElement;
-                                    if (errorDiv) errorDiv.style.display = 'none';
-                                  }}
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                    const errorDiv = e.currentTarget.nextElementSibling as HTMLElement;
-                                    if (errorDiv) errorDiv.style.display = 'flex';
-                                  }}
-                                />
-                                <div
-                                  className="w-full h-48 bg-gray-100 rounded-lg border flex items-center justify-center text-gray-500 text-sm"
-                                  style={{ display: 'none' }}
-                                >
-                                  ❌ Failed to load image from URL
-                                </div>
-                                <Button
-                                  size="sm"
-                                  variant="secondary"
-                                  className="absolute top-2 right-2"
-                                  onClick={() => window.open(imageUrl.trim(), '_blank')}
-                                >
-                                  <ExternalLink className="w-4 h-4" />
-                                </Button>
-                              </div>
-                              <div className="flex items-center justify-center space-x-2 text-xs text-green-600">
-                                <span>✓</span>
-                                <span>Image URL ready to use</span>
-                              </div>
-                            </div>
-                          );
-                        } catch {
-                          return (
-                            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                              <p className="text-sm text-yellow-800">
-                                ⚠️ Please enter a valid URL starting with http:// or https://
-                              </p>
-                            </div>
-                          );
-                        }
-                      })()}
-                    </div>
-                  </div>
-                )}
+                  );
+                })}
               </div>
+            </div>
 
-              <div className="space-y-3">
-                <Button
-                  onClick={generateContent}
-                  disabled={generating || !prompt.trim() || selectedTargetPlatforms.length === 0}
-                  className="w-full btn-primary"
-                >
-                  {generating ? (
-                    <div className="flex items-center space-x-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>Creating amazing content...</span>
+            <div>
+              <label className="block text-sm font-medium mb-3">Content Type</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {contentTypes.map((type) => (
+                  <div
+                    key={type.id}
+                    className={`p-3 border rounded-lg cursor-pointer transition-all touch-manipulation ${
+                      selectedContentType === type.id ? 'border-purple-300 bg-purple-50 ring-2 ring-purple-200' : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                    onClick={() => setSelectedContentType(type.id)}
+                  >
+                    <div className="text-center space-y-1">
+                      <div className="text-xl sm:text-2xl">{type.emoji}</div>
+                      <div className="text-xs sm:text-sm font-medium">{type.name}</div>
+                      <div className="text-xs text-gray-500 hidden sm:block">{type.description}</div>
                     </div>
-                  ) : (
-                    <div className="flex items-center space-x-2">
-                      <Wand2 className="w-4 h-4" />
-                      <span>Generate Posts</span>
-                    </div>
-                  )}
-                </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    // Create a simple manual post
-                    const manualPost = {
-                      id: 1,
-                      content: prompt || "Your content here...",
-                      style: "Manual",
-                      tone: selectedTone,
-                      contentType: selectedContentType,
-                      platforms: selectedTargetPlatforms,
-                      emoji: "✏️",
-                      image: generatedImage || uploadedImage || (imageUrl.trim() ? imageUrl.trim() : null)
-                    };
-                    setGeneratedPosts([manualPost]);
-                    setStep(2);
-                  }}
-                  disabled={!prompt.trim() || selectedTargetPlatforms.length === 0}
-                  className="w-full"
-                >
+            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
+              <Button
+                onClick={generateContent}
+                disabled={!prompt.trim() || generating}
+                className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 h-12 sm:h-10 touch-manipulation"
+              >
+                {generating ? (
                   <div className="flex items-center space-x-2">
-                    <span>✏️</span>
-                    <span>Skip AI - Use Manual Content</span>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Generating...</span>
                   </div>
-                </Button>
-              </div>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <Wand2 className="w-4 h-4" />
+                    <span>Generate Content</span>
+                  </div>
+                )}
+              </Button>
             </div>
           </div>
         )}
 
         {step === 2 && (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <div className="text-center space-y-2">
-              <h3 className="text-xl font-semibold">Choose Your Favorite</h3>
-              <p className="text-gray-500">Select the post variation you like best</p>
+              <h3 className="text-lg sm:text-xl font-semibold">Select Your Favorite</h3>
+              <p className="text-sm sm:text-base text-gray-500">Choose the post variation you like best</p>
             </div>
 
             {generatedPosts.length === 0 ? (
@@ -1355,80 +958,80 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
             ) : (
               <div className="grid gap-6">
                 {generatedPosts.map((post) => (
-                <Card key={post.id} className="cursor-pointer hover:shadow-lg hover:border-purple-200 transition-all duration-200 border-2" onClick={() => selectPost(post)}>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-100 to-pink-100 flex items-center justify-center">
-                          <span className="text-xl">{post.emoji}</span>
+                  <Card key={post.id} className="cursor-pointer hover:shadow-lg hover:border-purple-200 transition-all duration-200 border-2" onClick={() => selectPost(post)}>
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-100 to-pink-100 flex items-center justify-center">
+                            <span className="text-xl">{post.emoji}</span>
+                          </div>
+                          <div>
+                            <span className="font-semibold text-base text-gray-800">{post.style} Style</span>
+                            <p className="text-xs text-gray-500">Click to select this variation</p>
+                          </div>
                         </div>
-                        <div>
-                          <span className="font-semibold text-base text-gray-800">{post.style} Style</span>
-                          <p className="text-xs text-gray-500">Click to select this variation</p>
+                        <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white">
+                          Select This
+                        </Button>
+                      </div>
+
+                      {/* Image Preview */}
+                      {post.image && (
+                        <div className="mb-4">
+                          <img
+                            src={post.image}
+                            alt="Post image"
+                            className="w-full h-40 object-cover rounded-lg border shadow-sm"
+                          />
+                        </div>
+                      )}
+
+                      {/* Content Preview */}
+                      <div className="bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
+                        <div className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
+                          {post.content || "Content not available"}
                         </div>
                       </div>
-                      <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white">
-                        Select This
-                      </Button>
-                    </div>
 
-                    {/* Image Preview */}
-                    {post.image && (
-                      <div className="mb-4">
-                        <img
-                          src={post.image}
-                          alt="Post image"
-                          className="w-full h-40 object-cover rounded-lg border shadow-sm"
-                        />
-                      </div>
-                    )}
+                      {/* Platform-specific character counts */}
+                      <div className="mt-4 pt-3 border-t border-gray-100">
+                        <div className="flex flex-wrap gap-2">
+                          {selectedTargetPlatforms.map((platformId) => {
+                            const limit = platformLimits[platformId as keyof typeof platformLimits] || 280;
+                            const contentLength = (post.content || "").length;
+                            const isOverLimit = contentLength > limit;
+                            const platform = platforms.find((p) => p.id === platformId);
 
-                    {/* Content Preview */}
-                    <div className="bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
-                      <div className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
-                        {post.content || "Content not available"}
-                      </div>
-                    </div>
+                            // Calculate how much over the limit we are
+                            const overBy = Math.max(0, contentLength - limit);
 
-                    {/* Platform-specific character counts */}
-                    <div className="mt-4 pt-3 border-t border-gray-100">
-                      <div className="flex flex-wrap gap-2">
-                        {selectedTargetPlatforms.map(platformId => {
-                          const limit = platformLimits[platformId as keyof typeof platformLimits] || 280;
-                          const contentLength = (post.content || "").length;
-                          const isOverLimit = contentLength > limit;
-                          const platform = platforms.find(p => p.id === platformId);
-
-                          // Calculate how much over the limit we are
-                          const overBy = Math.max(0, contentLength - limit);
-
-                          return (
-                            <div key={platformId} className={`flex items-center space-x-2 px-3 py-1 rounded-full text-xs border ${
-                              isOverLimit ? 'bg-red-50 border-red-200 text-red-700' : 'bg-gray-50 border-gray-200 text-gray-600'
-                            }`}>
-                              {platform && <platform.icon className="w-3 h-3" />}
-                              <span className="font-medium">{platform?.name}</span>
-                              <span className={`font-mono ${isOverLimit ? 'text-red-600' : 'text-gray-500'}`}>
-                                {contentLength}/{limit}
-                              </span>
-                              {isOverLimit && (
-                                <span className="text-red-500 font-medium" title={`${overBy} characters over limit`}>
-                                  ⚠️ -{overBy}
+                            return (
+                              <div key={platformId} className={`flex items-center space-x-2 px-3 py-1 rounded-full text-xs border ${
+                                isOverLimit ? 'bg-red-50 border-red-200 text-red-700' : 'bg-gray-50 border-gray-200 text-gray-600'
+                              }`}>
+                                {platform && <platform.icon className="w-3 h-3" />}
+                                <span className="font-medium">{platform?.name}</span>
+                                <span className={`font-mono ${isOverLimit ? 'text-red-600' : 'text-gray-500'}`}>
+                                  {contentLength}/{limit}
                                 </span>
-                              )}
-                            </div>
-                          );
-                        })}
+                                {isOverLimit && (
+                                  <span className="text-red-500 font-medium" title={`${overBy} characters over limit`}>
+                                    ⚠️ -{overBy}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             )}
 
-            <div className="flex space-x-3">
-              <Button variant="outline" onClick={() => setStep(1)} className="flex-1">
+            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
+              <Button variant="outline" onClick={() => setStep(1)} className="flex-1 h-12 sm:h-10 touch-manipulation">
                 <ChevronLeft className="w-4 h-4 mr-2" />
                 Back
               </Button>
@@ -1437,10 +1040,10 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
         )}
 
         {step === 3 && (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <div className="text-center space-y-2">
-              <h3 className="text-xl font-semibold">Ready to Publish</h3>
-              <p className="text-gray-500">Select which platforms to publish to</p>
+              <h3 className="text-lg sm:text-xl font-semibold">Ready to Publish</h3>
+              <p className="text-sm sm:text-base text-gray-500">Select which platforms to publish to</p>
             </div>
 
             {selectedPost && (
@@ -1494,9 +1097,9 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
                   </p>
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {platforms
-                  .filter(platform => connectedPlatforms.includes(platform.id))
+                  .filter((platform) => connectedPlatforms.includes(platform.id))
                   .map((platform) => {
                     const Icon = platform.icon;
                     const isSelected = selectedPlatforms.includes(platform.id);
@@ -1504,13 +1107,13 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
                     return (
                       <div
                         key={platform.id}
-                        className={`relative p-3 border rounded-lg cursor-pointer transition-all ${
+                        className={`relative p-4 border rounded-lg cursor-pointer transition-all touch-manipulation ${
                           isSelected ? 'border-purple-300 bg-purple-50 ring-2 ring-purple-200' : 'border-gray-200 hover:border-gray-300'
                         }`}
                         onClick={() => {
-                          setSelectedPlatforms(prev =>
+                          setSelectedPlatforms((prev) =>
                             prev.includes(platform.id)
-                              ? prev.filter(p => p !== platform.id)
+                              ? prev.filter((p) => p !== platform.id)
                               : [...prev, platform.id]
                           );
                         }}
@@ -1519,7 +1122,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
                           <div className={`p-2 rounded-full ${platform.color}`}>
                             <Icon className="w-4 h-4 text-white" />
                           </div>
-                          <span className="font-medium">{platform.name}</span>
+                          <span className="font-medium text-sm sm:text-base">{platform.name}</span>
                           {isSelected && (
                             <div className="absolute top-2 right-2">
                               <div className="w-5 h-5 bg-purple-600 rounded-full flex items-center justify-center">
@@ -1534,25 +1137,25 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onOp
               </div>
             </div>
 
-            <div className="flex space-x-3">
-              <Button variant="outline" onClick={() => setStep(2)} className="flex-1">
+            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
+              <Button variant="outline" onClick={() => setStep(2)} className="flex-1 h-12 sm:h-10 touch-manipulation">
                 <ChevronLeft className="w-4 h-4 mr-2" />
                 Back
               </Button>
               <Button
                 onClick={publishPost}
                 disabled={loading || selectedPlatforms.length === 0}
-                className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 h-12 sm:h-10 touch-manipulation"
               >
                 {loading ? (
                   <div className="flex items-center space-x-2">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    <span>Publishing...</span>
+                    <span className="text-sm sm:text-base">Publishing...</span>
                   </div>
                 ) : (
                   <div className="flex items-center space-x-2">
                     <MessageSquare className="w-4 h-4" />
-                    <span>Publish to {selectedPlatforms.length} Platform{selectedPlatforms.length !== 1 ? 's' : ''}</span>
+                    <span className="text-sm sm:text-base">Publish to {selectedPlatforms.length} Platform{selectedPlatforms.length !== 1 ? 's' : ''}</span>
                   </div>
                 )}
               </Button>

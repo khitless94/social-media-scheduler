@@ -42,7 +42,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    let { content, platforms, platform, image, subreddit } = body;
+    let { content, platforms, platform, image, subreddit, title } = body;
 
     // Handle both old format (platform: "linkedin") and new format (platforms: ["linkedin"])
     if (platform && !platforms) {
@@ -95,7 +95,7 @@ serve(async (req) => {
           continue;
         }
 
-        const result = await postToSocialMedia(platform, content, image, credentials);
+        const result = await postToSocialMedia(platform, content, image, credentials, title, subreddit);
         results.push(result);
       } catch (err) {
         console.error(`Error posting to ${platform}:`, err);
@@ -962,21 +962,54 @@ async function postToInstagram(content: string, image?: string, credentials?: an
 }
 
 // Reddit posting function
-async function postToReddit(content: string, image?: string, credentials?: any) {
+async function postToReddit(content: string, image?: string, credentials?: any, title?: string, subreddit?: string) {
   try {
-    const accessToken = credentials.access_token;
-    if (!accessToken) {
-      throw new Error('No Reddit access token found');
+    console.log('[Reddit] Starting Reddit post process...');
+    console.log('[Reddit] Credentials received:', credentials ? 'Yes' : 'No');
+    console.log('[Reddit] Title:', title);
+    console.log('[Reddit] Subreddit:', subreddit);
+    console.log('[Reddit] Content length:', content.length);
+
+    if (!credentials) {
+      throw new Error('Reddit account not connected. Please connect your Reddit account in Settings.');
     }
 
-    // Default subreddit - you might want to make this configurable
-    const subreddit = 'test'; // or get from user preferences
+    const accessToken = credentials.access_token;
+    if (!accessToken) {
+      throw new Error('No Reddit access token found. Please reconnect your Reddit account.');
+    }
+
+    console.log('[Reddit] Access token found:', accessToken.substring(0, 10) + '...');
+
+    // First, test the token by getting user info
+    console.log('[Reddit] Testing access token validity...');
+    const userResponse = await fetch('https://oauth.reddit.com/api/v1/me', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'User-Agent': 'SocialMediaScheduler/1.0 by YourUsername'
+      }
+    });
+
+    if (!userResponse.ok) {
+      const userError = await userResponse.text();
+      console.error('[Reddit] Token validation failed:', userError);
+      throw new Error(`Reddit token invalid: ${userResponse.status} - ${userError}`);
+    }
+
+    const userData = await userResponse.json();
+    console.log('[Reddit] Token valid for user:', userData.name);
+
+    // Use provided subreddit or fallback to test (more permissive)
+    const targetSubreddit = subreddit || 'test';
+
+    // Use provided title or fallback to content substring
+    const postTitle = title || content.substring(0, 300);
 
     let postData: any = {
       kind: 'self',
-      title: content.substring(0, 300), // Reddit title limit
+      title: postTitle, // Use the actual title
       text: content,
-      sr: subreddit,
+      sr: targetSubreddit,
       api_type: 'json'
     };
 
@@ -984,9 +1017,9 @@ async function postToReddit(content: string, image?: string, credentials?: any) 
     if (image) {
       postData = {
         kind: 'link',
-        title: content.substring(0, 300),
+        title: postTitle, // Use the same title for image posts
         url: image,
-        sr: subreddit,
+        sr: targetSubreddit,
         api_type: 'json'
       };
     }
@@ -996,20 +1029,54 @@ async function postToReddit(content: string, image?: string, credentials?: any) 
       formData.append(key, postData[key]);
     });
 
+    console.log('[Reddit] Posting to subreddit:', targetSubreddit);
+    console.log('[Reddit] Post data:', postData);
+    console.log('[Reddit] Form data:', Object.fromEntries(formData));
+
     const response = await fetch('https://oauth.reddit.com/api/submit', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
-        'User-Agent': 'ContentPilot/1.0',
+        'User-Agent': 'SocialMediaScheduler/1.0 by YourUsername',
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: formData
     });
 
+    console.log('[Reddit] Response status:', response.status);
+    console.log('[Reddit] Response headers:', Object.fromEntries(response.headers));
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[Reddit] API Error:', errorText);
-      throw new Error(`Reddit API error: ${response.status} - ${errorText}`);
+      console.error('[Reddit] API Error Response:', errorText);
+      console.error('[Reddit] Request headers:', {
+        'Authorization': `Bearer ${accessToken.substring(0, 10)}...`,
+        'User-Agent': 'SocialMediaScheduler/1.0 by YourUsername',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      });
+      console.error('[Reddit] Request body:', Object.fromEntries(formData));
+      console.error('[Reddit] Target subreddit:', targetSubreddit);
+      console.error('[Reddit] Post title:', postTitle);
+
+      // Provide helpful error messages for common issues
+      let errorMessage = `Reddit posting failed (${response.status})`;
+
+      if (response.status === 403) {
+        errorMessage = "Reddit posting forbidden. Please check: 1) Reddit account is connected, 2) You have permission to post to this subreddit, 3) Try 'test' or 'testingground4bots' subreddit.";
+      } else if (response.status === 401) {
+        errorMessage = "Reddit authentication failed. Please reconnect your Reddit account in Settings.";
+      } else {
+        try {
+          const errorJson = JSON.parse(errorText);
+          if (errorJson.json?.errors && errorJson.json.errors.length > 0) {
+            errorMessage = `Reddit error: ${errorJson.json.errors[0][1]}`;
+          }
+        } catch (parseError) {
+          errorMessage += ` - ${errorText}`;
+        }
+      }
+
+      throw new Error(errorMessage);
     }
 
     const result = await response.json();
@@ -1019,18 +1086,29 @@ async function postToReddit(content: string, image?: string, credentials?: any) 
       throw new Error(`Reddit error: ${result.json.errors[0][1]}`);
     }
 
-    const postUrl = result.json?.data?.url || `https://reddit.com/r/${subreddit}`;
+    const postUrl = result.json?.data?.url || `https://reddit.com/r/${targetSubreddit}`;
 
     return {
       platform: "reddit",
       success: true,
       postId: result.json?.data?.name || 'unknown',
       url: postUrl,
-      message: `✅ Successfully posted to Reddit r/${subreddit}! ${image ? 'Image included.' : ''}`
+      message: `✅ Successfully posted to Reddit r/${targetSubreddit}! ${image ? 'Image included.' : ''}`
     };
 
   } catch (error) {
     console.error('[Reddit] Error:', error);
+
+    // If Reddit is not connected, provide a helpful message
+    if (error.message.includes('not connected') || error.message.includes('No Reddit access token')) {
+      return {
+        platform: "reddit",
+        success: false,
+        error: "Reddit account not connected. Please connect your Reddit account in Settings → Social Media Connections.",
+        needsConnection: true
+      };
+    }
+
     return {
       platform: "reddit",
       success: false,
@@ -1040,7 +1118,7 @@ async function postToReddit(content: string, image?: string, credentials?: any) 
 }
 
 
-async function postToSocialMedia(platform: string, content: string, image?: string, credentials?: any) {
+async function postToSocialMedia(platform: string, content: string, image?: string, credentials?: any, title?: string, subreddit?: string) {
   // Optimize content for the specific platform
   const optimizedContent = optimizeContentForPlatform(content, platform);
 
@@ -1058,7 +1136,7 @@ async function postToSocialMedia(platform: string, content: string, image?: stri
     case "instagram":
       return await postToInstagram(optimizedContent, image, credentials);
     case "reddit":
-      return await postToReddit(optimizedContent, image, credentials);
+      return await postToReddit(optimizedContent, image, credentials, title, subreddit);
     default:
       return { platform, success: false, error: `Unsupported platform: ${platform}` };
   }

@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { X, Plus, Info, Users } from 'lucide-react';
-import { FaReddit } from 'react-icons/fa';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { Plus, X, Settings, Users } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -16,18 +15,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-interface SubredditManagementModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+interface SubredditManagementProps {
+  onSubredditsChange?: (subreddits: string[], defaultSubreddit: string) => void;
 }
 
-const SubredditManagementModal: React.FC<SubredditManagementModalProps> = ({
-  isOpen,
-  onClose
-}) => {
+const SubredditManagement: React.FC<SubredditManagementProps> = ({ onSubredditsChange }) => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [subreddits, setSubreddits] = useState<string[]>(['testingground4bots']);
+  const [subreddits, setSubreddits] = useState<string[]>([]);
   const [defaultSubreddit, setDefaultSubreddit] = useState<string>('testingground4bots');
   const [newSubreddit, setNewSubreddit] = useState('');
   const [loading, setLoading] = useState(false);
@@ -47,18 +42,18 @@ const SubredditManagementModal: React.FC<SubredditManagementModalProps> = ({
     'entrepreneur'
   ];
 
+  // Load user's subreddit preferences
   useEffect(() => {
-    if (isOpen && user) {
+    if (user) {
       loadSubredditPreferences();
     }
-  }, [isOpen, user]);
+  }, [user]);
 
   const loadSubredditPreferences = async () => {
     if (!user) return;
 
     setLoading(true);
     try {
-      // Try to load from database first
       const { data, error } = await supabase
         .from('user_preferences')
         .select('reddit_subreddits, default_reddit_subreddit')
@@ -67,33 +62,23 @@ const SubredditManagementModal: React.FC<SubredditManagementModalProps> = ({
 
       if (data && !error) {
         const userSubreddits = Array.isArray(data.reddit_subreddits) ? data.reddit_subreddits : [];
-        setSubreddits(userSubreddits.length > 0 ? userSubreddits : ['testingground4bots']);
-        setDefaultSubreddit(data.default_reddit_subreddit || 'testingground4bots');
+        setSubreddits(userSubreddits.length > 0 ? userSubreddits : ['test']);
+        setDefaultSubreddit(data.default_reddit_subreddit || 'test');
+      } else if (error && error.code !== 'PGRST116') {
+        console.error('Error loading subreddit preferences:', error);
+        // Use defaults
+        setSubreddits(['test']);
+        setDefaultSubreddit('test');
       } else {
-        // Fallback to localStorage
-        const localData = localStorage.getItem(`reddit_subreddits_${user.id}`);
-        if (localData) {
-          try {
-            const parsed = JSON.parse(localData);
-            setSubreddits(parsed.subreddits || ['testingground4bots']);
-            setDefaultSubreddit(parsed.defaultSubreddit || 'testingground4bots');
-          } catch (parseError) {
-            console.error('Error parsing local subreddit data:', parseError);
-            // Use defaults
-            setSubreddits(['testingground4bots']);
-            setDefaultSubreddit('testingground4bots');
-          }
-        } else {
-          // Use defaults
-          setSubreddits(['testingground4bots']);
-          setDefaultSubreddit('testingground4bots');
-        }
+        // No data found, use defaults
+        setSubreddits(['test']);
+        setDefaultSubreddit('test');
       }
     } catch (error) {
       console.error('Error loading subreddit preferences:', error);
       // Use defaults
-      setSubreddits(['testingground4bots']);
-      setDefaultSubreddit('testingground4bots');
+      setSubreddits(['test']);
+      setDefaultSubreddit('test');
     } finally {
       setLoading(false);
     }
@@ -104,7 +89,6 @@ const SubredditManagementModal: React.FC<SubredditManagementModalProps> = ({
 
     setSaving(true);
     try {
-      // Try to save to database first
       const { error } = await supabase
         .from('user_preferences')
         .upsert({
@@ -117,60 +101,27 @@ const SubredditManagementModal: React.FC<SubredditManagementModalProps> = ({
         });
 
       if (error) {
-        // If database columns don't exist, save to localStorage as fallback
-        if (error.message?.includes('column') || error.code === '42703') {
-          console.warn('Database columns not found, saving to localStorage:', error);
-          localStorage.setItem(`reddit_subreddits_${user.id}`, JSON.stringify({
-            subreddits,
-            defaultSubreddit,
-            updated_at: new Date().toISOString()
-          }));
-
-          toast({
-            title: "Saved Locally",
-            description: "Subreddit preferences saved locally. Database migration needed for permanent storage.",
-            variant: "default"
-          });
-        } else {
-          throw error;
-        }
-      } else {
-        // Also save to localStorage as backup
-        localStorage.setItem(`reddit_subreddits_${user.id}`, JSON.stringify({
-          subreddits,
-          defaultSubreddit,
-          updated_at: new Date().toISOString()
-        }));
-
-        toast({
-          title: "Success",
-          description: "Subreddit preferences saved successfully"
-        });
+        console.error('Error saving subreddit preferences:', error);
+        throw error;
       }
+
+      // Call callback if provided
+      if (onSubredditsChange) {
+        onSubredditsChange(subreddits, defaultSubreddit);
+      }
+
+      toast({
+        title: "Success",
+        description: "Subreddit preferences saved successfully"
+      });
 
     } catch (error: any) {
       console.error('Error saving subreddit preferences:', error);
-
-      // Fallback to localStorage
-      try {
-        localStorage.setItem(`reddit_subreddits_${user.id}`, JSON.stringify({
-          subreddits,
-          defaultSubreddit,
-          updated_at: new Date().toISOString()
-        }));
-
-        toast({
-          title: "Saved Locally",
-          description: "Preferences saved locally due to database error",
-          variant: "default"
-        });
-      } catch (localError) {
-        toast({
-          title: "Error",
-          description: "Failed to save subreddit preferences",
-          variant: "destructive"
-        });
-      }
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save subreddit preferences",
+        variant: "destructive"
+      });
     } finally {
       setSaving(false);
     }
@@ -180,7 +131,7 @@ const SubredditManagementModal: React.FC<SubredditManagementModalProps> = ({
     if (!newSubreddit.trim()) return;
 
     const cleanSubreddit = newSubreddit.trim().replace(/^r\//, ''); // Remove r/ prefix if present
-
+    
     if (subreddits.includes(cleanSubreddit)) {
       toast({
         title: "Already Added",
@@ -196,7 +147,7 @@ const SubredditManagementModal: React.FC<SubredditManagementModalProps> = ({
 
   const removeSubreddit = (subredditToRemove: string) => {
     setSubreddits(subreddits.filter(sub => sub !== subredditToRemove));
-
+    
     // If we're removing the default subreddit, reset to testingground4bots
     if (defaultSubreddit === subredditToRemove) {
       setDefaultSubreddit('testingground4bots');
@@ -216,44 +167,25 @@ const SubredditManagementModal: React.FC<SubredditManagementModalProps> = ({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center shadow-lg">
-              <Users className="w-5 h-5 text-white" />
-            </div>
-            <DialogTitle className="text-xl font-semibold">
-              Reddit Subreddit Management
-            </DialogTitle>
-            <button
-              onClick={onClose}
-              className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
-            >
-              <X className="h-4 w-4" />
-            </button>
+    <Card className="bg-white border border-gray-200 shadow-sm">
+      <div className="p-6">
+        <div className="flex items-center space-x-3 mb-6">
+          <div className="p-2 bg-orange-100 rounded-lg">
+            <Users className="h-5 w-5 text-orange-600" />
           </div>
-        </DialogHeader>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Reddit Subreddits</h3>
+            <p className="text-sm text-gray-600">Manage your preferred subreddits for posting</p>
+          </div>
+        </div>
 
         {loading ? (
-          <div className="text-center py-8">
+          <div className="text-center py-4">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto"></div>
             <p className="text-sm text-gray-600 mt-2">Loading preferences...</p>
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Info Section */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-start space-x-3">
-                <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-blue-800">
-                  <p className="font-medium mb-1">
-                    Manage your preferred subreddits for posting. These will be available when creating Reddit posts.
-                  </p>
-                </div>
-              </div>
-            </div>
-
             {/* Add New Subreddit */}
             <div className="space-y-3">
               <label className="block text-sm font-medium text-gray-700">Add Subreddit</label>
@@ -338,8 +270,8 @@ const SubredditManagementModal: React.FC<SubredditManagementModalProps> = ({
 
             {/* Save Button */}
             <div className="flex justify-end pt-4 border-t border-gray-200">
-              <Button
-                onClick={saveSubredditPreferences}
+              <Button 
+                onClick={saveSubredditPreferences} 
                 disabled={saving}
                 className="bg-orange-600 hover:bg-orange-700 text-white"
               >
@@ -348,9 +280,9 @@ const SubredditManagementModal: React.FC<SubredditManagementModalProps> = ({
             </div>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </div>
+    </Card>
   );
 };
 
-export default SubredditManagementModal;
+export default SubredditManagement;

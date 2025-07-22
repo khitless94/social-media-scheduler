@@ -1,4 +1,4 @@
--- Create user_preferences table for notification settings
+-- Create user_preferences table for notification settings and subreddit preferences
 CREATE TABLE IF NOT EXISTS user_preferences (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -6,6 +6,8 @@ CREATE TABLE IF NOT EXISTS user_preferences (
   push_notifications BOOLEAN DEFAULT false,
   marketing_notifications BOOLEAN DEFAULT true,
   security_notifications BOOLEAN DEFAULT true,
+  reddit_subreddits JSONB DEFAULT '[]'::jsonb,
+  default_reddit_subreddit TEXT DEFAULT 'testingground4bots',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(user_id)

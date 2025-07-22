@@ -45,6 +45,7 @@ const CreatePostFixed: React.FC = () => {
   const [prompt, setPrompt] = useState('');
   const [platform, setPlatform] = useState('');
   const [tone, setTone] = useState('');
+  const [title, setTitle] = useState(''); // For Reddit posts
   const [generatedText, setGeneratedText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [scheduleDate, setScheduleDate] = useState<Date>();

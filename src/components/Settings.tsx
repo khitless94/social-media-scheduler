@@ -7,6 +7,7 @@ import { Settings as SettingsIcon } from "lucide-react";
 import ApiKeyManager from "./ApiKeyManager";
 import ProfileSettings from "./settings/ProfileSettings";
 import SocialMediaConfig from "./settings/SocialMediaConfig";
+
 import { PricingBasic } from "./PricingBasic";
 import { useSocialMediaConnection } from "@/hooks/useSocialMediaConnection";
 

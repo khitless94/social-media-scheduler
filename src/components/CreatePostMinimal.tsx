@@ -65,7 +65,8 @@ const CreatePostMinimal: React.FC = () => {
     platformPostIds?: Record<string, string>,
     errorMessage?: string,
     generatedByAI?: boolean,
-    aiPrompt?: string
+    aiPrompt?: string,
+    title?: string
   ) => {
     // Production: Minimal logging for database saves
 
@@ -97,7 +98,8 @@ const CreatePostMinimal: React.FC = () => {
         generated_by_ai: generatedByAI || false,
         ai_prompt: aiPrompt,
         error_message: errorMessage,
-        retry_count: 0
+        retry_count: 0,
+        ...(title && { title })
       };
 
       // Inserting post data
@@ -132,11 +134,12 @@ const CreatePostMinimal: React.FC = () => {
   };
 
   // Post to social media function
-  const postToSocial = async ({ content, platform, subreddit, image }: {
+  const postToSocial = async ({ content, platform, subreddit, image, title }: {
     content: string;
     platform: Platform;
     subreddit?: string;
     image?: string;
+    title?: string;
   }) => {
     try {
       setSocialMediaLoading(true);
@@ -151,11 +154,12 @@ const CreatePostMinimal: React.FC = () => {
         content,
         platform,
         ...(subreddit && { subreddit }),
-        ...(image && { image })
+        ...(image && { image }),
+        ...(title && { title })
       };
 
-      // Call the edge function with authentication (FIXED ENDPOINT)
-      const response = await fetch('https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/post-to-social-media', {
+      // Call the edge function with authentication
+      const response = await fetch('https://eqiuukwwpdiyncahrdny.supabase.co/functions/v1/post-to-social', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -227,6 +231,7 @@ const CreatePostMinimal: React.FC = () => {
   const [prompt, setPrompt] = useState('');
   const [platform, setPlatform] = useState('');
   const [tone, setTone] = useState('');
+  const [title, setTitle] = useState(''); // For Reddit posts
   const [generatedText, setGeneratedText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [scheduleDate, setScheduleDate] = useState<Date>();
@@ -911,13 +916,24 @@ Create the post now:`;
       return;
     }
 
+    // For Reddit, title is required
+    if (platform === 'reddit' && !title.trim()) {
+      toast({
+        title: "Title required",
+        description: "Reddit posts require a title.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsPostingNow(true);
     try {
       const result = await postToSocial({
         content: generatedText,
         platform: platform as Platform,
         subreddit: platform === 'reddit' ? 'test' : undefined,
-        image: getCurrentImage()
+        image: getCurrentImage(),
+        title: platform === 'reddit' ? title : undefined
       });
 
       if (result.success) {
@@ -929,6 +945,7 @@ Create the post now:`;
         setPrompt('');
         setPlatform('');
         setTone('');
+        setTitle('');
         setUploadedImage(null);
         setGeneratedImage(null);
         setImageSource('none');
@@ -971,7 +988,8 @@ Create the post now:`;
         {}, // platformPostIds
         undefined, // errorMessage
         false, // generatedByAI
-        prompt // aiPrompt
+        prompt, // aiPrompt
+        platform === 'reddit' ? title : undefined // title
       );
 
       if (savedPost) {
@@ -1014,6 +1032,7 @@ Create the post now:`;
       setPrompt('');
       setPlatform('');
       setTone('');
+      setTitle('');
       setUploadedImage(null);
       setGeneratedImage(null);
       setImageSource('none');
@@ -1057,6 +1076,16 @@ Create the post now:`;
       toast({
         title: "Instagram requires an image",
         description: "Please upload or generate an image for Instagram posts.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // For Reddit, title is required
+    if (platform === 'reddit' && !title.trim()) {
+      toast({
+        title: "Title required",
+        description: "Reddit posts require a title.",
         variant: "destructive",
       });
       return;
@@ -1134,7 +1163,8 @@ Create the post now:`;
         image_url: getCurrentImage() || null,
         ai_prompt: prompt || null,
         generated_by_ai: false,
-        retry_count: 0
+        retry_count: 0,
+        ...(platform === 'reddit' && title && { title })
       };
 
       // Inserting post data
@@ -1160,6 +1190,7 @@ Create the post now:`;
       setPrompt('');
       setPlatform('');
       setTone('');
+      setTitle('');
       setScheduleDate(undefined);
       setScheduleTime('');
       // Reset flexible datetime to 2 minutes from now
@@ -1366,6 +1397,29 @@ Create the post now:`;
                 })}
               </div>
             </div>
+
+            {/* Title Input for Reddit */}
+            {platform === 'reddit' && (
+              <div className="mb-8">
+                <Card className="bg-white border border-gray-200 shadow-sm rounded-lg">
+                  <div className="p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Reddit Post Title</h3>
+                    <div className="space-y-4">
+                      <Input
+                        placeholder="Enter your Reddit post title (required)..."
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        className="border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg p-4 text-sm transition-all duration-200 bg-white"
+                        maxLength={300}
+                      />
+                      <div className="text-right">
+                        <span className="text-xs text-gray-500">{title.length}/300</span>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            )}
 
             {/* Content Creation Section */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -2081,7 +2135,9 @@ Create the post now:`;
 
                           {/* Reddit Content */}
                           <div className="p-4">
-                            <h3 className="font-semibold text-gray-900 mb-2">Post Title</h3>
+                            <h3 className="font-semibold text-gray-900 mb-2">
+                              {title || "Enter your Reddit post title..."}
+                            </h3>
                             <div className="w-full text-sm leading-relaxed whitespace-pre-wrap">
                               {generatedText || "Your content will appear here..."}
                             </div>
