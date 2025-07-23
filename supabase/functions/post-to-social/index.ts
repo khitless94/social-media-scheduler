@@ -25,24 +25,49 @@ serve(async (req) => {
     // Get user from JWT token
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
+      console.error('[Auth] Missing authorization header');
+      return new Response(JSON.stringify({
+        error: 'Missing authorization header. Please sign in to your account.'
+      }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const token = authHeader.replace('Bearer ', '');
+    console.log(`[Auth] Validating token (length: ${token.length})`);
+
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
+    if (userError) {
+      console.error('[Auth] Token validation error:', userError);
+      return new Response(JSON.stringify({
+        error: 'Authentication failed. Please sign out and sign in again.',
+        details: userError.message
+      }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    if (!user) {
+      console.error('[Auth] No user found for token');
+      return new Response(JSON.stringify({
+        error: 'User not found. Please sign out and sign in again.'
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    console.log(`[Auth] ✅ User authenticated: ${user.id} (${user.email})`);
+    console.log(`[Auth] User created: ${user.created_at}`);
+
     const body = await req.json();
-    let { content, platforms, platform, image, subreddit, title } = body;
+    console.log('[Request] Full request body:', JSON.stringify(body, null, 2));
+    let { content, platforms, platform, image, subreddit, title, flair } = body;
+    console.log('[Request] Extracted subreddit:', subreddit);
+    console.log('[Request] Extracted flair:', flair);
 
     // Handle both old format (platform: "linkedin") and new format (platforms: ["linkedin"])
     if (platform && !platforms) {
@@ -65,6 +90,7 @@ serve(async (req) => {
         // Processing platform
 
         // Get OAuth credentials for this platform and user
+        console.log(`[${platform}] Looking for credentials for user: ${user.id}`);
         const { data: credentials, error: credError } = await supabase
           .from('oauth_credentials')
           .select('*')
@@ -73,7 +99,12 @@ serve(async (req) => {
           .single();
 
         if (credError || !credentials) {
-          console.error(`No credentials found for ${platform}:`, credError);
+          console.error(`[${platform}] No credentials found:`, credError);
+          console.error(`[${platform}] Error details:`, {
+            code: credError?.code,
+            message: credError?.message,
+            details: credError?.details
+          });
           results.push({
             platform,
             success: false,
@@ -82,6 +113,11 @@ serve(async (req) => {
           });
           continue;
         }
+
+        console.log(`[${platform}] ✅ Credentials found`);
+        console.log(`[${platform}] Token expires at: ${credentials.expires_at || 'Never'}`);
+        console.log(`[${platform}] Has access token: ${!!credentials.access_token}`);
+        console.log(`[${platform}] Has refresh token: ${!!credentials.refresh_token}`);
 
         // Check if token is expired
         if (credentials.expires_at && new Date(credentials.expires_at) < new Date()) {
@@ -95,7 +131,7 @@ serve(async (req) => {
           continue;
         }
 
-        const result = await postToSocialMedia(platform, content, image, credentials, title, subreddit);
+        const result = await postToSocialMedia(platform, content, image, credentials, title, subreddit, flair);
         results.push(result);
       } catch (err) {
         console.error(`Error posting to ${platform}:`, err);
@@ -150,98 +186,39 @@ function optimizeContentForPlatform(content: string, platform: string): string {
   return (lastSpace > 0 ? truncated.substring(0, lastSpace) : truncated) + "...";
 }
 
-// Create proper HMAC-SHA1 signature for OAuth 1.0a
-async function createHmacSha1Signature(baseString: string, signingKey: string): Promise<string> {
-  try {
-    const encoder = new TextEncoder();
-    const keyData = encoder.encode(signingKey);
-    const messageData = encoder.encode(baseString);
 
-    // Import the key for HMAC
-    const cryptoKey = await crypto.subtle.importKey(
-      'raw',
-      keyData,
-      { name: 'HMAC', hash: 'SHA-1' },
-      false,
-      ['sign']
-    );
-
-    // Create the signature
-    const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
-
-    // Convert to base64
-    const signatureArray = new Uint8Array(signature);
-    return btoa(String.fromCharCode(...signatureArray));
-  } catch (error) {
-    console.error('[Twitter] HMAC-SHA1 signature error:', error);
-    // Fallback to simple signature if crypto fails
-    return btoa(baseString + signingKey).substring(0, 28);
-  }
-}
 
 // Old Twitter functions removed - now using twitter-api-v2 library
 
-// Twitter posting function using proper OAuth 1.0a (following guidelines)
+// Twitter posting function using OAuth 2.0 Bearer Token (current standard)
 async function postToTwitter(content: string, image?: string, credentials?: any) {
   try {
-    // Starting Twitter post process
+    console.log('[Twitter] 🐦 Starting Twitter posting process...');
+    console.log('[Twitter] Content length:', content.length);
+    console.log('[Twitter] Has image:', !!image);
 
-    // Validate Twitter OAuth 1.0a credentials
-    const twitterCredentials = {
-      appKey: Deno.env.get('TWITTER_API_KEY')!,
-      appSecret: Deno.env.get('TWITTER_API_SECRET')!,
-      accessToken: credentials?.access_token,
-      accessSecret: credentials?.access_token_secret,
-    };
+    // Get Twitter Bearer Token from environment or use user's access token
+    console.log('[Twitter] Checking for Bearer token...');
+    console.log('[Twitter] User credentials available:', !!credentials);
+    console.log('[Twitter] User access token available:', !!credentials?.access_token);
+    console.log('[Twitter] Environment TWITTER_BEARER_TOKEN available:', !!Deno.env.get('TWITTER_BEARER_TOKEN'));
 
-    // OAuth 1.0a credentials check
+    const bearerToken = credentials?.access_token || Deno.env.get('TWITTER_BEARER_TOKEN');
 
-    // Check if we have proper OAuth 1.0a credentials
-    if (!twitterCredentials.accessToken || !twitterCredentials.accessSecret) {
-      console.warn('[Twitter] ⚠️ Missing OAuth 1.0a credentials (access_token_secret required)');
-      console.warn('[Twitter] Current credentials appear to be OAuth 2.0 Bearer tokens');
-
+    if (!bearerToken) {
+      console.error('[Twitter] ❌ No Bearer token available');
+      console.error('[Twitter] Credentials object:', credentials);
       return {
         platform: "twitter",
         success: false,
-        error: "Twitter posting requires OAuth 1.0a credentials. Please reconnect your Twitter account with proper OAuth 1.0a flow.",
-        needsReconnection: true
+        error: "Twitter authentication required. Please reconnect your Twitter account."
       };
     }
 
-    let mediaId = null;
-
-    // Step 1: Upload image if provided (following guidelines)
-    if (image) {
-      try {
-        // Starting image upload process
-        const imageResponse = await fetch(image);
-        if (!imageResponse.ok) {
-          throw new Error(`Failed to download image: ${imageResponse.status} ${imageResponse.statusText}`);
-        }
-
-        const imageBuffer = await imageResponse.arrayBuffer();
-        // Image downloaded successfully
-
-        // Validate image size (Twitter limit: 5MB for photos)
-        if (imageBuffer.byteLength > 5 * 1024 * 1024) {
-          throw new Error(`Image too large: ${imageSizeMB}MB (Twitter limit: 5MB)`);
-        }
-
-        // Upload image to Twitter using OAuth 1.0a
-        mediaId = await uploadImageToTwitterOAuth1a(imageBuffer, twitterCredentials);
-
-        if (!mediaId) {
-          throw new Error('Failed to upload image to Twitter');
-        }
-
-      } catch (imageError) {
-        console.error('[Twitter] Image upload error:', imageError);
-        mediaId = null;
-      }
-    }
-
-    // Step 2: Post tweet using OAuth 1.0a
+    console.log('[Twitter] ✅ Bearer token available, proceeding with posting...');
+    console.log('[Twitter] Token source:', credentials?.access_token ? 'User credentials' : 'Environment variable');
+    console.log('[Twitter] Token length:', bearerToken.length);
+    console.log('[Twitter] Token prefix:', bearerToken.substring(0, 10) + '...');
 
     // Validate content length (Twitter limit is 280 characters)
     if (content.length > 280) {
@@ -249,86 +226,22 @@ async function postToTwitter(content: string, image?: string, credentials?: any)
       content = content.substring(0, 277) + '...';
     }
 
-    const tweetResult = await postTweetOAuth1a(content, mediaId, twitterCredentials);
-    return tweetResult;
-
-  } catch (error) {
-    console.error('[Twitter] ❌ Twitter posting failed:', error);
-    return {
-      platform: "twitter",
-      success: false,
-      error: error.message
-    };
-  }
-}
-
-// Helper function to upload image using OAuth 1.0a (following guidelines)
-async function uploadImageToTwitterOAuth1a(imageBuffer: ArrayBuffer, credentials: any): Promise<string | null> {
-  try {
-    const apiUrl = 'https://upload.twitter.com/1.1/media/upload.json';
-
-    // Convert to base64 for upload
-    const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
-
-    // Create OAuth 1.0a signature for media upload
-    const oauthHeader = await createTwitterOAuth1aHeader('POST', apiUrl, credentials, {});
-
-    // Prepare form data
-    const formData = new URLSearchParams();
-    formData.append('media_data', base64Image);
-
-    console.log('[Twitter] Uploading image to Twitter...');
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': oauthHeader,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: formData.toString(),
-    });
-
-    if (response.ok) {
-      const json = await response.json();
-      console.log('[Twitter] ✅ Image uploaded successfully, media_id:', json.media_id_string);
-      return json.media_id_string;
-    } else {
-      const errorText = await response.text();
-      console.error('[Twitter] ❌ Image upload failed:', response.status, errorText);
-      return null;
-    }
-
-  } catch (error) {
-    console.error('[Twitter] ❌ Image upload error:', error);
-    return null;
-  }
-}
-
-// Helper function to post tweet using OAuth 1.0a (following guidelines)
-async function postTweetOAuth1a(content: string, mediaId: string | null, credentials: any) {
-  try {
-    const apiUrl = 'https://api.twitter.com/2/tweets';
-
     // Prepare tweet data
     const tweetData: any = {
       text: content
     };
 
-    // Add media if available
-    if (mediaId) {
-      tweetData.media = {
-        media_ids: [mediaId]
-      };
-      console.log('[Twitter] 📎 Tweet will include media_id:', mediaId);
+    // Handle image upload if provided
+    if (image) {
+      console.log('[Twitter] ⚠️ Image posting not yet implemented with OAuth 2.0, posting text only');
     }
 
-    // Create OAuth 1.0a signature for tweet posting
-    const oauthHeader = await createTwitterOAuth1aHeader('POST', apiUrl, credentials, {});
-
-    console.log('[Twitter] 🚀 Posting tweet using OAuth 1.0a...');
-    const response = await fetch(apiUrl, {
+    // Post tweet using Twitter API v2
+    console.log('[Twitter] 🚀 Posting tweet to Twitter API v2...');
+    const response = await fetch('https://api.twitter.com/2/tweets', {
       method: 'POST',
       headers: {
-        'Authorization': oauthHeader,
+        'Authorization': `Bearer ${bearerToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(tweetData)
@@ -337,21 +250,19 @@ async function postTweetOAuth1a(content: string, mediaId: string | null, credent
     if (response.ok) {
       const result = await response.json();
       console.log('[Twitter] ✅ Tweet posted successfully');
-      console.log('[Twitter] Tweet ID:', result.data.id);
-
-      let message = mediaId ? "Tweet with image posted successfully" : "Text-only tweet posted successfully";
+      console.log('[Twitter] Tweet ID:', result.data?.id);
 
       return {
         platform: "twitter",
         success: true,
         data: result.data,
-        message: message
+        message: "Tweet posted successfully"
       };
     } else {
       const errorText = await response.text();
       console.error('[Twitter] ❌ Tweet posting failed:', response.status, errorText);
 
-      // Handle rate limiting specifically
+      // Handle rate limiting
       if (response.status === 429) {
         const resetTime = response.headers.get('x-rate-limit-reset');
         const resetDate = resetTime ? new Date(parseInt(resetTime) * 1000) : null;
@@ -365,23 +276,38 @@ async function postTweetOAuth1a(content: string, mediaId: string | null, credent
         };
       }
 
-      // Handle specific Twitter errors
-      let errorMessage = `HTTP ${response.status}: ${errorText}`;
+      // Handle authentication errors
+      if (response.status === 401) {
+        return {
+          platform: "twitter",
+          success: false,
+          error: "Twitter authentication expired. Please reconnect your Twitter account.",
+          needsReconnection: true
+        };
+      }
 
-      // Check for duplicate content error
-      if (response.status === 403 && errorText.includes('duplicate content')) {
-        errorMessage = 'Twitter doesn\'t allow identical posts. Please edit your content to make it unique before posting again.';
+      // Parse error response
+      let errorMessage = 'Unknown error occurred';
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.errors && errorData.errors.length > 0) {
+          errorMessage = errorData.errors[0].message || errorMessage;
+        } else if (errorData.detail) {
+          errorMessage = errorData.detail;
+        }
+      } catch (parseError) {
+        errorMessage = errorText || errorMessage;
       }
 
       return {
         platform: "twitter",
         success: false,
-        error: errorMessage
+        error: `Twitter API error: ${errorMessage}`
       };
     }
 
   } catch (error) {
-    console.error('[Twitter] ❌ Tweet posting failed:', error);
+    console.error('[Twitter] ❌ Twitter posting failed:', error);
     return {
       platform: "twitter",
       success: false,
@@ -390,53 +316,11 @@ async function postTweetOAuth1a(content: string, mediaId: string | null, credent
   }
 }
 
-// Helper function to create OAuth 1.0a authorization header (following guidelines)
-async function createTwitterOAuth1aHeader(method: string, url: string, credentials: any, params: any = {}): Promise<string> {
-  try {
-    // Generate OAuth 1.0a parameters
-    const timestamp = Math.floor(Date.now() / 1000).toString();
-    const nonce = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 
-    const oauthParams = {
-      oauth_consumer_key: credentials.appKey,
-      oauth_nonce: nonce,
-      oauth_signature_method: 'HMAC-SHA1',
-      oauth_timestamp: timestamp,
-      oauth_token: credentials.accessToken,
-      oauth_version: '1.0'
-    };
 
-    // Combine OAuth params with request params
-    const allParams = { ...oauthParams, ...params };
 
-    // Create parameter string for signature
-    const paramString = Object.keys(allParams)
-      .sort()
-      .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(allParams[key])}`)
-      .join('&');
 
-    // Create signature base string
-    const baseString = `${method}&${encodeURIComponent(url)}&${encodeURIComponent(paramString)}`;
 
-    // Create signing key
-    const signingKey = `${encodeURIComponent(credentials.appSecret)}&${encodeURIComponent(credentials.accessSecret)}`;
-
-    // Generate signature using HMAC-SHA1
-    const signature = await createHmacSha1Signature(baseString, signingKey);
-    oauthParams['oauth_signature'] = signature;
-
-    // Create OAuth authorization header
-    const oauthHeader = 'OAuth ' + Object.keys(oauthParams)
-      .map(key => `${key}="${encodeURIComponent(oauthParams[key])}"`)
-      .join(', ');
-
-    return oauthHeader;
-
-  } catch (error) {
-    console.error('[Twitter] OAuth 1.0a header generation failed:', error);
-    throw error;
-  }
-}
 
 // LinkedIn posting function
 async function postToLinkedIn(content: string, image?: string, credentials?: any) {
@@ -962,12 +846,16 @@ async function postToInstagram(content: string, image?: string, credentials?: an
 }
 
 // Reddit posting function
-async function postToReddit(content: string, image?: string, credentials?: any, title?: string, subreddit?: string) {
+async function postToReddit(content: string, image?: string, credentials?: any, title?: string, subreddit?: string, flair?: string) {
   try {
     console.log('[Reddit] Starting Reddit post process...');
     console.log('[Reddit] Credentials received:', credentials ? 'Yes' : 'No');
     console.log('[Reddit] Title:', title);
-    console.log('[Reddit] Subreddit:', subreddit);
+    console.log('[Reddit] Subreddit parameter received:', subreddit);
+    console.log('[Reddit] Subreddit type:', typeof subreddit);
+    console.log('[Reddit] Subreddit truthy?', !!subreddit);
+    console.log('[Reddit] Flair parameter received:', flair);
+    console.log('[Reddit] Flair type:', typeof flair);
     console.log('[Reddit] Content length:', content.length);
 
     if (!credentials) {
@@ -999,8 +887,8 @@ async function postToReddit(content: string, image?: string, credentials?: any, 
     const userData = await userResponse.json();
     console.log('[Reddit] Token valid for user:', userData.name);
 
-    // Use provided subreddit or fallback to test (more permissive)
-    const targetSubreddit = subreddit || 'test';
+    // Use provided subreddit or fallback to testingground4bots (bot-friendly)
+    const targetSubreddit = subreddit || 'testingground4bots';
 
     // Use provided title or fallback to content substring
     const postTitle = title || content.substring(0, 300);
@@ -1013,6 +901,12 @@ async function postToReddit(content: string, image?: string, credentials?: any, 
       api_type: 'json'
     };
 
+    // Add flair if provided (using flair_id as per Reddit API documentation)
+    if (flair) {
+      postData.flair_id = flair;
+      console.log('[Reddit] Adding flair_id to post:', flair);
+    }
+
     // If image is provided, post as link
     if (image) {
       postData = {
@@ -1022,6 +916,12 @@ async function postToReddit(content: string, image?: string, credentials?: any, 
         sr: targetSubreddit,
         api_type: 'json'
       };
+
+      // Add flair to image posts too (using flair_id as per Reddit API documentation)
+      if (flair) {
+        postData.flair_id = flair;
+        console.log('[Reddit] Adding flair_id to image post:', flair);
+      }
     }
 
     const formData = new URLSearchParams();
@@ -1118,7 +1018,7 @@ async function postToReddit(content: string, image?: string, credentials?: any, 
 }
 
 
-async function postToSocialMedia(platform: string, content: string, image?: string, credentials?: any, title?: string, subreddit?: string) {
+async function postToSocialMedia(platform: string, content: string, image?: string, credentials?: any, title?: string, subreddit?: string, flair?: string) {
   // Optimize content for the specific platform
   const optimizedContent = optimizeContentForPlatform(content, platform);
 
@@ -1136,7 +1036,7 @@ async function postToSocialMedia(platform: string, content: string, image?: stri
     case "instagram":
       return await postToInstagram(optimizedContent, image, credentials);
     case "reddit":
-      return await postToReddit(optimizedContent, image, credentials, title, subreddit);
+      return await postToReddit(optimizedContent, image, credentials, title, subreddit, flair);
     default:
       return { platform, success: false, error: `Unsupported platform: ${platform}` };
   }

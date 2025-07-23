@@ -11,7 +11,7 @@ import AuthGuard from '@/components/AuthGuard';
 import LandingPage from '@/components/LandingPage';
 import UnifiedDashboard from '@/components/UnifiedDashboard';
 import CreatePost from '@/components/CreatePost';
-import CreatePostMinimal from '@/components/CreatePostMinimal';
+import CreatePostMinimal from '@/components/CreatePostMinimalNew';
 import SettingsPage from '@/components/pages/SettingsPage';
 import MyPostsPage from '@/components/pages/MyPostsPage';
 import CreatePostTest from '@/components/CreatePostTest';

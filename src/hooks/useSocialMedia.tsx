@@ -7,6 +7,7 @@ export interface PostToSocialParams {
   subreddit?: string;
   image?: string;
   title?: string;
+  flair?: string;
 }
 
 export interface PostResponse {
@@ -241,7 +242,7 @@ export const useSocialMedia = () => {
   };
 
   // Post to a single social media platform
-  const postToSocial = async ({ content, platform, subreddit, image, title }: PostToSocialParams): Promise<PostResponse> => {
+  const postToSocial = async ({ content, platform, subreddit, image, title, flair }: PostToSocialParams): Promise<PostResponse> => {
     try {
       setLoading(true);
 
@@ -276,6 +277,11 @@ export const useSocialMedia = () => {
       // Only include title for Reddit posts
       if (platform === 'reddit' && title) {
         requestBody.title = title;
+      }
+
+      // Only include flair for Reddit posts
+      if (platform === 'reddit' && flair) {
+        requestBody.flair = flair;
       }
 
       console.log(`📤 [useSocialMedia] Request body:`, requestBody);

@@ -102,19 +102,21 @@ serve(async (req) => {
 
 // Platform-specific posting functions
 async function postToTwitter(content: string, imageUrl?: string, accessToken?: string) {
-  console.log('🐦 [Twitter] Starting REAL Twitter API posting...');
+  console.log('🐦 [Twitter] Starting Twitter API posting...');
   console.log('🐦 [Twitter] Content:', content);
   console.log('🐦 [Twitter] Image URL:', imageUrl);
 
-  // Get Twitter API credentials from environment
-  const TWITTER_BEARER_TOKEN = Deno.env.get('TWITTER_BEARER_TOKEN');
-  const TWITTER_API_KEY = Deno.env.get('TWITTER_API_KEY');
-  const TWITTER_API_SECRET = Deno.env.get('TWITTER_API_SECRET');
-  const TWITTER_ACCESS_TOKEN = Deno.env.get('TWITTER_ACCESS_TOKEN');
-  const TWITTER_ACCESS_TOKEN_SECRET = Deno.env.get('TWITTER_ACCESS_TOKEN_SECRET');
+  // Use the provided access token or fallback to environment Bearer token
+  const bearerToken = accessToken || Deno.env.get('TWITTER_BEARER_TOKEN');
 
-  if (!TWITTER_BEARER_TOKEN && (!TWITTER_API_KEY || !TWITTER_API_SECRET)) {
-    throw new Error('Twitter API credentials not configured. Please set TWITTER_BEARER_TOKEN or OAuth 1.0a credentials in Supabase Edge Function secrets.');
+  if (!bearerToken) {
+    throw new Error('Twitter authentication required. No access token provided.');
+  }
+
+  // Validate content length (Twitter limit is 280 characters)
+  if (content.length > 280) {
+    console.warn('🐦 [Twitter] Content exceeds 280 characters, truncating...');
+    content = content.substring(0, 277) + '...';
   }
 
   // Prepare tweet data
@@ -122,73 +124,18 @@ async function postToTwitter(content: string, imageUrl?: string, accessToken?: s
 
   // Handle media upload if image is provided
   if (imageUrl) {
-    try {
-      console.log('🖼️ [Twitter] Processing image for upload...');
-
-      // For now, skip media upload and post text only
-      // Media upload requires additional OAuth 1.0a implementation
-      console.log('⚠️ [Twitter] Image upload not implemented yet, posting text only');
-
-    } catch (error) {
-      console.warn('⚠️ [Twitter] Image processing failed:', error);
-    }
+    console.log('⚠️ [Twitter] Image upload not yet implemented, posting text only');
   }
 
   console.log('📤 [Twitter] Posting tweet:', tweetData);
 
-  // Use OAuth 1.0a for Twitter API v2 (required for posting)
-  // Generate OAuth 1.0a signature using Web Crypto API
-  const oauth = {
-    oauth_consumer_key: TWITTER_API_KEY,
-    oauth_token: TWITTER_ACCESS_TOKEN,
-    oauth_signature_method: 'HMAC-SHA1',
-    oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
-    oauth_nonce: Math.random().toString(36).substring(2, 15),
-    oauth_version: '1.0'
-  };
-
-  // Create signature base string
-  const method = 'POST';
-  const url = 'https://api.twitter.com/2/tweets';
-  const parameterString = Object.keys(oauth)
-    .sort()
-    .map(key => `${key}=${encodeURIComponent(oauth[key])}`)
-    .join('&');
-
-  const signatureBaseString = `${method}&${encodeURIComponent(url)}&${encodeURIComponent(parameterString)}`;
-
-  // Create signing key
-  const signingKey = `${encodeURIComponent(TWITTER_API_SECRET)}&${encodeURIComponent(TWITTER_ACCESS_TOKEN_SECRET)}`;
-
-  // Generate signature using Web Crypto API (Deno compatible)
-  const encoder = new TextEncoder();
-  const keyData = encoder.encode(signingKey);
-  const messageData = encoder.encode(signatureBaseString);
-
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw',
-    keyData,
-    { name: 'HMAC', hash: 'SHA-1' },
-    false,
-    ['sign']
-  );
-
-  const signatureBuffer = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
-  const signature = btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)));
-  oauth['oauth_signature'] = signature;
-
-  // Create Authorization header
-  const authHeader = 'OAuth ' + Object.keys(oauth)
-    .sort()
-    .map(key => `${key}="${encodeURIComponent(oauth[key])}"`)
-    .join(', ');
-
-  console.log('🔐 [Twitter] OAuth 1.0a Authorization header created');
+  // Use OAuth 2.0 Bearer token for Twitter API v2
+  console.log('🔐 [Twitter] Using OAuth 2.0 Bearer token authentication');
 
   const response = await fetch('https://api.twitter.com/2/tweets', {
     method: 'POST',
     headers: {
-      'Authorization': authHeader,
+      'Authorization': `Bearer ${bearerToken}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(tweetData)

@@ -58,40 +58,73 @@ const SubredditManagementModal: React.FC<SubredditManagementModalProps> = ({
 
     setLoading(true);
     try {
-      // Try to load from database first
-      const { data, error } = await supabase
-        .from('user_preferences')
-        .select('reddit_subreddits, default_reddit_subreddit')
-        .eq('user_id', user.id)
-        .single();
+      console.log('📖 [SubredditModal] Loading subreddit preferences for user:', user.id);
 
-      if (data && !error) {
-        const userSubreddits = Array.isArray(data.reddit_subreddits) ? data.reddit_subreddits : [];
-        setSubreddits(userSubreddits.length > 0 ? userSubreddits : ['testingground4bots']);
-        setDefaultSubreddit(data.default_reddit_subreddit || 'testingground4bots');
-      } else {
-        // Fallback to localStorage
-        const localData = localStorage.getItem(`reddit_subreddits_${user.id}`);
-        if (localData) {
-          try {
-            const parsed = JSON.parse(localData);
-            setSubreddits(parsed.subreddits || ['testingground4bots']);
-            setDefaultSubreddit(parsed.defaultSubreddit || 'testingground4bots');
-          } catch (parseError) {
-            console.error('Error parsing local subreddit data:', parseError);
-            // Use defaults
-            setSubreddits(['testingground4bots']);
-            setDefaultSubreddit('testingground4bots');
-          }
+      // Try localStorage first (primary storage for now)
+      const localData = localStorage.getItem(`reddit_subreddits_${user.id}`);
+
+      if (localData) {
+        try {
+          const parsed = JSON.parse(localData);
+          setSubreddits(parsed.subreddits || ['testingground4bots']);
+          setDefaultSubreddit(parsed.defaultSubreddit || 'testingground4bots');
+          console.log('📖 [SubredditModal] ✅ Loaded from localStorage:', parsed);
+          return; // Successfully loaded from localStorage
+        } catch (parseError) {
+          console.error('📖 [SubredditModal] localStorage parse error:', parseError);
+        }
+      }
+
+      // If localStorage failed or no data, try database as fallback
+      console.log('📖 [SubredditModal] No localStorage data, trying database...');
+
+      try {
+        // Check session first
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError || !session) {
+          console.warn('📖 [SubredditModal] No valid session, using defaults');
+          setSubreddits(['testingground4bots']);
+          setDefaultSubreddit('testingground4bots');
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from('user_preferences')
+          .select('reddit_subreddits, default_reddit_subreddit')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        console.log('📖 [SubredditModal] Database query result:', { data, error });
+
+        if (data && !error && data.reddit_subreddits) {
+          // Successfully loaded from database
+          const userSubreddits = Array.isArray(data.reddit_subreddits) ? data.reddit_subreddits : [];
+          setSubreddits(userSubreddits.length > 0 ? userSubreddits : ['testingground4bots']);
+          setDefaultSubreddit(data.default_reddit_subreddit || 'testingground4bots');
+          console.log('📖 [SubredditModal] ✅ Loaded from database:', { userSubreddits, defaultSubreddit: data.default_reddit_subreddit });
+
+          // Also save to localStorage for future use
+          localStorage.setItem(`reddit_subreddits_${user.id}`, JSON.stringify({
+            subreddits: userSubreddits.length > 0 ? userSubreddits : ['testingground4bots'],
+            defaultSubreddit: data.default_reddit_subreddit || 'testingground4bots',
+            updated_at: new Date().toISOString()
+          }));
         } else {
-          // Use defaults
+          // No data found anywhere, use defaults
+          console.log('📖 [SubredditModal] No data found anywhere, using defaults');
           setSubreddits(['testingground4bots']);
           setDefaultSubreddit('testingground4bots');
         }
+      } catch (dbError) {
+        console.error('📖 [SubredditModal] Database error:', dbError);
+        // Use defaults on database error
+        setSubreddits(['testingground4bots']);
+        setDefaultSubreddit('testingground4bots');
       }
     } catch (error) {
-      console.error('Error loading subreddit preferences:', error);
-      // Use defaults
+      console.error('📖 [SubredditModal] Load error:', error);
+      // Use defaults on any error
       setSubreddits(['testingground4bots']);
       setDefaultSubreddit('testingground4bots');
     } finally {
@@ -100,26 +133,111 @@ const SubredditManagementModal: React.FC<SubredditManagementModalProps> = ({
   };
 
   const saveSubredditPreferences = async () => {
-    if (!user) return;
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "Please sign in to save subreddit preferences",
+        variant: "destructive"
+      });
+      return;
+    }
 
     setSaving(true);
     try {
-      // Try to save to database first
-      const { error } = await supabase
-        .from('user_preferences')
-        .upsert({
-          user_id: user.id,
-          reddit_subreddits: subreddits,
-          default_reddit_subreddit: defaultSubreddit,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id'
-        });
+      console.log('💾 [SubredditModal] Attempting to save subreddit preferences...');
+      console.log('💾 [SubredditModal] User ID:', user.id);
+      console.log('💾 [SubredditModal] Subreddits:', subreddits);
+      console.log('💾 [SubredditModal] Default:', defaultSubreddit);
 
-      if (error) {
-        // If database columns don't exist, save to localStorage as fallback
-        if (error.message?.includes('column') || error.code === '42703') {
-          console.warn('Database columns not found, saving to localStorage:', error);
+      // Check current session first
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError || !session) {
+        console.error('💾 [SubredditModal] Session invalid:', sessionError);
+        throw new Error('Authentication session expired. Please sign out and sign in again.');
+      }
+
+      console.log('💾 [SubredditModal] Session valid, proceeding with save...');
+
+      // Save to localStorage immediately (primary storage for now)
+      localStorage.setItem(`reddit_subreddits_${user.id}`, JSON.stringify({
+        subreddits,
+        defaultSubreddit,
+        updated_at: new Date().toISOString()
+      }));
+
+      console.log('💾 [SubredditModal] ✅ Saved to localStorage successfully');
+
+      // Try database as secondary storage (optional)
+      try {
+        const { data: existingData, error: checkError } = await supabase
+          .from('user_preferences')
+          .select('id, user_id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (!checkError) {
+          let saveResult;
+
+          if (existingData) {
+            // Record exists, try UPDATE
+            saveResult = await supabase
+              .from('user_preferences')
+              .update({
+                reddit_subreddits: subreddits,
+                default_reddit_subreddit: defaultSubreddit,
+                updated_at: new Date().toISOString()
+              })
+              .eq('user_id', user.id)
+              .select();
+          } else {
+            // No record exists, try INSERT
+            saveResult = await supabase
+              .from('user_preferences')
+              .insert({
+                user_id: user.id,
+                reddit_subreddits: subreddits,
+                default_reddit_subreddit: defaultSubreddit,
+                email_notifications: true,
+                push_notifications: false,
+                marketing_notifications: true,
+                security_notifications: true,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              })
+              .select();
+          }
+
+          if (!saveResult.error) {
+            console.log('💾 [SubredditModal] ✅ Database backup successful');
+          } else {
+            console.warn('💾 [SubredditModal] Database backup failed, but localStorage succeeded');
+          }
+        }
+      } catch (dbError) {
+        console.warn('💾 [SubredditModal] Database backup failed, but localStorage succeeded:', dbError);
+      }
+
+      toast({
+        title: "Success",
+        description: "Subreddit preferences saved successfully"
+      });
+
+      // Dispatch event to notify other components
+      window.dispatchEvent(new CustomEvent('subredditPreferencesUpdated'));
+
+    } catch (error: any) {
+      console.error('💾 [SubredditModal] Save error:', error);
+
+      if (error.message?.includes('Authentication') || error.message?.includes('session')) {
+        toast({
+          title: "Authentication Error",
+          description: "Please sign out and sign in again, then try saving.",
+          variant: "destructive"
+        });
+      } else {
+        // Try localStorage as final fallback
+        try {
           localStorage.setItem(`reddit_subreddits_${user.id}`, JSON.stringify({
             subreddits,
             defaultSubreddit,
@@ -128,48 +246,16 @@ const SubredditManagementModal: React.FC<SubredditManagementModalProps> = ({
 
           toast({
             title: "Saved Locally",
-            description: "Subreddit preferences saved locally. Database migration needed for permanent storage.",
+            description: "Preferences saved locally due to database error",
             variant: "default"
           });
-        } else {
-          throw error;
+        } catch (localError) {
+          toast({
+            title: "Error",
+            description: "Failed to save subreddit preferences",
+            variant: "destructive"
+          });
         }
-      } else {
-        // Also save to localStorage as backup
-        localStorage.setItem(`reddit_subreddits_${user.id}`, JSON.stringify({
-          subreddits,
-          defaultSubreddit,
-          updated_at: new Date().toISOString()
-        }));
-
-        toast({
-          title: "Success",
-          description: "Subreddit preferences saved successfully"
-        });
-      }
-
-    } catch (error: any) {
-      console.error('Error saving subreddit preferences:', error);
-
-      // Fallback to localStorage
-      try {
-        localStorage.setItem(`reddit_subreddits_${user.id}`, JSON.stringify({
-          subreddits,
-          defaultSubreddit,
-          updated_at: new Date().toISOString()
-        }));
-
-        toast({
-          title: "Saved Locally",
-          description: "Preferences saved locally due to database error",
-          variant: "default"
-        });
-      } catch (localError) {
-        toast({
-          title: "Error",
-          description: "Failed to save subreddit preferences",
-          variant: "destructive"
-        });
       }
     } finally {
       setSaving(false);
