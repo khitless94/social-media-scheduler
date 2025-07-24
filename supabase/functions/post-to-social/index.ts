@@ -65,9 +65,8 @@ serve(async (req) => {
 
     const body = await req.json();
     console.log('[Request] Full request body:', JSON.stringify(body, null, 2));
-    let { content, platforms, platform, image, subreddit, title, flair } = body;
+    let { content, platforms, platform, image, subreddit, title } = body;
     console.log('[Request] Extracted subreddit:', subreddit);
-    console.log('[Request] Extracted flair:', flair);
 
     // Handle both old format (platform: "linkedin") and new format (platforms: ["linkedin"])
     if (platform && !platforms) {
@@ -131,7 +130,7 @@ serve(async (req) => {
           continue;
         }
 
-        const result = await postToSocialMedia(platform, content, image, credentials, title, subreddit, flair);
+        const result = await postToSocialMedia(platform, content, image, credentials, title, subreddit);
         results.push(result);
       } catch (err) {
         console.error(`Error posting to ${platform}:`, err);
@@ -846,7 +845,7 @@ async function postToInstagram(content: string, image?: string, credentials?: an
 }
 
 // Reddit posting function
-async function postToReddit(content: string, image?: string, credentials?: any, title?: string, subreddit?: string, flair?: string) {
+async function postToReddit(content: string, image?: string, credentials?: any, title?: string, subreddit?: string) {
   try {
     console.log('[Reddit] Starting Reddit post process...');
     console.log('[Reddit] Credentials received:', credentials ? 'Yes' : 'No');
@@ -854,8 +853,7 @@ async function postToReddit(content: string, image?: string, credentials?: any, 
     console.log('[Reddit] Subreddit parameter received:', subreddit);
     console.log('[Reddit] Subreddit type:', typeof subreddit);
     console.log('[Reddit] Subreddit truthy?', !!subreddit);
-    console.log('[Reddit] Flair parameter received:', flair);
-    console.log('[Reddit] Flair type:', typeof flair);
+
     console.log('[Reddit] Content length:', content.length);
 
     if (!credentials) {
@@ -901,11 +899,7 @@ async function postToReddit(content: string, image?: string, credentials?: any, 
       api_type: 'json'
     };
 
-    // Add flair if provided (using flair_id as per Reddit API documentation)
-    if (flair) {
-      postData.flair_id = flair;
-      console.log('[Reddit] Adding flair_id to post:', flair);
-    }
+
 
     // If image is provided, post as link
     if (image) {
@@ -917,11 +911,7 @@ async function postToReddit(content: string, image?: string, credentials?: any, 
         api_type: 'json'
       };
 
-      // Add flair to image posts too (using flair_id as per Reddit API documentation)
-      if (flair) {
-        postData.flair_id = flair;
-        console.log('[Reddit] Adding flair_id to image post:', flair);
-      }
+
     }
 
     const formData = new URLSearchParams();
@@ -1018,7 +1008,7 @@ async function postToReddit(content: string, image?: string, credentials?: any, 
 }
 
 
-async function postToSocialMedia(platform: string, content: string, image?: string, credentials?: any, title?: string, subreddit?: string, flair?: string) {
+async function postToSocialMedia(platform: string, content: string, image?: string, credentials?: any, title?: string, subreddit?: string) {
   // Optimize content for the specific platform
   const optimizedContent = optimizeContentForPlatform(content, platform);
 
@@ -1036,7 +1026,7 @@ async function postToSocialMedia(platform: string, content: string, image?: stri
     case "instagram":
       return await postToInstagram(optimizedContent, image, credentials);
     case "reddit":
-      return await postToReddit(optimizedContent, image, credentials, title, subreddit, flair);
+      return await postToReddit(optimizedContent, image, credentials, title, subreddit);
     default:
       return { platform, success: false, error: `Unsupported platform: ${platform}` };
   }

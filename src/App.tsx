@@ -11,7 +11,7 @@ import AuthGuard from '@/components/AuthGuard';
 import LandingPage from '@/components/LandingPage';
 import UnifiedDashboard from '@/components/UnifiedDashboard';
 import CreatePost from '@/components/CreatePost';
-import CreatePostMinimal from '@/components/CreatePostMinimalNew';
+import CreatePostMinimal from '@/components/CreatePostModern';
 import SettingsPage from '@/components/pages/SettingsPage';
 import MyPostsPage from '@/components/pages/MyPostsPage';
 import CreatePostTest from '@/components/CreatePostTest';
@@ -37,6 +37,9 @@ import { DatabaseInspector } from '@/components/DatabaseInspector';
 import { DirectDatabaseTest } from '@/components/DirectDatabaseTest';
 import { CronJobDiagnostic } from '@/components/CronJobDiagnostic';
 import { TwitterPostProcessor } from '@/components/TwitterPostProcessor';
+import { MediaLibrary } from '@/components/MediaLibrary';
+import { MediaLibraryTest } from '@/components/MediaLibraryTest';
+import { MediaLibrarySimple } from '@/components/MediaLibrarySimple';
 
 
 
@@ -289,6 +292,33 @@ function App() {
         element={
           <ProtectedRoute>
             <SettingsPage />
+          </ProtectedRoute>
+        }
+      />
+      {/* Media Library */}
+      <Route
+        path="/media"
+        element={
+          <ProtectedRoute>
+            <MediaLibrary />
+          </ProtectedRoute>
+        }
+      />
+      {/* Media Library Test */}
+      <Route
+        path="/media-test"
+        element={
+          <ProtectedRoute>
+            <MediaLibraryTest />
+          </ProtectedRoute>
+        }
+      />
+      {/* Media Library Simple Test */}
+      <Route
+        path="/media-simple"
+        element={
+          <ProtectedRoute>
+            <MediaLibrarySimple />
           </ProtectedRoute>
         }
       />

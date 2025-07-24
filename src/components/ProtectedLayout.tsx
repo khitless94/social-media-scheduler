@@ -19,7 +19,8 @@ import {
   X,
   Crown,
   Gift,
-  Lightbulb
+  Lightbulb,
+  Image
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -39,6 +40,7 @@ const ProtectedLayout = ({ children }: ProtectedLayoutProps) => {
     { path: "/dashboard", label: "Dashboard", icon: Home, description: "Overview & stats" },
     { path: "/create", label: "Create Post", icon: Plus, description: "AI-powered content" },
     { path: "/posts", label: "My Posts", icon: FileText, description: "Manage content" },
+    { path: "/media", label: "Media Library", icon: Image, description: "Manage media files" },
     { path: "/analytics", label: "Analytics", icon: BarChart3, description: "Performance insights" },
   ];
 

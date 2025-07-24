@@ -7,7 +7,6 @@ export interface PostToSocialParams {
   subreddit?: string;
   image?: string;
   title?: string;
-  flair?: string;
 }
 
 export interface PostResponse {
@@ -144,6 +143,30 @@ export const useSocialMedia = () => {
     }
   };
 
+  // Test database connection and table structure
+  const testDatabaseConnection = async () => {
+    try {
+      console.log('🔍 [testDatabaseConnection] Testing database connection...');
+
+      // Test if posts table exists and is accessible
+      const { data, error } = await supabase
+        .from('posts')
+        .select('id')
+        .limit(1);
+
+      if (error) {
+        console.error('❌ [testDatabaseConnection] Database test failed:', error);
+        return false;
+      }
+
+      console.log('✅ [testDatabaseConnection] Database connection successful');
+      return true;
+    } catch (error) {
+      console.error('❌ [testDatabaseConnection] Database test exception:', error);
+      return false;
+    }
+  };
+
   // Function to save post to database
   const savePostToDatabase = async (
     content: string,
@@ -173,25 +196,25 @@ export const useSocialMedia = () => {
     }
 
     try {
+      // Simplified post data to match the most common schema
       const postData = {
         user_id: user.id,
         content,
-        platform: platforms[0] || 'instagram', // Use single platform field as per actual database schema
+        platform: platforms[0] || 'twitter',
         status,
-        image_url: image,
-        scheduled_at: scheduledFor, // Use scheduled_at as per actual database schema
-        published_at: status === 'published' ? new Date().toISOString() : null,
-        platform_post_ids: platformPostIds || {},
-        engagement_stats: {},
-        generated_by_ai: generatedByAI || false,
-        ai_prompt: aiPrompt,
-        error_message: errorMessage,
-        retry_count: 0,
+        ...(image && { image_url: image }),
+        ...(scheduledFor && { scheduled_at: scheduledFor }),
+        ...(status === 'published' && { published_at: new Date().toISOString() }),
+        ...(platformPostIds && Object.keys(platformPostIds).length > 0 && { platform_post_ids: platformPostIds }),
+        ...(generatedByAI && { generated_by_ai: generatedByAI }),
+        ...(aiPrompt && { ai_prompt: aiPrompt }),
+        ...(errorMessage && { error_message: errorMessage }),
         ...(title && { title })
       };
 
       console.log('💾 [savePostToDatabase] Inserting data:', postData);
 
+      // Try to insert the post
       const { data, error } = await supabase
         .from('posts')
         .insert([postData])
@@ -204,37 +227,57 @@ export const useSocialMedia = () => {
           code: error.code,
           message: error.message,
           details: error.details,
-          hint: error.hint
+          hint: error.hint,
+          postData
         });
 
-        // Check if it's a non-critical error but the save might have succeeded
-        if (error.code === 'PGRST116' || error.message?.includes('No rows found')) {
-          console.log('🔍 [savePostToDatabase] No rows returned but insert might have succeeded');
-          // Try to fetch the most recent post for this user to verify
-          try {
-            const { data: recentPost } = await supabase
-              .from('posts')
-              .select('*')
-              .eq('user_id', user.id)
-              .eq('status', status)
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .single();
+        // Try a simpler insert without .select().single() which might be causing issues
+        console.log('🔄 [savePostToDatabase] Trying simpler insert...');
+        const { error: simpleError } = await supabase
+          .from('posts')
+          .insert([postData]);
 
-            if (recentPost && recentPost.content === content) {
-              console.log('✅ [savePostToDatabase] Found matching recent post, save was successful');
-              return recentPost;
-            }
-          } catch (fetchError) {
-            console.error('❌ [savePostToDatabase] Failed to verify save:', fetchError);
-          }
+        if (simpleError) {
+          console.error('❌ [savePostToDatabase] Simple insert also failed:', simpleError);
+          return null;
+        } else {
+          console.log('✅ [savePostToDatabase] Simple insert succeeded');
+          // Return a mock object since we can't get the actual data back
+          return {
+            id: 'unknown',
+            ...postData,
+            created_at: new Date().toISOString()
+          };
         }
-
-        return null;
       }
 
-      console.log('✅ [savePostToDatabase] Successfully saved post:', data);
-      return data;
+      if (data) {
+        console.log('✅ [savePostToDatabase] Post saved successfully:', data.id);
+        return data;
+      }
+
+      // Fallback: try to fetch the most recent post
+      console.log('🔍 [savePostToDatabase] No data returned, trying to fetch recent post...');
+      try {
+        const { data: recentPost } = await supabase
+          .from('posts')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('content', content)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (recentPost && recentPost.content === content) {
+          console.log('✅ [savePostToDatabase] Found matching recent post, save was successful');
+          return recentPost;
+        }
+      } catch (fetchError) {
+        console.error('❌ [savePostToDatabase] Failed to verify save:', fetchError);
+      }
+
+      return null;
+
     } catch (error) {
       console.error('❌ [savePostToDatabase] Exception:', error);
       return null;
@@ -242,7 +285,7 @@ export const useSocialMedia = () => {
   };
 
   // Post to a single social media platform
-  const postToSocial = async ({ content, platform, subreddit, image, title, flair }: PostToSocialParams): Promise<PostResponse> => {
+  const postToSocial = async ({ content, platform, subreddit, image, title }: PostToSocialParams): Promise<PostResponse> => {
     try {
       setLoading(true);
 
@@ -277,11 +320,6 @@ export const useSocialMedia = () => {
       // Only include title for Reddit posts
       if (platform === 'reddit' && title) {
         requestBody.title = title;
-      }
-
-      // Only include flair for Reddit posts
-      if (platform === 'reddit' && flair) {
-        requestBody.flair = flair;
       }
 
       console.log(`📤 [useSocialMedia] Request body:`, requestBody);
@@ -588,6 +626,13 @@ export const useSocialMedia = () => {
     return connections.filter(c => c.needsReconnection).map(c => c.platform);
   };
 
+  // Test database connection on hook initialization
+  useEffect(() => {
+    if (user) {
+      testDatabaseConnection();
+    }
+  }, [user]);
+
   return {
     // State
     connections,
@@ -606,6 +651,7 @@ export const useSocialMedia = () => {
     isPlatformConnected,
     getPlatformsNeedingReconnection,
     checkUser,
-    savePostToDatabase
+    savePostToDatabase,
+    testDatabaseConnection
   };
 };

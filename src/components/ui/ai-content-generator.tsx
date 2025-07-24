@@ -128,7 +128,17 @@ Return ONLY the post content, no explanations or multiple options.`;
 
       if (error) throw error;
 
-      if (data?.content) {
+      if (data?.generatedText) {
+        const content = data.generatedText.trim();
+        onChange(content);
+        setGeneratedSuggestions([content]);
+
+        toast({
+          title: "Content generated! ✨",
+          description: "Your AI-generated content is ready to use.",
+        });
+      } else if (data?.content) {
+        // Fallback for different response format
         const content = data.content.trim();
         onChange(content);
         setGeneratedSuggestions([content]);
@@ -138,7 +148,8 @@ Return ONLY the post content, no explanations or multiple options.`;
           description: "Your AI-generated content is ready to use.",
         });
       } else {
-        throw new Error("No content generated");
+        console.error('No content in response:', data);
+        throw new Error("No content generated - AI service may be unavailable");
       }
     } catch (error) {
       console.error('Content generation error:', error);

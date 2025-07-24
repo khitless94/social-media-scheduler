@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Home, Plus, FileText, Settings, Menu, X, Sparkles, LogOut } from "lucide-react";
+import { Home, Plus, FileText, Settings, Menu, X, Sparkles, LogOut, Image } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
@@ -17,6 +17,7 @@ const Navigation = () => {
     { path: "/dashboard", label: "Dashboard", icon: Home },
     { path: "/create", label: "Create Post", icon: Plus },
     { path: "/posts", label: "My Posts", icon: FileText },
+    { path: "/media", label: "Media Library", icon: Image },
     { path: "/settings", label: "Settings", icon: Settings },
   ];
 
