@@ -30,6 +30,12 @@ export function ModernDateTimePicker({
 }: ModernDateTimePickerProps) {
   const [currentMonth, setCurrentMonth] = useState(value || new Date());
   const [isOpen, setIsOpen] = useState(false);
+  const [internalTime, setInternalTime] = useState(() => {
+    if (value) {
+      return format(value, "HH:mm");
+    }
+    return timeValue;
+  });
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -47,17 +53,26 @@ export function ModernDateTimePicker({
 
   const handleDateSelect = (date: Date) => {
     if (disabled && disabled(date)) return;
-    onChange?.(date);
+
+    // Combine the selected date with the current time
+    const [hours, minutes] = internalTime.split(':');
+    const combinedDateTime = new Date(date);
+    combinedDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+    onChange?.(combinedDateTime);
     // Always close the calendar when a date is selected
     setIsOpen(false);
   };
 
   const handleTimeChange = (time: string) => {
+    setInternalTime(time);
     onTimeChange?.(time);
+
+    // If we have a selected date, combine it with the new time
     if (value && time) {
       const [hours, minutes] = time.split(':');
       const newDate = new Date(value);
-      newDate.setHours(parseInt(hours), parseInt(minutes));
+      newDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
       onChange?.(newDate);
     }
   };
@@ -154,9 +169,11 @@ export function ModernDateTimePicker({
                 size="sm"
                 onClick={() => {
                   const today = new Date();
+                  const currentTime = format(today, "HH:mm");
+                  setInternalTime(currentTime);
                   handleDateSelect(today);
                   if (showTime) {
-                    handleTimeChange(format(today, "HH:mm"));
+                    handleTimeChange(currentTime);
                   }
                 }}
                 className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
@@ -179,7 +196,7 @@ export function ModernDateTimePicker({
       {/* Ultra Modern time picker when showTime is true */}
       {showTime && (
         <UltraModernTimePicker
-          value={timeValue}
+          value={internalTime}
           onChange={handleTimeChange}
           placeholder="Select time"
           className="w-full mt-3"

@@ -13,9 +13,11 @@ import Layout from '@/components/Layout';
 import UnifiedDashboard from '@/components/UnifiedDashboard';
 import CreatePost from '@/components/CreatePost';
 import CreatePostMinimal from '@/components/CreatePostModern';
+import CreatePostRedesigned from '@/components/CreatePostRedesigned';
+import CreatePostTest from '@/components/CreatePostTest';
+import CreatePostSimplified from '@/components/CreatePostSimplified';
 import SettingsPage from '@/components/pages/SettingsPage';
 import MyPostsPage from '@/components/pages/MyPostsPage';
-import CreatePostTest from '@/components/CreatePostTest';
 import CalendarPage from '@/components/pages/CalendarPage';
 import CalendarTest from '@/components/CalendarTest';
 import { MediaLibrary } from '@/components/MediaLibrary';
@@ -36,7 +38,7 @@ import { ManualPostProcessor } from '@/components/ManualPostProcessor';
 import { CronSystemMonitor } from '@/components/CronSystemMonitor';
 import { TimezonePostFixer } from '@/components/TimezonePostFixer';
 import TestCreatePost from '@/components/TestCreatePost';
-import CreatePostSimple from '@/components/CreatePostSimple';
+
 import OAuthCallback from '@/components/OAuthCallback';
 import { TwitterSchedulingTest } from '@/components/TwitterSchedulingTest';
 import { DatabaseChecker } from '@/components/DatabaseChecker';
@@ -90,7 +92,9 @@ function App() {
       >
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<UnifiedDashboard />} />
-        <Route path="create" element={<CreatePostMinimal />} />
+        <Route path="create" element={<CreatePostRedesigned />} />
+        <Route path="create-simple" element={<CreatePostSimplified />} />
+        <Route path="create-test" element={<CreatePostTest />} />
         <Route path="posts" element={<MyPostsPage />} />
         <Route path="calendar" element={<CalendarPage />} />
         <Route path="analytics" element={<RealTimeAnalytics />} />
@@ -105,6 +109,14 @@ function App() {
         element={
           <ProtectedRoute>
             <CreatePost />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/create-modern"
+        element={
+          <ProtectedRoute>
+            <CreatePostMinimal />
           </ProtectedRoute>
         }
       />

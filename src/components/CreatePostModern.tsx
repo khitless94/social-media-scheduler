@@ -483,6 +483,18 @@ export default function CreatePostModern() {
           return;
         }
 
+        // Validate that the scheduled time is in the future using timezone utilities
+        const validation = validateFutureDate(scheduleDate, 1);
+
+        if (!validation.isValid) {
+          toast({
+            title: "Invalid schedule time",
+            description: validation.error || "Please select a time in the future.",
+            variant: "destructive"
+          });
+          return;
+        }
+
         // Create a timezone-aware date for database storage
         // The date picker gives us a local date, but we need to ensure it's stored correctly
         const timezoneAwareDate = createScheduledDateTimeFromDate(scheduleDate);

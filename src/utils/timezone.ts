@@ -258,15 +258,17 @@ export function toLocalISOString(date: Date | string | number): string {
   const minutes = String(dateObj.getMinutes()).padStart(2, '0');
   const seconds = String(dateObj.getSeconds()).padStart(2, '0');
 
-  // Create ISO string without timezone conversion
-  const localISOString = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.000Z`;
+  // TIMEZONE FIX: Create ISO string without Z suffix to prevent UTC interpretation
+  // The Z suffix tells the database this is UTC time, but we want local time
+  const localISOString = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 
-  console.log('🕐 Local ISO Conversion:', {
+  console.log('🕐 TIMEZONE FIX - Local ISO Conversion:', {
     originalInput: date,
     originalDate: dateObj.toLocaleString(),
     standardISO: dateObj.toISOString(),
     localISO: localISOString,
-    timezone: getUserTimezone().timezone
+    timezone: getUserTimezone().timezone,
+    note: 'Removed Z suffix to prevent UTC interpretation'
   });
 
   return localISOString;

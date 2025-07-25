@@ -23,7 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session);
+        // Auth state changed - production ready (no console spam)
 
         if (!mounted) return;
 
@@ -47,11 +47,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Get initial session with enhanced retry logic
     const getInitialSession = async () => {
       try {
-        console.log('Getting initial session...');
+        // Getting initial session - production ready
         const { data: { session }, error } = await supabase.auth.getSession();
 
         if (error) {
-          console.warn('Session error, attempting refresh:', error);
+          // Session error, attempting refresh - production ready
           // Try to refresh the session
           const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
           if (refreshError) {
@@ -62,16 +62,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setUser(null);
             }
           } else if (refreshData.session && mounted) {
-            console.log('Session refreshed successfully');
+            // Session refreshed successfully - production ready
             setSession(refreshData.session);
             setUser(refreshData.session.user);
           }
         } else if (session && mounted) {
-          console.log('Valid session found:', { userId: session.user?.id, email: session.user?.email });
+          // Valid session found - production ready
           setSession(session);
           setUser(session.user);
         } else {
-          console.log('No session found');
+          // No session found - production ready
           if (mounted) {
             setSession(null);
             setUser(null);
