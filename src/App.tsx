@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 
 // Layouts and Guards
 import ProtectedLayout from '@/components/ProtectedLayout';
@@ -9,12 +9,19 @@ import AuthGuard from '@/components/AuthGuard';
 
 
 import LandingPage from '@/components/LandingPage';
+import Layout from '@/components/Layout';
 import UnifiedDashboard from '@/components/UnifiedDashboard';
 import CreatePost from '@/components/CreatePost';
 import CreatePostMinimal from '@/components/CreatePostModern';
 import SettingsPage from '@/components/pages/SettingsPage';
 import MyPostsPage from '@/components/pages/MyPostsPage';
 import CreatePostTest from '@/components/CreatePostTest';
+import CalendarPage from '@/components/pages/CalendarPage';
+import CalendarTest from '@/components/CalendarTest';
+import { MediaLibrary } from '@/components/MediaLibrary';
+import { AICopywriting } from '@/components/AICopywriting';
+import { CaptionGenerator } from '@/components/CaptionGenerator';
+import RealTimeAnalytics from '@/components/RealTimeAnalytics';
 import { TimePickerTest } from '@/components/TimePickerTest';
 import { SimpleSchedulingTest } from '@/components/SimpleSchedulingTest';
 import { CleanupScheduledPosts } from '@/components/CleanupScheduledPosts';
@@ -37,7 +44,6 @@ import { DatabaseInspector } from '@/components/DatabaseInspector';
 import { DirectDatabaseTest } from '@/components/DirectDatabaseTest';
 import { CronJobDiagnostic } from '@/components/CronJobDiagnostic';
 import { TwitterPostProcessor } from '@/components/TwitterPostProcessor';
-import { MediaLibrary } from '@/components/MediaLibrary';
 import { MediaLibraryTest } from '@/components/MediaLibraryTest';
 import { MediaLibrarySimple } from '@/components/MediaLibrarySimple';
 
@@ -73,15 +79,26 @@ function App() {
           </ProtectedRoute>
         }
       />
-      {/* Dedicated Create Page */}
+      {/* Main App Layout with Nested Routes */}
       <Route
-        path="/create"
+        path="/"
         element={
           <ProtectedRoute>
-            <CreatePostMinimal />
+            <Layout />
           </ProtectedRoute>
         }
-      />
+      >
+        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route path="dashboard" element={<UnifiedDashboard />} />
+        <Route path="create" element={<CreatePostMinimal />} />
+        <Route path="posts" element={<MyPostsPage />} />
+        <Route path="calendar" element={<CalendarPage />} />
+        <Route path="analytics" element={<RealTimeAnalytics />} />
+        <Route path="media" element={<MediaLibrary />} />
+        <Route path="ai-copywriting" element={<AICopywriting />} />
+        <Route path="caption-generator" element={<CaptionGenerator />} />
+        <Route path="settings" element={<SettingsPage />} />
+      </Route>
       {/* Original Create Page (for debugging) */}
       <Route
         path="/create-original"
@@ -271,39 +288,18 @@ function App() {
           </ProtectedRoute>
         }
       />
+
       <Route
-        path="/posts"
+        path="/calendar-test"
         element={
           <ProtectedRoute>
-            <MyPostsPage />
+            <CalendarTest />
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/analytics"
-        element={
-          <ProtectedRoute>
-            <UnifiedDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/settings"
-        element={
-          <ProtectedRoute>
-            <SettingsPage />
-          </ProtectedRoute>
-        }
-      />
-      {/* Media Library */}
-      <Route
-        path="/media"
-        element={
-          <ProtectedRoute>
-            <MediaLibrary />
-          </ProtectedRoute>
-        }
-      />
+
+
+
       {/* Media Library Test */}
       <Route
         path="/media-test"
@@ -322,6 +318,7 @@ function App() {
           </ProtectedRoute>
         }
       />
+
       {/* Catch-all route - redirect to dashboard for authenticated users */}
       <Route
         path="*"

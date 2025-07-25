@@ -94,33 +94,33 @@ export const useAnalytics = (timeRange: '7d' | '30d' | '90d' = '7d') => {
     }
   }, [user?.id, timeRange]);
 
-  // Real-time subscription for analytics updates
+  // Real-time subscription disabled to prevent WebSocket errors
   useEffect(() => {
     if (!user?.id) return;
 
     fetchAnalytics();
 
-    // Set up real-time subscription
-    const subscription = supabase
-      .channel('analytics_updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'posts',
-          filter: `user_id=eq.${user.id}`
-        },
-        () => {
-          console.log('📊 Analytics data updated, refreshing...');
-          fetchAnalytics();
-        }
-      )
-      .subscribe();
+    // Disabled real-time subscription to prevent WebSocket connection errors
+    // const subscription = supabase
+    //   .channel('analytics_updates')
+    //   .on(
+    //     'postgres_changes',
+    //     {
+    //       event: '*',
+    //       schema: 'public',
+    //       table: 'posts',
+    //       filter: `user_id=eq.${user.id}`
+    //     },
+    //     () => {
+    //       console.log('📊 Analytics data updated, refreshing...');
+    //       fetchAnalytics();
+    //     }
+    //   )
+    //   .subscribe();
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    // return () => {
+    //   subscription.unsubscribe();
+    // };
   }, [fetchAnalytics, user?.id]);
 
   return { data, loading, error, refetch: fetchAnalytics };

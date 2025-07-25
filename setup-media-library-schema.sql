@@ -13,13 +13,13 @@ CREATE TABLE IF NOT EXISTS media_folders (
   UNIQUE(user_id, name, parent_folder_id)
 );
 
--- Create media_library table
+-- Create media_library table (images and videos only)
 CREATE TABLE IF NOT EXISTS media_library (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   url TEXT NOT NULL,
-  type TEXT NOT NULL CHECK (type IN ('image', 'video', 'document')),
+  type TEXT NOT NULL CHECK (type IN ('image', 'video')),
   size BIGINT NOT NULL,
   folder_id UUID REFERENCES media_folders(id) ON DELETE SET NULL,
   tags TEXT[] DEFAULT '{}',
@@ -46,18 +46,33 @@ ALTER TABLE media_library ENABLE ROW LEVEL SECURITY;
 ALTER TABLE media_folders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE media_usage_logs ENABLE ROW LEVEL SECURITY;
 
--- Create RLS policies for media_library
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view their own media" ON media_library;
+DROP POLICY IF EXISTS "Users can insert their own media" ON media_library;
+DROP POLICY IF EXISTS "Users can update their own media" ON media_library;
+DROP POLICY IF EXISTS "Users can delete their own media" ON media_library;
+
+-- Create RLS policies for media_library (images and videos only)
 CREATE POLICY "Users can view their own media" ON media_library
   FOR SELECT USING (auth.uid() = user_id);
 
 CREATE POLICY "Users can insert their own media" ON media_library
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+  FOR INSERT WITH CHECK (
+    auth.uid() = user_id AND
+    type IN ('image', 'video')
+  );
 
 CREATE POLICY "Users can update their own media" ON media_library
   FOR UPDATE USING (auth.uid() = user_id);
 
 CREATE POLICY "Users can delete their own media" ON media_library
   FOR DELETE USING (auth.uid() = user_id);
+
+-- Drop existing policies if they exist for media_folders
+DROP POLICY IF EXISTS "Users can view their own folders" ON media_folders;
+DROP POLICY IF EXISTS "Users can insert their own folders" ON media_folders;
+DROP POLICY IF EXISTS "Users can update their own folders" ON media_folders;
+DROP POLICY IF EXISTS "Users can delete their own folders" ON media_folders;
 
 -- Create RLS policies for media_folders
 CREATE POLICY "Users can view their own folders" ON media_folders
@@ -218,9 +233,26 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('media-library', 'media-library', true)
 ON CONFLICT (id) DO NOTHING;
 
--- Create storage policies
+-- Drop existing storage policies if they exist
+DROP POLICY IF EXISTS "Users can upload their own media" ON storage.objects;
+DROP POLICY IF EXISTS "Users can view their own media" ON storage.objects;
+DROP POLICY IF EXISTS "Users can update their own media" ON storage.objects;
+DROP POLICY IF EXISTS "Users can delete their own media" ON storage.objects;
+
+-- Create storage policies (images and videos only)
 CREATE POLICY "Users can upload their own media" ON storage.objects
-  FOR INSERT WITH CHECK (bucket_id = 'media-library' AND auth.uid()::text = (string_to_array(name, '/'))[1]);
+  FOR INSERT WITH CHECK (
+    bucket_id = 'media-library' AND
+    auth.uid()::text = (string_to_array(name, '/'))[1] AND
+    (
+      lower(name) LIKE '%.jpg' OR lower(name) LIKE '%.jpeg' OR
+      lower(name) LIKE '%.png' OR lower(name) LIKE '%.gif' OR
+      lower(name) LIKE '%.webp' OR lower(name) LIKE '%.svg' OR
+      lower(name) LIKE '%.mp4' OR lower(name) LIKE '%.mov' OR
+      lower(name) LIKE '%.avi' OR lower(name) LIKE '%.webm' OR
+      lower(name) LIKE '%.mkv'
+    )
+  );
 
 CREATE POLICY "Users can view their own media" ON storage.objects
   FOR SELECT USING (bucket_id = 'media-library' AND auth.uid()::text = (string_to_array(name, '/'))[1]);

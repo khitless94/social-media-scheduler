@@ -20,7 +20,9 @@ import {
   Crown,
   Gift,
   Lightbulb,
-  Image
+  Image,
+  Wand2,
+  MessageCircle
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -40,6 +42,8 @@ const ProtectedLayout = ({ children }: ProtectedLayoutProps) => {
     { path: "/dashboard", label: "Dashboard", icon: Home, description: "Overview & stats" },
     { path: "/create", label: "Create Post", icon: Plus, description: "AI-powered content" },
     { path: "/posts", label: "My Posts", icon: FileText, description: "Manage content" },
+    { path: "/ai-copywriting", label: "AI Copywriting", icon: Wand2, description: "Generate compelling content" },
+    { path: "/caption-generator", label: "Caption Generator", icon: MessageCircle, description: "Create engaging captions" },
     { path: "/media", label: "Media Library", icon: Image, description: "Manage media files" },
     { path: "/analytics", label: "Analytics", icon: BarChart3, description: "Performance insights" },
   ];

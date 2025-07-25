@@ -17,15 +17,15 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   },
   global: {
     headers: {
-      'apikey': SUPABASE_PUBLISHABLE_KEY,
-      'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
-      'Prefer': 'return=minimal'
+      'x-client-info': 'social-media-scheduler'
     }
-  },
-  db: {
-    schema: 'public'
   }
 });
+
+// Disable realtime connections to prevent WebSocket errors
+if (supabase.realtime) {
+  supabase.realtime.disconnect();
+}
 
 // Create a service role client for storage operations (bypasses RLS)
 export const supabaseAdmin = createClient<Database>(
@@ -35,12 +35,6 @@ export const supabaseAdmin = createClient<Database>(
     auth: {
       autoRefreshToken: false,
       persistSession: false
-    },
-    global: {
-      headers: {
-        'apikey': SUPABASE_PUBLISHABLE_KEY,
-        'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`
-      }
     }
   }
 );

@@ -29,68 +29,22 @@ export interface SchedulePostData {
 }
 
 export class ScheduledPostService {
-  // n8n webhook URL (production endpoint)
-  private static readonly N8N_WEBHOOK_URL = 'https://k94.app.n8n.cloud/webhook/schedule-post';
 
   /**
    * Trigger n8n webhook for scheduled post
    */
-  static async triggerN8nWebhook(post: ScheduledPost): Promise<void> {
-    try {
-      console.log('🚀 Triggering n8n webhook for post:', post.id);
-
-      const webhookPayload = {
-        post_id: post.id,
-        user_id: post.user_id,
-        content: post.content,
-        platform: post.platform || (post.platforms && post.platforms[0]) || 'twitter',
-        scheduled_for: post.scheduled_at || post.scheduled_for || new Date().toISOString(),
-        media_urls: post.media_urls || [],
-        action: 'schedule_post'
-      };
-
-      console.log('🔍 [triggerN8nWebhook] Post object fields:', {
-        scheduled_at: post.scheduled_at,
-        scheduled_for: post.scheduled_for,
-        final_scheduled_for: webhookPayload.scheduled_for
-      });
-
-      console.log('📤 Webhook payload:', webhookPayload);
-
-      const response = await fetch(this.N8N_WEBHOOK_URL, {
-        method: 'POST',
-        mode: 'cors',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-ID': post.user_id,
-        },
-        body: JSON.stringify(webhookPayload)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Webhook failed:', errorText);
-        throw new Error(`Webhook failed: ${response.status} - ${errorText}`);
-      }
-
-      // Handle empty responses (common with n8n webhooks)
-      const responseText = await response.text();
-      if (responseText) {
-        try {
-          const result = JSON.parse(responseText);
-          console.log('✅ Webhook success:', result);
-        } catch (e) {
-          console.log('✅ Webhook success (non-JSON response):', responseText);
-        }
-      } else {
-        console.log('✅ Webhook success (empty response - normal for n8n)');
-      }
-
-    } catch (error) {
-      console.error('❌ Webhook error:', error);
-      // Don't throw - we don't want to fail the whole scheduling process
-      // The post is already saved, webhook failure is secondary
-    }
+  /**
+   * Log post creation for cron system (replaces N8N webhook)
+   */
+  static logPostForCron(post: ScheduledPost): void {
+    console.log('📅 [CRON] Post saved for cron-based scheduling:', {
+      id: post.id,
+      scheduled_for: post.scheduled_for || post.scheduled_at,
+      platform: post.platform || (post.platforms && post.platforms[0]),
+      status: post.status,
+      user_id: post.user_id
+    });
+    console.log('✅ [CRON] Post will be processed by cron job when scheduled time arrives');
   }
 
   /**
@@ -127,51 +81,12 @@ export class ScheduledPostService {
   /**
    * Fix RLS policies for posts table
    */
-  static async fixRLSPolicies(): Promise<void> {
-    try {
-      console.log('🔧 Attempting to fix RLS policies...');
-
-      // Try to create or update RLS policies using SQL
-      const createPoliciesSQL = `
-        -- Drop existing policies if they exist
-        DROP POLICY IF EXISTS "Enable insert access for authenticated users" ON posts;
-        DROP POLICY IF EXISTS "Enable read access for users to their own posts" ON posts;
-        DROP POLICY IF EXISTS "Enable update access for users to their own posts" ON posts;
-        DROP POLICY IF EXISTS "Enable delete access for users to their own posts" ON posts;
-
-        -- Create new policies
-        CREATE POLICY "Enable insert access for authenticated users" ON posts
-            FOR INSERT
-            WITH CHECK (auth.uid() = user_id);
-
-        CREATE POLICY "Enable read access for users to their own posts" ON posts
-            FOR SELECT
-            USING (auth.uid() = user_id);
-
-        CREATE POLICY "Enable update access for users to their own posts" ON posts
-            FOR UPDATE
-            USING (auth.uid() = user_id)
-            WITH CHECK (auth.uid() = user_id);
-
-        CREATE POLICY "Enable delete access for users to their own posts" ON posts
-            FOR DELETE
-            USING (auth.uid() = user_id);
-      `;
-
-      // Try to execute the SQL (this might not work from client side)
-      const { data, error } = await supabase.rpc('exec_sql', { sql_query: createPoliciesSQL });
-
-      if (error) {
-        console.log('📝 Could not execute SQL directly (this is normal):', error.message);
-        console.log('💡 RLS policies need to be created manually in Supabase dashboard');
-      } else {
-        console.log('✅ RLS policies updated successfully');
-      }
-
-    } catch (error) {
-      console.error('❌ RLS policy fix error:', error);
-      console.log('💡 Please run the fix-rls-policies.sql script in your Supabase SQL editor');
-    }
+  static logRLSInfo(): void {
+    console.log('💡 [RLS] If you encounter permission errors, ensure these policies exist in Supabase:');
+    console.log('💡 [RLS] 1. Users can insert their own posts: FOR INSERT WITH CHECK (auth.uid() = user_id)');
+    console.log('💡 [RLS] 2. Users can view their own posts: FOR SELECT USING (auth.uid() = user_id)');
+    console.log('💡 [RLS] 3. Users can update their own posts: FOR UPDATE USING (auth.uid() = user_id)');
+    console.log('💡 [RLS] 4. Users can delete their own posts: FOR DELETE USING (auth.uid() = user_id)');
   }
 
   /**
@@ -222,6 +137,8 @@ export class ScheduledPostService {
         platforms: data.platforms,
         media_urls: data.media_urls,
         scheduled_for: data.scheduled_for,
+        scheduled_for_iso: data.scheduled_for.toISOString(),
+        scheduled_for_local: data.scheduled_for.toLocaleString(),
         user_id: data.user_id
       });
 
@@ -285,44 +202,8 @@ export class ScheduledPostService {
 
       console.log('📤 Sending to database:', postData);
 
-      // First try using RLS bypass function
-      console.log('🔧 Attempting RLS bypass function...');
-      const { data: bypassPost, error: bypassError } = await supabase
-        .rpc('create_scheduled_post_bypass_rls', {
-          p_user_id: postData.user_id,
-          p_content: postData.content,
-          p_platforms: postData.platforms,
-          p_scheduled_for: postData.scheduled_for,
-          p_media_urls: postData.media_urls || []
-        });
-
-      if (!bypassError && bypassPost) {
-        console.log('✅ RLS bypass function succeeded, post ID:', bypassPost);
-
-        // Create a mock post object since we know it was created successfully
-        const mockPost: ScheduledPost = {
-          id: bypassPost,
-          user_id: postData.user_id,
-          content: postData.content,
-          platform: postData.platforms[0] || 'twitter',
-          platforms: postData.platforms,
-          media_urls: postData.media_urls || [],
-          status: 'scheduled',
-          scheduling_status: 'scheduled',
-          scheduled_for: postData.scheduled_for,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-
-        // 🚀 TRIGGER N8N WEBHOOK HERE!
-        console.log('🚀 Triggering n8n webhook for post:', bypassPost);
-        await this.triggerN8nWebhook(mockPost);
-
-        console.log('✅ Returning mock post object:', mockPost);
-        return mockPost;
-      }
-
-      console.log('⚠️ RLS bypass failed, trying direct insert:', bypassError);
+      // Direct database insert (no RLS bypass needed)
+      console.log('📤 Inserting post directly into database...');
 
       const { data: post, error } = await supabase
         .from('posts')
@@ -367,15 +248,15 @@ export class ScheduledPostService {
 
           if (!retryError && retryPost) {
             console.log('✅ Retry with session user ID succeeded:', retryPost);
-            // Trigger webhook for successful retry
-            await this.triggerN8nWebhook(retryPost);
+            // Log for cron system
+            this.logPostForCron(retryPost);
             return retryPost;
           }
 
           console.error('❌ Retry with session user ID failed:', retryError);
 
-          // Try to fix policies as last resort
-          await this.fixRLSPolicies();
+          // Log RLS policy information
+          this.logRLSInfo();
 
           // Final retry after policy fix
           console.log('🔄 Final retry after policy fix...');
@@ -393,8 +274,8 @@ export class ScheduledPostService {
 
           if (finalPost) {
             console.log('✅ Final retry succeeded:', finalPost);
-            // Trigger webhook for successful final retry
-            await this.triggerN8nWebhook(finalPost);
+            // Log for cron system
+            this.logPostForCron(finalPost);
             return finalPost;
           }
         }
@@ -434,8 +315,8 @@ export class ScheduledPostService {
 
         if (recentPosts && recentPosts.length > 0) {
           console.log('✅ Found created post:', recentPosts[0]);
-          // Trigger webhook for found post
-          await this.triggerN8nWebhook(recentPosts[0]);
+          // Log for cron system
+          this.logPostForCron(recentPosts[0]);
           return recentPosts[0];
         }
 
@@ -455,8 +336,8 @@ export class ScheduledPostService {
       }
 
       console.log('✅ Scheduled post created successfully:', post);
-      // Trigger webhook for successful post creation
-      await this.triggerN8nWebhook(post);
+      // Log for cron system
+      this.logPostForCron(post);
       return post;
     } catch (error) {
       console.error('❌ Failed to create scheduled post:', error);
@@ -506,8 +387,8 @@ export class ScheduledPostService {
       }
 
       console.log('✅ Fallback post created successfully:', post);
-      // Trigger webhook for successful fallback post creation
-      await this.triggerN8nWebhook(post);
+      // Log for cron system
+      this.logPostForCron(post);
       return post;
     } catch (error) {
       console.error('❌ Fallback creation failed:', error);

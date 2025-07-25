@@ -144,30 +144,31 @@ const CreatePostMinimal: React.FC = () => {
     return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
-  // Listen for real-time database changes
+  // Real-time database changes disabled to prevent WebSocket errors
   useEffect(() => {
     if (!user) return;
 
-    const channel = supabase
-      .channel('user_preferences_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'user_preferences',
-          filter: `user_id=eq.${user.id}`
-        },
-        (payload) => {
-          console.log('🔄 Real-time update received:', payload);
-          loadUserSubreddits();
-        }
-      )
-      .subscribe();
+    // Disabled real-time subscription to prevent WebSocket connection errors
+    // const channel = supabase
+    //   .channel('user_preferences_changes')
+    //   .on(
+    //     'postgres_changes',
+    //     {
+    //       event: '*',
+    //       schema: 'public',
+    //       table: 'user_preferences',
+    //       filter: `user_id=eq.${user.id}`
+    //     },
+    //     (payload) => {
+    //       console.log('🔄 Real-time update received:', payload);
+    //       loadUserSubreddits();
+    //     }
+    //   )
+    //   .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // return () => {
+    //   supabase.removeChannel(channel);
+    // };
   }, [user]);
 
   const loadUserSubreddits = async () => {

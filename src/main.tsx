@@ -14,6 +14,25 @@ const originalError = console.error;
 const originalWarn = console.warn;
 const originalLog = console.log;
 
+// Handle browser extension connection errors
+window.addEventListener('error', (event) => {
+  if (event.message.includes('Could not establish connection') ||
+      event.message.includes('Receiving end does not exist')) {
+    // Suppress browser extension errors
+    event.preventDefault();
+    return false;
+  }
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  if (event.reason?.message?.includes('Could not establish connection') ||
+      event.reason?.message?.includes('Receiving end does not exist')) {
+    // Suppress browser extension promise rejections
+    event.preventDefault();
+    return false;
+  }
+});
+
 // Suppress all console output in production
 if (import.meta.env.PROD) {
   console.log = () => {};

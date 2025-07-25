@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Library Debug Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        .test-section {
+            border-left: 4px solid #007bff;
+            padding-left: 15px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Media Library Debug Tool</h1>
+    
+    <div class="container">
+        <h2>Database Connection Test</h2>
+        <button onclick="testConnection()">Test Connection</button>
+        <div id="connection-result"></div>
+    </div>
+
+    <div class="container">
+        <h2>Authentication Test</h2>
+        <button onclick="testAuth()">Check Authentication</button>
+        <div id="auth-result"></div>
+    </div>
+
+    <div class="container">
+        <h2>Database Tables Check</h2>
+        <button onclick="checkTables()">Check Tables</button>
+        <div id="tables-result"></div>
+    </div>
+
+    <div class="container">
+        <h2>Storage Bucket Check</h2>
+        <button onclick="checkStorage()">Check Storage</button>
+        <div id="storage-result"></div>
+    </div>
+
+    <div class="container">
+        <h2>Media Library Data Test</h2>
+        <button onclick="testMediaLibrary()">Test Media Library</button>
+        <div id="media-result"></div>
+    </div>
+
+    <div class="container">
+        <h2>Create Test Tables</h2>
+        <button onclick="createTables()">Create Missing Tables</button>
+        <div id="create-result"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const SUPABASE_URL = "https://eqiuukwwpdiyncahrdny.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxaXV1a3d3cGRpeW5jYWhyZG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxOTA5MzcsImV4cCI6MjA2NDc2NjkzN30.sgwl7oP2fJD7rh64w59XWdfMCS0XQcNjD4Qr_WGILGs";
+        
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status ${type}"><p>${message}</p></div>`;
+        }
+
+        async function testConnection() {
+            showResult('connection-result', 'Testing connection...', 'info');
+            try {
+                const { data, error } = await supabaseClient.from('auth.users').select('count').limit(1);
+                if (error) throw error;
+                showResult('connection-result', '✅ Database connection successful!', 'success');
+            } catch (error) {
+                showResult('connection-result', `❌ Connection failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testAuth() {
+            showResult('auth-result', 'Checking authentication...', 'info');
+            try {
+                const { data: { user }, error } = await supabaseClient.auth.getUser();
+                if (error) throw error;
+                
+                if (user) {
+                    showResult('auth-result', `✅ User authenticated: ${user.email} (ID: ${user.id})`, 'success');
+                } else {
+                    showResult('auth-result', '⚠️ No user authenticated. Please sign in first.', 'warning');
+                }
+            } catch (error) {
+                showResult('auth-result', `❌ Auth check failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkTables() {
+            showResult('tables-result', 'Checking database tables...', 'info');
+            try {
+                const tables = ['media_library', 'media_folders', 'media_usage_logs'];
+                const results = [];
+
+                for (const table of tables) {
+                    try {
+                        const { data, error } = await supabaseClient.from(table).select('count').limit(1);
+                        if (error) {
+                            results.push(`❌ ${table}: ${error.message}`);
+                        } else {
+                            results.push(`✅ ${table}: Table exists`);
+                        }
+                    } catch (err) {
+                        results.push(`❌ ${table}: ${err.message}`);
+                    }
+                }
+
+                showResult('tables-result', results.join('<br>'), results.some(r => r.includes('❌')) ? 'error' : 'success');
+            } catch (error) {
+                showResult('tables-result', `❌ Table check failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkStorage() {
+            showResult('storage-result', 'Checking storage buckets...', 'info');
+            try {
+                const { data, error } = await supabaseClient.storage.listBuckets();
+                if (error) throw error;
+
+                const mediaLibraryBucket = data.find(bucket => bucket.id === 'media-library');
+                const userImagesBucket = data.find(bucket => bucket.id === 'user-images');
+
+                let result = '';
+                if (mediaLibraryBucket) {
+                    result += '✅ media-library bucket exists<br>';
+                } else {
+                    result += '❌ media-library bucket missing<br>';
+                }
+
+                if (userImagesBucket) {
+                    result += '✅ user-images bucket exists<br>';
+                } else {
+                    result += '❌ user-images bucket missing<br>';
+                }
+
+                result += `<br>All buckets: ${data.map(b => b.id).join(', ')}`;
+
+                showResult('storage-result', result, mediaLibraryBucket ? 'success' : 'error');
+            } catch (error) {
+                showResult('storage-result', `❌ Storage check failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testMediaLibrary() {
+            showResult('media-result', 'Testing media library functionality...', 'info');
+            try {
+                const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+                if (authError) throw authError;
+                if (!user) throw new Error('User not authenticated');
+
+                // Test media_library table
+                const { data: mediaData, error: mediaError } = await supabaseClient
+                    .from('media_library')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .limit(5);
+
+                if (mediaError) throw mediaError;
+
+                // Test media_folders table
+                const { data: folderData, error: folderError } = await supabaseClient
+                    .from('media_folders')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .limit(5);
+
+                if (folderError) throw folderError;
+
+                const result = `
+                    ✅ Media Library query successful<br>
+                    📁 Media items: ${mediaData.length}<br>
+                    📂 Folders: ${folderData.length}<br>
+                    👤 User ID: ${user.id}
+                `;
+
+                showResult('media-result', result, 'success');
+            } catch (error) {
+                showResult('media-result', `❌ Media library test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function createTables() {
+            showResult('create-result', 'Creating missing tables...', 'info');
+            try {
+                // This would require service role key, so we'll just show instructions
+                const instructions = `
+                    <strong>To create missing tables:</strong><br><br>
+                    1. Go to your Supabase Dashboard<br>
+                    2. Navigate to SQL Editor<br>
+                    3. Run the contents of 'setup-media-library-schema.sql'<br><br>
+                    <strong>Or run this SQL:</strong><br>
+                    <pre>
+-- Create media_folders table
+CREATE TABLE IF NOT EXISTS media_folders (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  parent_folder_id UUID REFERENCES media_folders(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id, name, parent_folder_id)
+);
+
+-- Create media_library table
+CREATE TABLE IF NOT EXISTS media_library (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  url TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('image', 'video', 'document')),
+  size BIGINT NOT NULL,
+  folder_id UUID REFERENCES media_folders(id) ON DELETE SET NULL,
+  tags TEXT[] DEFAULT '{}',
+  description TEXT,
+  alt_text TEXT,
+  usage_count INTEGER DEFAULT 0,
+  is_favorite BOOLEAN DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable RLS
+ALTER TABLE media_library ENABLE ROW LEVEL SECURITY;
+ALTER TABLE media_folders ENABLE ROW LEVEL SECURITY;
+
+-- Create policies
+CREATE POLICY "Users can view their own media" ON media_library
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own media" ON media_library
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own media" ON media_library
+  FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own media" ON media_library
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- Create storage bucket
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('media-library', 'media-library', true)
+ON CONFLICT (id) DO NOTHING;
+                    </pre>
+                `;
+                showResult('create-result', instructions, 'info');
+            } catch (error) {
+                showResult('create-result', `❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-run basic tests on page load
+        window.onload = function() {
+            setTimeout(() => {
+                testConnection();
+                setTimeout(() => testAuth(), 1000);
+                setTimeout(() => checkTables(), 2000);
+                setTimeout(() => checkStorage(), 3000);
+            }, 500);
+        };
+    </script>
+</body>
+</html>

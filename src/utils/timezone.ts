@@ -102,12 +102,29 @@ export function formatScheduledDateForDisplay(dateString: string | null): string
   if (!dateString) return 'Not scheduled';
 
   try {
-    // Create date object from database string (which is in UTC)
+    // Create date object from database string (which should be in UTC)
     const date = new Date(dateString);
 
     // Check if date is valid
     if (isNaN(date.getTime())) {
       return 'Invalid date';
+    }
+
+    // Debug timezone conversion (can be removed in production)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🕐 [DISPLAY] Formatting date for display:', {
+        input: dateString,
+        parsedDate: date.toISOString(),
+        localString: date.toLocaleString(),
+        timezone: getUserTimezone(),
+        dateComponents: {
+          year: date.getFullYear(),
+          month: date.getMonth() + 1,
+          day: date.getDate(),
+          hours: date.getHours(),
+          minutes: date.getMinutes()
+        }
+      });
     }
 
     // Format in user's local timezone
@@ -117,7 +134,8 @@ export function formatScheduledDateForDisplay(dateString: string | null): string
       day: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
-      hour12: true
+      hour12: true,
+      timeZoneName: 'short'
     });
   } catch (error) {
     console.error('Error formatting date:', error);
@@ -214,20 +232,39 @@ export function validateFutureTime(dateString: string, timeString: string, minMi
  * Convert a Date object to ISO string while preserving the local time
  * This prevents timezone conversion when storing to database
  */
-export function toLocalISOString(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const seconds = String(date.getSeconds()).padStart(2, '0');
+export function toLocalISOString(date: Date | string | number): string {
+  // Ensure we have a proper Date object
+  let dateObj: Date;
+
+  if (date instanceof Date) {
+    dateObj = date;
+  } else if (typeof date === 'string' || typeof date === 'number') {
+    dateObj = new Date(date);
+  } else {
+    console.error('❌ Invalid date passed to toLocalISOString:', date);
+    dateObj = new Date(); // Fallback to current time
+  }
+
+  // Validate the date object
+  if (isNaN(dateObj.getTime())) {
+    console.error('❌ Invalid date object in toLocalISOString:', date);
+    dateObj = new Date(); // Fallback to current time
+  }
+
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  const hours = String(dateObj.getHours()).padStart(2, '0');
+  const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+  const seconds = String(dateObj.getSeconds()).padStart(2, '0');
 
   // Create ISO string without timezone conversion
   const localISOString = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.000Z`;
 
   console.log('🕐 Local ISO Conversion:', {
-    originalDate: date.toLocaleString(),
-    standardISO: date.toISOString(),
+    originalInput: date,
+    originalDate: dateObj.toLocaleString(),
+    standardISO: dateObj.toISOString(),
     localISO: localISOString,
     timezone: getUserTimezone().timezone
   });
@@ -239,19 +276,32 @@ export function toLocalISOString(date: Date): string {
  * Create scheduled date time from a Date object (for flexible timing)
  */
 export function createScheduledDateTimeFromDate(date: Date): Date {
-  // PERMANENT FIX: Use the exact date/time without any timezone conversion
+  // CRITICAL FIX: Create a date string in local format and parse it back
+  // This prevents timezone conversion issues when storing in database
   const timezone = getUserTimezone();
 
-  console.log('🕐 PERMANENT FIX - Creating scheduled time from Date object:', {
-    inputDate: date.toLocaleString(),
-    inputISO: date.toISOString(),
+  // Extract the local date/time components
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const day = date.getDate();
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const seconds = date.getSeconds();
+
+  // Create a new date using local components - this preserves the exact time
+  const localDate = new Date(year, month, day, hours, minutes, seconds);
+
+  console.log('🕐 LOCAL TIME PRESERVATION - Creating scheduled time:', {
+    originalInput: date.toLocaleString(),
+    originalISO: date.toISOString(),
+    extractedComponents: { year, month, day, hours, minutes, seconds },
+    localDate: localDate.toLocaleString(),
+    localDateISO: localDate.toISOString(),
     timezone: timezone.timezone,
-    offset: timezone.offsetString,
-    note: 'Using exact date/time - no conversion applied'
+    note: 'Preserved exact local time components to prevent UTC conversion'
   });
 
-  // Return the exact date object without any modification
-  return new Date(date);
+  return localDate;
 }
 
 /**

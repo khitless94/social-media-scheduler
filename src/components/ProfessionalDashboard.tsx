@@ -4,9 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { usePosts } from "@/hooks/usePosts";
 import RealTimeAnalytics from "./RealTimeAnalytics";
+import { MediaLibrary } from "./MediaLibrary";
+import { AICopywriting } from "./AICopywriting";
+import { CaptionGenerator } from "./CaptionGenerator";
+import CalendarPage from "./pages/CalendarPage";
+import MyPostsPage from "./pages/MyPostsPage";
+import CreatePostMinimalNew from "./CreatePostMinimalNew";
 import { useEngagementSync, realEngagementService, RealTimeEngagementSync } from "@/services/engagementService";
 import {
   Sparkles,
@@ -74,7 +80,6 @@ import {
 import { Facebook, Instagram, Twitter, Linkedin } from "lucide-react";
 import CreatePostModal from "./CreatePostModal";
 import SettingsPage from "./pages/SettingsPage";
-import MyPostsPage from "./pages/MyPostsPage";
 import { useSocialMediaConnection } from "@/hooks/useSocialMediaConnection";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -99,6 +104,7 @@ const ProfessionalDashboard = () => {
   const { signOut, user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isConnecting, connectPlatform, disconnectPlatform } = useSocialMediaConnection(setConnectionStatus);
   const { posts, loading: postsLoading, stats } = usePosts();
 
@@ -236,17 +242,16 @@ const ProfessionalDashboard = () => {
         { id: "overview", label: "Overview", icon: Home, shortcut: "⌘1" },
         { id: "create", label: "Create", icon: Wand2, shortcut: "⌘N", action: () => navigate('/create') },
         { id: "posts", label: "Posts", icon: FileText, shortcut: "⌘2", badge: "24", action: () => navigate('/posts') },
-        { id: "calendar", label: "Calendar", icon: Calendar, shortcut: "⌘3" },
-        { id: "analytics", label: "Analytics", icon: BarChart3, shortcut: "⌘4" }
+        { id: "calendar", label: "Calendar", icon: Calendar, shortcut: "⌘3", action: () => navigate('/calendar') },
+        { id: "analytics", label: "Analytics", icon: BarChart3, shortcut: "⌘4", action: () => navigate('/analytics') }
       ]
     },
     {
       title: "Content Tools",
       items: [
-        { id: "ai-copywriting", label: "AI Copywriting", icon: Wand2, shortcut: "⌘W" },
-        { id: "caption-generator", label: "Caption Generator", icon: MessageCircle, shortcut: "⌘G" },
-        { id: "media", label: "Media Library", icon: Image, shortcut: "⌘M" },
-        { id: "templates", label: "Templates", icon: Layers, shortcut: "⌘T" }
+        { id: "ai-copywriting", label: "AI Copywriting", icon: Wand2, shortcut: "⌘W", action: () => navigate('/ai-copywriting') },
+        { id: "caption-generator", label: "Caption Generator", icon: MessageCircle, shortcut: "⌘G", action: () => navigate('/caption-generator') },
+        { id: "media", label: "Media Library", icon: Image, shortcut: "⌘M", action: () => navigate('/media') }
       ]
     },
     {
@@ -392,7 +397,17 @@ const ProfessionalDashboard = () => {
               <div className="space-y-1">
                 {section.items.map((item) => {
                   const Icon = item.icon;
-                  const isActive = activeTab === item.id;
+                  // Check if item is active based on current route or activeTab
+                  const isActive = item.action ?
+                    (item.id === "media" && location.pathname === "/media") ||
+                    (item.id === "ai-copywriting" && location.pathname === "/ai-copywriting") ||
+                    (item.id === "caption-generator" && location.pathname === "/caption-generator") ||
+                    (item.id === "calendar" && location.pathname === "/calendar") ||
+                    (item.id === "posts" && location.pathname === "/posts") ||
+                    (item.id === "create" && location.pathname === "/create") ||
+                    (item.id === "analytics" && location.pathname === "/analytics") ||
+                    (location.pathname === "/dashboard" && activeTab === item.id)
+                    : activeTab === item.id;
                   return (
                     <button
                       key={item.id}
@@ -485,13 +500,29 @@ const ProfessionalDashboard = () => {
           </button>
           <div className="flex items-center space-x-4 flex-1 lg:flex-initial">
             <div className="min-w-0 flex-1 lg:flex-initial">
-              <h1 className="text-lg font-semibold text-gray-900 capitalize truncate">{activeTab}</h1>
+              <h1 className="text-lg font-semibold text-gray-900 capitalize truncate">
+                {location.pathname === "/media" && "Media Library"}
+                {location.pathname === "/ai-copywriting" && "AI Copywriting"}
+                {location.pathname === "/caption-generator" && "Caption Generator"}
+                {location.pathname === "/calendar" && "Calendar"}
+                {location.pathname === "/posts" && "My Posts"}
+                {location.pathname === "/create" && "Create Post"}
+                {location.pathname === "/analytics" && "Analytics"}
+                {location.pathname === "/dashboard" && activeTab}
+              </h1>
               <p className="text-sm text-gray-500 hidden sm:block">
-                {activeTab === 'overview' && 'Your social media command center'}
-                {activeTab === 'posts' && 'Manage your content library'}
-                {activeTab === 'calendar' && 'Schedule and plan your posts'}
-                {activeTab === 'analytics' && 'Track your performance metrics'}
-                {activeTab === 'settings' && 'Configure your account and preferences'}
+                {location.pathname === "/media" && 'Manage your media files and folders'}
+                {location.pathname === "/ai-copywriting" && 'Generate compelling content with AI'}
+                {location.pathname === "/caption-generator" && 'Create engaging captions for your posts'}
+                {location.pathname === "/calendar" && 'Schedule and plan your posts'}
+                {location.pathname === "/posts" && 'Manage your content library'}
+                {location.pathname === "/create" && 'Create and schedule new posts'}
+                {location.pathname === "/analytics" && 'Track your performance metrics'}
+                {location.pathname === "/dashboard" && activeTab === 'overview' && 'Your social media command center'}
+                {location.pathname === "/dashboard" && activeTab === 'posts' && 'Manage your content library'}
+                {location.pathname === "/dashboard" && activeTab === 'calendar' && 'Schedule and plan your posts'}
+                {location.pathname === "/dashboard" && activeTab === 'analytics' && 'Track your performance metrics'}
+                {location.pathname === "/dashboard" && activeTab === 'settings' && 'Configure your account and preferences'}
               </p>
             </div>
           </div>
@@ -547,7 +578,43 @@ const ProfessionalDashboard = () => {
         {/* Content */}
         <div className="flex-1 overflow-y-auto bg-gray-50/50">
           <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
-            {activeTab === "overview" && (
+            {/* Route-based content rendering */}
+            {location.pathname === "/media" && (
+              <MediaLibrary />
+            )}
+
+            {location.pathname === "/ai-copywriting" && (
+              <div className="-m-6">
+                <AICopywriting />
+              </div>
+            )}
+
+            {location.pathname === "/caption-generator" && (
+              <div className="-m-6">
+                <CaptionGenerator />
+              </div>
+            )}
+
+            {location.pathname === "/calendar" && (
+              <CalendarPage />
+            )}
+
+            {location.pathname === "/posts" && (
+              <MyPostsPage />
+            )}
+
+            {location.pathname === "/create" && (
+              <CreatePostMinimalNew />
+            )}
+
+            {location.pathname === "/analytics" && (
+              <div className="-m-6">
+                <RealTimeAnalytics />
+              </div>
+            )}
+
+            {/* Dashboard content for main route */}
+            {location.pathname === "/dashboard" && activeTab === "overview" && (
               <>
                 {/* Metrics Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
@@ -907,37 +974,21 @@ const ProfessionalDashboard = () => {
               </>
             )}
 
-            {/* Other Tabs - Professional Empty States */}
-            {activeTab === "posts" && (
-              <div className="-m-6">
-                <MyPostsPage />
-              </div>
-            )}
+            {/* Dashboard-specific tabs */}
+            {location.pathname === "/dashboard" && (
+              <>
+                {/* Other Tabs - Professional Empty States */}
+                {activeTab === "posts" && (
+                  <div className="-m-6">
+                    <MyPostsPage />
+                  </div>
+                )}
 
-            {activeTab === "calendar" && (
-              <div className="text-center py-16">
-                <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-cyan-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                  <Calendar className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Content Calendar</h3>
-                <p className="text-gray-500 mb-6 max-w-md mx-auto">
-                  Plan and schedule your content across all platforms with our intelligent calendar system.
-                </p>
-                <div className="flex items-center justify-center space-x-3">
-                  <Button
-                    onClick={() => navigate('/create')}
-                    className="bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white"
-                  >
-                    <CalendarIcon className="w-4 h-4 mr-2" />
-                    Schedule Post
-                  </Button>
-                  <Button variant="outline">
-                    <Download className="w-4 h-4 mr-2" />
-                    Export Calendar
-                  </Button>
-                </div>
-              </div>
-            )}
+                {activeTab === "calendar" && (
+                  <div className="-m-6">
+                    <CalendarPage />
+                  </div>
+                )}
 
             {activeTab === "analytics" && (
               <div className="-m-6">
@@ -949,54 +1000,10 @@ const ProfessionalDashboard = () => {
 
 
             {activeTab === "media" && (
-              <div className="text-center py-16">
-                <div className="w-16 h-16 bg-gradient-to-r from-orange-500 to-red-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                  <Image className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Media Library</h3>
-                <p className="text-gray-500 mb-6 max-w-md mx-auto">
-                  Store and organize all your images, videos, and other media assets.
-                </p>
-                <div className="flex items-center justify-center space-x-3">
-                  <Button
-                    onClick={() => navigate('/create')}
-                    className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white"
-                  >
-                    <Upload className="w-4 h-4 mr-2" />
-                    Upload Media
-                  </Button>
-                  <Button variant="outline">
-                    <Folder className="w-4 h-4 mr-2" />
-                    Create Folder
-                  </Button>
-                </div>
-              </div>
+              <MediaLibrary />
             )}
 
-            {activeTab === "templates" && (
-              <div className="text-center py-16">
-                <div className="w-16 h-16 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                  <Layers className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Content Templates</h3>
-                <p className="text-gray-500 mb-6 max-w-md mx-auto">
-                  Save time with pre-designed templates for different types of social media content.
-                </p>
-                <div className="flex items-center justify-center space-x-3">
-                  <Button
-                    onClick={() => navigate('/create')}
-                    className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Template
-                  </Button>
-                  <Button variant="outline">
-                    <Download className="w-4 h-4 mr-2" />
-                    Browse Library
-                  </Button>
-                </div>
-              </div>
-            )}
+
 
             {/* AI Copywriting */}
             {activeTab === "ai-copywriting" && (
@@ -1010,11 +1017,11 @@ const ProfessionalDashboard = () => {
                 </p>
                 <div className="flex items-center justify-center space-x-3">
                   <Button
-                    onClick={() => navigate('/create')}
+                    onClick={() => navigate('/ai-copywriting')}
                     className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white"
                   >
                     <Wand2 className="w-4 h-4 mr-2" />
-                    Generate Copy
+                    Start Writing
                   </Button>
                   <Button variant="outline">
                     <Eye className="w-4 h-4 mr-2" />
@@ -1036,11 +1043,11 @@ const ProfessionalDashboard = () => {
                 </p>
                 <div className="flex items-center justify-center space-x-3">
                   <Button
-                    onClick={() => navigate('/create')}
+                    onClick={() => navigate('/caption-generator')}
                     className="bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white"
                   >
                     <MessageCircle className="w-4 h-4 mr-2" />
-                    Generate Caption
+                    Generate Captions
                   </Button>
                   <Button variant="outline">
                     <Hash className="w-4 h-4 mr-2" />
@@ -1319,11 +1326,13 @@ const ProfessionalDashboard = () => {
 
 
 
-            {/* Settings */}
-            {activeTab === "settings" && (
-              <div className="-m-6">
-                <SettingsPage />
-              </div>
+                {/* Settings */}
+                {activeTab === "settings" && (
+                  <div className="-m-6">
+                    <SettingsPage />
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

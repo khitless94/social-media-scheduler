@@ -471,20 +471,52 @@ export default function CreatePostModern() {
     try {
       const finalImageUrl = getFinalImageUrl();
       if (isScheduled && scheduledDateTime) {
+        // Ensure scheduledDateTime is a proper Date object
+        const scheduleDate = scheduledDateTime instanceof Date ? scheduledDateTime : new Date(scheduledDateTime);
+
+        if (isNaN(scheduleDate.getTime())) {
+          toast({
+            title: "Invalid schedule time",
+            description: "Please select a valid date and time for scheduling.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Create a timezone-aware date for database storage
+        // The date picker gives us a local date, but we need to ensure it's stored correctly
+        const timezoneAwareDate = createScheduledDateTimeFromDate(scheduleDate);
+
+        console.log('🕐 [TIMEZONE] Scheduling with timezone handling:', {
+          originalDate: scheduleDate.toLocaleString(),
+          timezoneAwareDate: timezoneAwareDate.toLocaleString(),
+          originalISO: scheduleDate.toISOString(),
+          timezoneAwareISO: timezoneAwareDate.toISOString()
+        });
+
         // Schedule the post
-        await createScheduledPost({
+        const result = await createScheduledPost({
           content,
           platforms: selectedPlatforms,
-          scheduled_for: scheduledDateTime.toISOString(),
+          scheduled_for: timezoneAwareDate,
           image_url: finalImageUrl || undefined,
           reddit_title: selectedPlatforms.includes('reddit') ? title : undefined,
           reddit_subreddit: selectedPlatforms.includes('reddit') ? selectedSubreddit : undefined,
         });
 
-        toast({
-          title: "Post scheduled successfully!",
-          description: `Your post will be published on ${format(scheduledDateTime, 'PPP p')}.`,
-        });
+        if (result) {
+          toast({
+            title: "Post scheduled successfully!",
+            description: `Your post will be published on ${format(scheduledDateTime, 'PPP p')}.`,
+          });
+        } else {
+          toast({
+            title: "Scheduling failed",
+            description: "There was an error scheduling your post. Please try again.",
+            variant: "destructive",
+          });
+          return;
+        }
       } else {
         // Post immediately to each platform
         const results = await Promise.all(

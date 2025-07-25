@@ -27,7 +27,7 @@ interface MediaItem {
   id: string;
   name: string;
   url: string;
-  type: 'image' | 'video' | 'document';
+  type: 'image' | 'video';
   size: number;
   created_at: string;
   tags: string[];
@@ -40,7 +40,7 @@ interface MediaSelectorProps {
   onClose: () => void;
   onSelect: (media: MediaItem) => void;
   allowMultiple?: boolean;
-  acceptedTypes?: ('image' | 'video' | 'document')[];
+  acceptedTypes?: ('image' | 'video')[];
   title?: string;
 }
 
@@ -49,7 +49,7 @@ export function MediaSelector({
   onClose, 
   onSelect, 
   allowMultiple = false, 
-  acceptedTypes = ['image', 'video', 'document'],
+  acceptedTypes = ['image', 'video'],
   title = "Select Media"
 }: MediaSelectorProps) {
   const { user } = useAuth();
@@ -73,7 +73,7 @@ export function MediaSelector({
         .eq('user_id', user.id);
 
       // Filter by accepted types
-      if (acceptedTypes.length < 3) {
+      if (acceptedTypes.length < 2) {
         query = query.in('type', acceptedTypes);
       }
 
@@ -186,7 +186,6 @@ export function MediaSelector({
                   <SelectItem value="all">All Types</SelectItem>
                   {acceptedTypes.includes('image') && <SelectItem value="image">Images</SelectItem>}
                   {acceptedTypes.includes('video') && <SelectItem value="video">Videos</SelectItem>}
-                  {acceptedTypes.includes('document') && <SelectItem value="document">Documents</SelectItem>}
                 </SelectContent>
               </Select>
 
